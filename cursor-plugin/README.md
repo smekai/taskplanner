@@ -40,14 +40,46 @@ If your host does not support MCP Apps UI, `taskplanner_board_visual` may not re
 
 Search for "taskplanner" in the Cursor marketplace panel.
 
+### Local test on Windows (recommended before publish)
+
+From the repository root:
+
+```cmd
+scripts\install-cursor-plugin-local.cmd
+scripts\register-cursor-plugin-local.cmd
+```
+
+Then:
+
+1. In Cursor Settings, enable **Include third-party Plugins, Skills, and other configs**
+2. Fully restart Cursor (File → Exit, then reopen)
+3. Open **Customize** and filter by **User** scope
+4. Verify these entries appear:
+   - **MCP:** `taskplanner` (toggle ON)
+   - **Skills:** `taskplanner`
+   - **Rules:** `taskplanner-workflow`
+   - **Commands:** `/list-tasks`, `/next-task`, `/continue-task`
+5. In Agent chat (workspace with `.tasks/`), ask: **open the visual task board**
+
+Headless checks from repo root:
+
+```cmd
+npm run verify:cursor-plugin-local
+npm run smoke:mcp-server
+```
+
+**Important:** use a real file copy for local testing on Windows. Do not copy into a symlinked plugin folder (that creates nested `cursor-plugin/cursor-plugin/...` junk). The install script copies to:
+
+`%USERPROFILE%\.cursor\plugins\taskplanner`
+
 ### Via the VS Code extension
 
 Install the **Task → Plan → AI** VS Code extension — the plugin is auto-registered.
 
-### Manual
+### Manual (macOS/Linux)
 
 ```bash
-ln -s /path/to/this/cursor-plugin ~/.cursor/plugins/local/taskplanner
+ln -s /path/to/this/cursor-plugin ~/.cursor/plugins/taskplanner
 ```
 
 ## Task format
@@ -76,5 +108,6 @@ For maintainers preparing a publish/update:
    - `npm run build`
 2. Validate plugin packaging from repo root:
    - `npm run validate:cursor-plugin`
-3. Confirm public source repo + open-source license metadata in `.cursor-plugin/plugin.json`.
-4. Submit/update at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish).
+3. Confirm public source repo + open-source license metadata in `cursor-plugin/.cursor-plugin/plugin.json`.
+4. Ensure root `.cursor-plugin/marketplace.json` points `source` to `cursor-plugin`.
+5. Submit/update at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish).

@@ -1,5 +1,13 @@
 # Backlog
 
+## TASK-036: Harden config.json loading — validate states, log failures to output channel
+**Priority:** P1 | **Tags:** core, setup
+**Updated:** 2026-07-13 00:00
+
+A malformed `.tasks/config.json` (e.g. `states` as plain strings instead of `{name, fileName, order}` objects, as found in the adhd repo) makes every `path.join(tasksDir, state.fileName)` throw and the extension silently fails — the sidebar just shows nothing. `ConfigManager.load()` should validate/normalize `states` (map known string names to their default state objects, otherwise fall back to `DEFAULT_STATES`), log the problem to the "TaskPlanner" output channel, and surface a warning notification instead of dying silently. Note: `migrateConfig()` also corrupts such configs further by appending an object `Rejected` entry to the string array.
+
+---
+
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup
 **Updated:** 2026-03-22 19:15

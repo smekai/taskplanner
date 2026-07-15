@@ -1,0 +1,15 @@
+{
+  "name": "refined-taskplanner",
+  "owner": { "name": "refined" },
+  "metadata": {
+    "description": "TaskPlanner plugins for Cursor",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "taskplanner",
+      "source": "cursor-plugin",
+      "description": "Markdown-based task management for AI agents with MCP tools and an interactive board UI."
+    }
+  ]
+}
