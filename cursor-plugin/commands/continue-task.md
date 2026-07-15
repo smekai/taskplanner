@@ -25,7 +25,8 @@ Resume implementation of a task that is already in progress.
    c. Implement the remaining work.
    d. When done, call `taskplanner_move` to move the task to "Done".
    e. Update the `### Plan` to a short done-summary.
-   f. Add a CHANGELOG.md entry under `## [Unreleased]`.
+   f. Append a short entry to `.tasks/WORK_LOG.md` if that file exists (newest at top).
+   g. Add a CHANGELOG.md entry under `## [Unreleased]`.
 
 ## Conventions
 

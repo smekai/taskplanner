@@ -7,6 +7,7 @@ import { TaskPlannerConfig } from '../model/config.js';
 import { ParseResult } from '../model/parseResult.js';
 import { parseTasks } from '../parser/taskParser.js';
 import { serializeStateFile } from '../parser/taskSerializer.js';
+import { DEFAULT_WORK_LOG_CONTENT } from '../ai/aiInstructions.js';
 
 export class FileStore {
   constructor(private tasksDir: string) {}
@@ -83,6 +84,10 @@ export class FileStore {
         const content = serializeStateFile(state.name, []);
         fs.writeFileSync(filePath, content, 'utf-8');
       }
+    }
+    const workLogPath = path.join(this.tasksDir, 'WORK_LOG.md');
+    if (!fs.existsSync(workLogPath)) {
+      fs.writeFileSync(workLogPath, DEFAULT_WORK_LOG_CONTENT, 'utf-8');
     }
   }
 

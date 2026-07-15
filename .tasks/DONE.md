@@ -1,5 +1,20 @@
 # Done
 
+## TASK-037: Work log convention — `.tasks/WORK_LOG.md` for top-level decisions and outcomes
+**Priority:** P2 | **Tags:** docs, core
+**Updated:** 2026-07-15 10:30
+
+Add a repo-level rolling work log at `.tasks/WORK_LOG.md`. Agents append one short entry (what, key decisions, outcome) when moving a task to Done. Update AI instructions, skills, and project init to seed the file. Convention-only in v1 — no MCP/parser changes.
+
+### Plan (done)
+
+- Added `.tasks/WORK_LOG.md` with header, entry template, and sample entries from TASK-032/033/035.
+- Extended `aiInstructions.ts` with auxiliary file listing, `### Work Log` section, workflow step, and mandatory checklist bullet; exported `DEFAULT_WORK_LOG_CONTENT`.
+- Synced `.cursorrules`, `CLAUDE.md`, skills, `continue-task.md`, and example AI files.
+- `fileStore.initializeStateFiles()` seeds `WORK_LOG.md` on new project init; Vitest coverage for generated instructions.
+
+---
+
 ## TASK-035: Test Cursor Agents MCP board adapter and publish plugin to marketplace
 **Priority:** P2 | **Tags:** testing, docs, setup
 **Updated:** 2026-04-23 18:44

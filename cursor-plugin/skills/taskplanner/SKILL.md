@@ -22,6 +22,8 @@ Each state has its own file:
 | Done | `DONE.md` |
 | Rejected | `REJECTED.md` |
 
+Auxiliary: **Work Log** → `WORK_LOG.md` (rolling log of decisions and outcomes when tasks complete).
+
 ## Task Format
 
 Each task is a `## ` heading section separated by `---`:
@@ -58,7 +60,9 @@ Use these tools to interact with the task board:
 3. **Write a plan** — if the project has `aiPlanRequired: true` in `.tasks/config.json`, add a `### Plan` subsection under the task heading in `IN_PROGRESS.md` before coding. Keep it short (3-7 bullets).
 4. **Implement** the task.
 5. **Move to Done** using `taskplanner_move`.
-6. **Add a CHANGELOG.md entry** under `## [Unreleased]` in the appropriate subsection (Added, Changed, Fixed, Removed).
+6. **Condense the `### Plan`** to a short done-summary.
+7. **Append to `.tasks/WORK_LOG.md`** if that file exists — one short entry at the top (What / Decisions / Outcome).
+8. **Add a CHANGELOG.md entry** under `## [Unreleased]` in the appropriate subsection (Added, Changed, Fixed, Removed).
 
 ## Important Rules
 
@@ -67,6 +71,7 @@ Use these tools to interact with the task board:
 - Keep the `---` separator between tasks.
 - Priorities: P0 (critical), P1 (high), P2 (normal), P3 (low), P4 (wishlist).
 - When moving to Done, condense the `### Plan` to a short done-summary.
+- When moving to Done, append one short entry to `.tasks/WORK_LOG.md` if that file exists.
 - Configuration lives in `.tasks/config.json` (ID prefix, next ID, states, settings).
 
 ## Creating a New Task
