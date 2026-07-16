@@ -55,6 +55,8 @@ TaskPlanner ships as two artifacts:
 - **VS Code extension** (`refined.taskplanner`) for editor-native UI/runtime features (activity bar view, webviews, command contributions).
 - **Cursor plugin** (`cursor-plugin/`) for agent-native capabilities (MCP tools, skill, rule, slash commands).
 
+Source code lives at [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner); the Marketplace publisher remains **refined**.
+
 The extension can auto-register the bundled plugin when running inside Cursor, but the plugin is also publishable independently in the Cursor Marketplace.
 
 ## Quick Start

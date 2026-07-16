@@ -61,7 +61,7 @@ When you move a task to **Done**, add an entry to `CHANGELOG.md` under the `## [
 <!-- TASKPLANNER:START -->
 # TaskPlanner — AI Agent Instructions
 
-This project uses [TaskPlanner](https://github.com/refined/taskplanner) for task management.
+This project uses [TaskPlanner](https://github.com/smekai/taskplanner) for task management.
 Tasks are stored as markdown files in the `.tasks/` directory.
 
 ## Task File Structure

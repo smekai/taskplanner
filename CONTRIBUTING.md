@@ -1,6 +1,6 @@
 # Contributing to TaskPlanner
 
-[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) | [Open VSX](https://open-vsx.org/extension/refined/taskplanner) | [GitHub](https://github.com/refined/taskplanner)
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) | [Open VSX](https://open-vsx.org/extension/refined/taskplanner) | [GitHub](https://github.com/smekai/taskplanner)
 
 Thanks for your interest in contributing! This guide covers everything you need to get started.
 
@@ -13,7 +13,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 ## Getting Started
 
 ```bash
-git clone https://github.com/refined/taskplanner.git
+git clone https://github.com/smekai/taskplanner.git
 cd taskplanner
 npm install
 ```
