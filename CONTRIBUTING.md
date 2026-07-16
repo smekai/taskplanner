@@ -63,6 +63,20 @@ When preparing a plugin publish, run `npm run release:check` before submitting t
 3. Sign into Cursor → open [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish) → submit repository URL `https://github.com/smekai/taskplanner`.
 4. Wait for Cursor’s manual review (not self-serve). Re-index after later updates.
 
+### Extension publish (VS Code Marketplace + Open VSX)
+
+Identity stays `refined.taskplanner`. Package then publish with your publisher PATs:
+
+```bash
+npm run package
+# VS Code Marketplace (Azure DevOps PAT with Marketplace scope for publisher refined):
+npx @vscode/vsce publish --packagePath taskplanner-<version>.vsix --pat <VSCE_PAT>
+# Open VSX (token from https://open-vsx.org/user-settings/tokens for namespace refined):
+npx ovsx publish taskplanner-<version>.vsix -p <OVSX_PAT>
+```
+
+Current packaged artifact after this release prep: `taskplanner-1.7.3.vsix` (gitignored).
+
 ## Project Structure
 
 ```
