@@ -56,6 +56,13 @@ TaskPlanner is distributed through two channels:
 
 When preparing a plugin publish, run `npm run release:check` before submitting the repository at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish).
 
+### Cursor Marketplace submit (manual)
+
+1. Confirm [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner) is **public** and `main` includes current `cursor-plugin/` + root `.cursor-plugin/marketplace.json`.
+2. Run locally: `npm run release:check`, then `scripts\install-cursor-plugin-local.cmd` + `scripts\register-cursor-plugin-local.cmd`, restart Cursor, and smoke-test MCP / skill / board.
+3. Sign into Cursor → open [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish) → submit repository URL `https://github.com/smekai/taskplanner`.
+4. Wait for Cursor’s manual review (not self-serve). Re-index after later updates.
+
 ## Project Structure
 
 ```
