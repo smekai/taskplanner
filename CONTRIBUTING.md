@@ -75,7 +75,7 @@ npx @vscode/vsce publish --packagePath taskplanner-<version>.vsix --pat <VSCE_PA
 npx ovsx publish taskplanner-<version>.vsix -p <OVSX_PAT>
 ```
 
-Current packaged artifact after this release prep: `taskplanner-1.7.3.vsix` (gitignored).
+Packaged artifact is gitignored: `taskplanner-<version>.vsix` (run `npm run package` after the latest commit).
 
 ## Project Structure
 

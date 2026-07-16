@@ -2,7 +2,7 @@
   "name": "taskplanner",
   "displayName": "Task → Plan → AI",
   "description": "AI-directed markdown task management in your repo. Generates CLAUDE.md and .cursorrules so agents can follow your workflow contract. Tracked by git.",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "publisher": "refined",
   "license": "GPL v3",
   "icon": "resources/icons/taskplanner-color.png",
