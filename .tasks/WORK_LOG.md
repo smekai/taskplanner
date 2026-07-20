@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-038 — 2026-07-20
+**What:** Added an installable shared Cursor/Codex plugin with Codex skills, MCP tools, `AGENTS.md` sync, and Codex task launching.
+**Decisions:** Kept the MCP board experimental with structured/text fallback; deferred a standalone web dashboard.
+**Outcome:** Release checks pass with 104 tests plus Cursor, Codex, and MCP validation; plugin 1.7.5 is installed and enabled locally.
+
+---
+
 ## TASK-037 — 2026-07-15
 **What:** Repo-level work log convention at `.tasks/WORK_LOG.md` for top-level decisions and outcomes after each task.
 **Decisions:** Convention-only v1 (no MCP/parser); conditional on file existing; seed on project init via `DEFAULT_WORK_LOG_CONTENT`.

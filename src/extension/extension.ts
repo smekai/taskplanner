@@ -50,8 +50,8 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   // Sidebar webview view
-  const taskListProvider = new TaskListViewProvider(
-    taskStore, configManager, () => fs.existsSync(tasksDir),
+  const taskListProvider = new TaskListViewProvider(taskStore, configManager, () =>
+    fs.existsSync(tasksDir),
   );
   const viewProviderDisposable = vscode.window.registerWebviewViewProvider(
     TaskListViewProvider.viewType,
@@ -61,8 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
-        e.affectsConfiguration('taskplanner.sortBy')
-        || e.affectsConfiguration('taskplanner.groupBy')
+        e.affectsConfiguration('taskplanner.sortBy') ||
+        e.affectsConfiguration('taskplanner.groupBy')
       ) {
         taskListProvider.refresh();
         KanbanPanel.refreshIfOpen();
@@ -118,7 +118,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Register bundled Cursor plugin (no-op in plain VS Code)
   try {
-    const pluginDir = path.join(context.extensionPath, 'cursor-plugin');
+    const pluginDir = path.join(context.extensionPath, 'plugins', 'taskplanner');
     if (fs.existsSync(pluginDir)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (vscode as any).cursor?.plugins?.registerPath?.(pluginDir);

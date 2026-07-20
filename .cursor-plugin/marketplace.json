@@ -2,14 +2,14 @@
   "name": "refined-taskplanner",
   "owner": { "name": "refined" },
   "metadata": {
-    "description": "TaskPlanner plugins for Cursor",
+    "description": "Task-focused AI workflow tools for Cursor",
     "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "taskplanner",
-      "source": "cursor-plugin",
-      "description": "Markdown-based task management for AI agents with MCP tools and an interactive board UI."
+      "source": "plugins/taskplanner",
+      "description": "Task-first AI workflows: manage, prioritize, and execute markdown tasks in your repo via MCP tools and an interactive board."
     }
   ]
 }

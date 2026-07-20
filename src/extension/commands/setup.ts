@@ -35,7 +35,7 @@ export function registerSetupCommand(
 
       items.push({
         label: '$(hubot) Initialize AI Instructions',
-        description: 'Create/update CLAUDE.md and .cursorrules',
+        description: 'Create/update AGENTS.md, CLAUDE.md, and .cursorrules',
         action: 'initAi',
       });
 
@@ -52,7 +52,7 @@ export function registerSetupCommand(
       items.push({
         label: '$(hubot) Configure AI Provider',
         description:
-          "Choose Cursor, Claude Code, VS Code Chat, CLI, or clipboard for 'Implement with AI'",
+          "Choose Codex, Cursor, Claude Code, VS Code Chat, CLI, or clipboard for 'Implement with AI'",
         action: 'configureAi',
       });
 

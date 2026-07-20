@@ -1,0 +1,20 @@
+{
+  "name": "refined-taskplanner",
+  "interface": {
+    "displayName": "TaskPlanner"
+  },
+  "plugins": [
+    {
+      "name": "taskplanner",
+      "source": {
+        "source": "local",
+        "path": "./plugins/taskplanner"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

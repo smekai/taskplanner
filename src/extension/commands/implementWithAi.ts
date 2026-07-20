@@ -5,6 +5,7 @@ import * as os from 'os';
 import { TaskStore } from '../../core/store/taskStore.js';
 import { ConfigManager } from '../../core/config/configManager.js';
 import { composeImplementationPrompt } from '../../core/ai/promptComposer.js';
+import { buildCodexDeepLink } from '../../core/ai/codexDeepLink.js';
 import {
   getAiTool,
   setAiTool,
@@ -12,7 +13,14 @@ import {
   getCursorPlanAndSubmitAfterOpen,
 } from '../config/extensionConfig.js';
 
-export type AiTool = 'auto' | 'cursor' | 'claude-code' | 'vscode-chat' | 'claude-cli' | 'clipboard';
+export type AiTool =
+  | 'auto'
+  | 'cursor'
+  | 'codex-app'
+  | 'claude-code'
+  | 'vscode-chat'
+  | 'claude-cli'
+  | 'clipboard';
 
 const GLOBAL_ONBOARDING_KEY = 'taskplanner.aiProviderOnboarding';
 const CHAT_OPEN_COMMAND = 'workbench.action.chat.open';
@@ -86,8 +94,9 @@ export function registerImplementWithAiCommand(
 
       const setting = getAiTool();
       const tool = setting === 'auto' ? detectAiTool() : setting;
+      const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-      await dispatch(context, tool, prompt);
+      await dispatch(context, tool, prompt, workspacePath);
     }),
   );
 
@@ -140,6 +149,11 @@ async function showAiProviderQuickPick(context: vscode.ExtensionContext): Promis
       value: 'cursor',
     },
     {
+      label: '$(code) Codex app',
+      description: 'Open a new Codex task with the workspace and prompt prefilled',
+      value: 'codex-app',
+    },
+    {
       label: '$(terminal) Claude Code (extension)',
       description: 'Anthropic Claude Code sidebar via URI',
       value: 'claude-code',
@@ -185,10 +199,14 @@ async function dispatch(
   context: vscode.ExtensionContext,
   tool: Exclude<AiTool, 'auto'>,
   prompt: string,
+  workspacePath?: string,
 ): Promise<void> {
   switch (tool) {
     case 'cursor':
       await dispatchCursor(context, prompt);
+      break;
+    case 'codex-app':
+      await dispatchCodexApp(prompt, workspacePath);
       break;
     case 'claude-code':
       await dispatchClaudeCode(prompt);
@@ -202,6 +220,28 @@ async function dispatch(
     case 'clipboard':
       await copyToClipboard(prompt);
       break;
+  }
+}
+
+async function dispatchCodexApp(prompt: string, workspacePath?: string): Promise<void> {
+  if (!workspacePath) {
+    await copyToClipboard(prompt, 'No workspace folder is open for Codex.');
+    return;
+  }
+
+  try {
+    const opened = await vscode.env.openExternal(
+      vscode.Uri.parse(buildCodexDeepLink(prompt, workspacePath)),
+    );
+    if (!opened) {
+      await copyToClipboard(prompt, 'Codex could not be opened.');
+      return;
+    }
+    vscode.window.showInformationMessage(
+      'Task opened in Codex with the prompt prefilled — review and submit it there.',
+    );
+  } catch {
+    await copyToClipboard(prompt, 'Codex could not be opened.');
   }
 }
 
@@ -295,9 +335,7 @@ async function dispatchClaudeCode(prompt: string): Promise<void> {
     `vscode://anthropic.claude-code/open?prompt=${encodeURIComponent(prompt)}`,
   );
   await vscode.env.openExternal(uri);
-  vscode.window.showInformationMessage(
-    'Prompt pre-filled in Claude Code — press Enter to submit.',
-  );
+  vscode.window.showInformationMessage('Prompt pre-filled in Claude Code — press Enter to submit.');
 }
 
 async function copyToClipboard(prompt: string, prefix?: string): Promise<void> {

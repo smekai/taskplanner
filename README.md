@@ -1,11 +1,11 @@
 # Task Planner AI
 
-AI-directed markdown task tracking built for AI-assisted development. Tasks live in your repo as `.md` files — readable by humans, parseable by AI agents, and pregenerated CLAUDE.md and .cursorrules workflows, tracked by git.
+AI-directed markdown task tracking built for AI-assisted development. Tasks live in your repo as `.md` files — readable by humans, parseable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows tracked by git.
 
 ## Why?
 
 - **AI-native workflow** — agents read `NEXT.md`, pick a task, plan, build, and move it to `DONE.md`
-- **Agent-ready workflow artifacts** — initialize generates CLAUDE.md and .cursorrules so different AI tools follow the same task state machine
+- **Agent-ready workflow artifacts** — initialize generates `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` so different AI tools follow the same task state machine
 - **Tasks next to code** — no context switching to Jira/Linear/Asana
 - **Git-tracked** — full history of every task change in your commits
 - **Human-readable** — plain markdown, works without the extension installed
@@ -21,22 +21,22 @@ AI-directed markdown task tracking built for AI-assisted development. Tasks live
 
 - **Filtered task list** — main view with grouping by status, assignee, date, or no grouping; search across all fields; Backlog/Done/Rejected hidden by default
 - **Kanban board** — drag-and-drop cards between columns, visual priority indicators
-- **Cursor MCP server with UI** **(Beta)** — bundled plugin exposes TaskPlanner MCP tools, including `taskplanner_board_visual` for an inline interactive board in agent chat and `taskplanner_board_data` as JSON fallback for non-MCP-Apps hosts
+- **Cursor and Codex plugin** **(Beta)** — the shared plugin exposes TaskPlanner MCP tools and workflow skills; the interactive board renders on MCP Apps hosts with JSON/text fallback elsewhere
 - **Sidebar tree view** — tasks grouped by state (Backlog → Next → In Progress → Done)
 - **Drag-and-drop** — move tasks between states in tree view and Kanban board
 - **Assignee & timestamps** — track who owns each task and when it was last updated
-- **AI instruction generation** — auto-generates `CLAUDE.md` and `.cursorrules` that teach agents your task workflow
+- **AI instruction generation** — auto-generates `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` while preserving user-authored content outside the TaskPlanner marker block
 - **AI planning mode** — agents write a `### Plan` inside the task before coding; the plan is preserved when moving to Done
-- **Implement with AI** **(Beta)** — sends a composed prompt to Cursor, Claude Code, VS Code Chat, the Claude CLI (terminal), or clipboard; configure via Settings (`taskplanner.aiTool`) or **TaskPlanner: Configure AI Provider**
+- **Implement with AI** **(Beta)** — opens a composed prompt in Codex, Cursor, Claude Code, VS Code Chat, the Claude CLI, or the clipboard; configure via Settings (`taskplanner.aiTool`) or **TaskPlanner: Configure AI Provider**
 - **Parse warnings** — malformed task markdown triggers a dismissible banner with jump-to-file; errors log to the **TaskPlanner** output channel
 - **Live file watcher** — edit `.tasks/*.md` by hand and all views update instantly
 - **Configurable** — custom states, priorities (P0–P4), tags, ID prefix, sort order
 
 ## Why TaskPlanner (Task → Plan → AI) Is Better Than Other Solutions
 
-Competitors often focus on UI and manual task editing. TaskPlanner is built for AI execution: it keeps tasks as plain markdown artifacts next to your code, and it generates agent instruction files (CLAUDE.md and .cursorrules) that teach your tools how to pick work, create a plan, and move tasks through your workflow.
+Competitors often focus on UI and manual task editing. TaskPlanner is built for AI execution: it keeps tasks as plain markdown artifacts next to your code, and it generates agent instruction files that teach Codex, Cursor, Claude Code, and compatible tools how to follow the workflow.
 
-- Agent workflow contract (generated CLAUDE.md and .cursorrules)
+- Agent workflow contract (generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules`)
 - Git-tracked audit trail for every move and edit
 - Optional planning gate to reduce implementation churn
 - Works as plain markdown even without the extension
@@ -46,18 +46,19 @@ Competitors often focus on UI and manual task editing. TaskPlanner is built for 
 - [**VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) — VS Code
 - [**Open VSX**](https://open-vsx.org/extension/refined/taskplanner) — Cursor IDE and other compatible editors
 - [**Cursor Marketplace (Plugin)**](https://cursor.com/marketplace) — search for `taskplanner`
+- **Codex app/CLI plugin** — install from this repository's local marketplace; see [`plugins/taskplanner/README.md`](plugins/taskplanner/README.md)
 - **JetBrains IDEs** — planned
 
 ## Distribution Model
 
-TaskPlanner ships as two artifacts:
+TaskPlanner ships as two coordinated artifacts:
 
 - **VS Code extension** (`refined.taskplanner`) for editor-native UI/runtime features (activity bar view, webviews, command contributions).
-- **Cursor plugin** (`cursor-plugin/`) for agent-native capabilities (MCP tools, skill, rule, slash commands).
+- **Shared agent plugin** (`plugins/taskplanner/`) for Cursor and Codex (MCP tools, workflow skills, Cursor rule, and Cursor slash commands).
 
 Source code lives at [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner); the Marketplace publisher remains **refined**.
 
-The extension can auto-register the bundled plugin when running inside Cursor, but the plugin is also publishable independently in the Cursor Marketplace.
+The extension can auto-register the bundled plugin when running inside Cursor. Codex discovers it through the repository marketplace at `.agents/plugins/marketplace.json`.
 
 ## Quick Start
 
@@ -121,7 +122,7 @@ Each task can have an optional **Assignee** (who owns the task) and an **Updated
 
 ## AI Agent Workflow
 
-TaskPlanner is designed as a task interface between you and AI coding agents. Supported tools: **Claude Code** (via `CLAUDE.md`), **Cursor** (via `.cursorrules`).
+TaskPlanner is designed as a task interface between you and AI coding agents. Supported instruction targets include **Codex** (via `AGENTS.md` and the plugin), **Claude Code** (via `CLAUDE.md`), and **Cursor** (via `.cursorrules` and the plugin).
 
 Run **Initialize AI Instructions** (Setup menu or command palette) to generate instruction files. The generated workflow teaches agents to:
 
@@ -176,9 +177,9 @@ The primary view opens automatically when you click the TaskPlanner sidebar icon
 
 Open via command palette → `TaskPlanner: Open Kanban Board`. Three columns: **Backlog**, **Active** (Next + In Progress), and **Completed** (Done + Rejected). Drag cards between columns or sub-zones to change state. Task cards show assignee and last update time.
 
-### Cursor Agent Chat Board (MCP UI)
+### Agent Chat Board (MCP UI)
 
-In Cursor, the bundled plugin can render a board inline in agent chat via `taskplanner_board_visual`. This MCP Apps view is separate from the extension Kanban panel above and uses the same task files. If the host does not support MCP Apps UI, use `taskplanner_board_data` plus the standard MCP task tools.
+On hosts that render MCP Apps, the bundled plugin can display a board inline through `taskplanner_board_visual`. This is supported by Cursor and experimental in Codex. It is separate from the extension Kanban panel and uses the same task files. When the host does not render the UI, use `taskplanner_board_data` or the standard task tools.
 
 ### Sidebar Tree
 
@@ -189,7 +190,7 @@ Always visible in the activity bar. Tasks grouped under collapsible state nodes 
 Click the **gear icon** in the TaskPlanner sidebar title bar:
 
 - **Initialize Project** — create `.tasks/` folder and state files
-- **Initialize AI Instructions** — generate/update `CLAUDE.md` and `.cursorrules`
+- **Initialize AI Instructions** — generate/update `AGENTS.md`, `CLAUDE.md`, and `.cursorrules`
 - **AI Planning: Enable/Disable** — toggle whether agents must plan before coding
 - **Sort By** — change task sort order (Priority / Name / ID / File order)
 - **Open Settings** — open VS Code extension settings
@@ -204,7 +205,7 @@ Extension settings (accessible via VS Code Settings UI):
 | `taskplanner.autoInitAiFiles` | `true` | Auto-create/update AI instruction files on init |
 | `taskplanner.sortBy` | `priority` | Sort order for tasks: `priority`, `name`, `id`, or `file` (markdown order) |
 | `taskplanner.groupBy` | `status` | Group tasks by: `status`, `assignee`, `date`, or `none` |
-| `taskplanner.aiTool` **(Beta)** | `auto` | AI tool for "Implement with AI": `auto`, `cursor`, `claude-code`, `vscode-chat`, `claude-cli`, `clipboard` |
+| `taskplanner.aiTool` **(Beta)** | `auto` | AI tool for "Implement with AI": `auto`, `codex-app`, `cursor`, `claude-code`, `vscode-chat`, `claude-cli`, `clipboard` |
 | `taskplanner.cursorPlanAndSubmitAfterOpen` **(Beta)** | `false` | Cursor: after chat.open succeeds, best-effort plan/submit commands |
 | `taskplanner.claudeCliCommand` **(Beta)** | `claude {{file}}` | claude-cli: shell command; `{{file}}` is replaced with temp prompt path |
 
@@ -220,7 +221,7 @@ Before creating a release, run:
 npm run release:check
 ```
 
-This builds extension + plugin artifacts and verifies Cursor plugin publish readiness (`plugin.json`, `mcp.json`, and required built files).
+This builds the extension and shared plugin, runs tests and lint, validates both Cursor and Codex manifests/marketplaces, and smoke-tests the MCP server.
 
 ## License
 

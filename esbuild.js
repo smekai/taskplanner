@@ -16,7 +16,8 @@ const shared = {
 };
 
 const boardUiDir = path.join(__dirname, 'src', 'mcp', 'ui', 'board');
-const boardUiOutDir = path.join(__dirname, 'cursor-plugin', 'ui', 'board');
+const pluginRoot = path.join(__dirname, 'plugins', 'taskplanner');
+const boardUiOutDir = path.join(pluginRoot, 'ui', 'board');
 const boardHtmlTemplate = path.join(boardUiDir, 'board.html');
 const boardCssFile = path.join(boardUiDir, 'board.css');
 const boardHtmlOut = path.join(boardUiOutDir, 'index.html');
@@ -37,9 +38,7 @@ async function buildBoardUi() {
   const js = result.outputFiles[0].text;
   const css = fs.readFileSync(boardCssFile, 'utf8');
   const template = fs.readFileSync(boardHtmlTemplate, 'utf8');
-  const html = template
-    .replace('/*__CSS__*/', () => css)
-    .replace('/*__JS__*/', () => js);
+  const html = template.replace('/*__CSS__*/', () => css).replace('/*__JS__*/', () => js);
   fs.mkdirSync(boardUiOutDir, { recursive: true });
   fs.writeFileSync(boardHtmlOut, html, 'utf8');
   console.log(`[board-ui] wrote ${path.relative(__dirname, boardHtmlOut)} (${html.length} bytes)`);
@@ -83,7 +82,7 @@ async function main() {
   const mcpCtx = await esbuild.context({
     ...shared,
     entryPoints: ['src/mcp/server.ts'],
-    outfile: 'cursor-plugin/dist/mcp-server.js',
+    outfile: 'plugins/taskplanner/dist/mcp-server.js',
     plugins: [
       boardUiWatchPlugin(),
       {

@@ -22,6 +22,11 @@ export function registerInitAiCommand(
 
       const updatedFiles: string[] = [];
 
+      // Update AGENTS.md (Codex and other agents.md-compatible tools)
+      const agentsPath = path.join(rootPath, 'AGENTS.md');
+      updateFileWithMarkers(agentsPath, instructions.agentsMd);
+      updatedFiles.push('AGENTS.md');
+
       // Update CLAUDE.md
       const claudePath = path.join(rootPath, 'CLAUDE.md');
       updateFileWithMarkers(claudePath, instructions.claudeMd);
@@ -32,9 +37,7 @@ export function registerInitAiCommand(
       updateFileWithMarkers(cursorPath, instructions.cursorRules);
       updatedFiles.push('.cursorrules');
 
-      vscode.window.showInformationMessage(
-        `AI instructions updated: ${updatedFiles.join(', ')}`,
-      );
+      vscode.window.showInformationMessage(`AI instructions updated: ${updatedFiles.join(', ')}`);
     }),
   );
 }

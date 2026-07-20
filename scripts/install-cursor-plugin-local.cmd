@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 
 set "REPO_ROOT=%~dp0.."
-set "PLUGIN_SRC=%REPO_ROOT%\cursor-plugin"
+set "PLUGIN_SRC=%REPO_ROOT%\plugins\taskplanner"
 set "PLUGIN_DEST=%USERPROFILE%\.cursor\plugins\taskplanner"
 set "PLUGIN_DEST_LOCAL=%USERPROFILE%\.cursor\plugins\local\taskplanner"
 

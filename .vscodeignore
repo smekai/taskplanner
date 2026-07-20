@@ -17,6 +17,6 @@ example/**
 CONTRIBUTING.md
 agent-transcripts/**
 
-# Include the cursor plugin and its built MCP server
-!cursor-plugin/**
-!cursor-plugin/dist/**
+# Include the shared Cursor/Codex plugin and its built MCP server
+!plugins/taskplanner/**
+!plugins/taskplanner/dist/**

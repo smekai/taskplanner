@@ -1,8 +1,8 @@
 {
   "name": "taskplanner",
   "displayName": "Task → Plan → AI",
-  "description": "AI-directed markdown task management in your repo. Generates CLAUDE.md and .cursorrules so agents can follow your workflow contract. Tracked by git.",
-  "version": "1.7.5",
+  "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
+  "version": "1.8.0",
   "publisher": "refined",
   "license": "GPL v3",
   "icon": "resources/icons/taskplanner-color.png",
@@ -25,7 +25,8 @@
     "ai",
     "todo",
     "claude",
-    "cursor"
+    "cursor",
+    "codex"
   ],
   "activationEvents": [
     "workspaceContains:.tasks",
@@ -192,6 +193,7 @@
           "enum": [
             "auto",
             "cursor",
+            "codex-app",
             "claude-code",
             "vscode-chat",
             "claude-cli",
@@ -200,6 +202,7 @@
           "enumDescriptions": [
             "Auto: Cursor in Cursor IDE; otherwise Claude Code extension",
             "Cursor (chat.open, then Agent Chat paste fallback)",
+            "Codex app (opens a new task with workspace and prompt prefilled)",
             "Claude Code extension (URI opens sidebar with prompt)",
             "VS Code Chat (workbench.action.chat.open)",
             "Claude Code CLI in integrated terminal (see claudeCliCommand; uses {{file}} for temp prompt path)",
@@ -228,9 +231,10 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "validate:cursor-plugin": "node scripts/validate-cursor-plugin.js",
+    "validate:codex-plugin": "node scripts/validate-codex-plugin.js",
     "verify:cursor-plugin-local": "node scripts/verify-cursor-plugin-local.js",
     "smoke:mcp-server": "node scripts/smoke-test-mcp-server.js",
-    "release:check": "npm run build && npm run validate:cursor-plugin && npm run smoke:mcp-server",
+    "release:check": "npm run build && npm run lint && npm test && npm run validate:cursor-plugin && npm run validate:codex-plugin && npm run smoke:mcp-server",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:extension": "vscode-test",

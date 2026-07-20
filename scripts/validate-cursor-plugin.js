@@ -25,7 +25,8 @@ function assertExists(filePath, label) {
 
 function main() {
   const rootDir = path.resolve(__dirname, '..');
-  const pluginRoot = path.join(rootDir, 'cursor-plugin');
+  const pluginRoot = path.join(rootDir, 'plugins', 'taskplanner');
+  const packageJson = readJson(path.join(rootDir, 'package.json'));
   const manifestPath = path.join(pluginRoot, '.cursor-plugin', 'plugin.json');
   const mcpConfigPath = path.join(pluginRoot, 'mcp.json');
   const mcpBundlePath = path.join(pluginRoot, 'dist', 'mcp-server.js');
@@ -44,6 +45,9 @@ function main() {
     }
     if (!manifest.version || typeof manifest.version !== 'string') {
       fail('plugin.json must include a string "version".');
+    }
+    if (manifest.version !== packageJson?.version) {
+      fail(`plugin.json version must match package.json (${packageJson?.version}).`);
     }
     if (!manifest.repository || typeof manifest.repository !== 'string') {
       fail('plugin.json should include a repository URL string.');
@@ -64,6 +68,12 @@ function main() {
         fail('mcp.json args must include ${CURSOR_PLUGIN_ROOT}/dist/mcp-server.js.');
       }
     }
+  }
+
+  const marketplace = readJson(path.join(rootDir, '.cursor-plugin', 'marketplace.json'));
+  const marketplaceEntry = marketplace?.plugins?.find((plugin) => plugin.name === 'taskplanner');
+  if (marketplaceEntry?.source !== 'plugins/taskplanner') {
+    fail('Cursor marketplace source must be "plugins/taskplanner".');
   }
 
   if (process.exitCode && process.exitCode !== 0) {

@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -10,20 +11,26 @@ import { Task, Priority, isPriority } from '../core/model/task.js';
 import { buildBoardViewModel } from '../core/view/boardViewModel.js';
 
 function findExistingTasksDir(rootDir: string): string | null {
-  const tasksDir = path.join(rootDir, '.tasks');
-  if (!fs.existsSync(tasksDir)) return null;
-  const configPath = path.join(tasksDir, 'config.json');
-  if (!fs.existsSync(configPath)) return null;
-  return tasksDir;
+  let current = path.resolve(rootDir);
+  let previous = '';
+  while (current !== previous) {
+    const tasksDir = path.join(current, '.tasks');
+    if (fs.existsSync(path.join(tasksDir, 'config.json'))) return tasksDir;
+    previous = current;
+    current = path.dirname(current);
+  }
+  return null;
 }
 
-function candidateRoots(): string[] {
+function candidateRoots(clientRoots: string[]): string[] {
   const candidates = new Set<string>();
   const push = (value: string | undefined) => {
     if (!value || !value.trim()) return;
     candidates.add(path.resolve(value));
   };
 
+  push(process.env.TASKPLANNER_WORKSPACE_ROOT);
+  for (const root of clientRoots) push(root);
   push(process.cwd());
   push(process.env.CURSOR_WORKSPACE_ROOT);
   push(process.env.VSCODE_WORKSPACE_ROOT);
@@ -41,9 +48,26 @@ function candidateRoots(): string[] {
   return Array.from(candidates);
 }
 
-function findTasksDir(): string {
+async function readClientRoots(): Promise<string[]> {
+  if (!server.server.getClientCapabilities()?.roots) return [];
+  try {
+    const result = await server.server.listRoots();
+    return result.roots.flatMap((root) => {
+      try {
+        const url = new URL(root.uri);
+        return url.protocol === 'file:' ? [fileURLToPath(url)] : [];
+      } catch {
+        return [];
+      }
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function findTasksDir(): Promise<string> {
   const checked: string[] = [];
-  for (const root of candidateRoots()) {
+  for (const root of candidateRoots(await readClientRoots())) {
     checked.push(root);
     const resolved = findExistingTasksDir(root);
     if (resolved) return resolved;
@@ -54,8 +78,8 @@ function findTasksDir(): string {
   );
 }
 
-function freshStore(): { taskStore: TaskStore; configManager: ConfigManager } {
-  const tasksDir = findTasksDir();
+async function freshStore(): Promise<{ taskStore: TaskStore; configManager: ConfigManager }> {
+  const tasksDir = await findTasksDir();
   const configManager = new ConfigManager(tasksDir);
   configManager.load();
   const fileStore = new FileStore(tasksDir);
@@ -81,9 +105,34 @@ function formatTask(task: Task, stateName: string): string {
   return lines.join('\n');
 }
 
+function structuredTask(task: Task, stateName: string): Record<string, unknown> {
+  return { ...task, state: stateName };
+}
+
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const CREATE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+} as const;
+
+const MODIFY_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: false,
+} as const;
+
 const server = new McpServer({
   name: 'taskplanner',
-  version: '1.0.0',
+    version: '1.8.0',
 });
 
 // ── taskplanner_board ───────────────────────────────────
@@ -97,15 +146,22 @@ server.registerTool(
         .optional()
         .describe('If true, include full task listings per state (default: false)'),
     },
+    annotations: READ_ONLY_ANNOTATIONS,
   },
   async ({ include_tasks }) => {
-    const { taskStore } = freshStore();
+    const { taskStore } = await freshStore();
     const config = taskStore.config;
     const lines: string[] = ['# Task Board'];
+    const states: Record<string, unknown>[] = [];
 
     for (const state of config.states) {
       taskStore.ensureStateLoaded(state.name);
       const tasks = taskStore.getTasksByState(state.name);
+      states.push({
+        name: state.name,
+        count: tasks.length,
+        ...(include_tasks ? { tasks: tasks.map((task) => structuredTask(task, state.name)) } : {}),
+      });
       lines.push(`\n## ${state.name} (${tasks.length})`);
 
       if (include_tasks && tasks.length > 0) {
@@ -117,7 +173,10 @@ server.registerTool(
       }
     }
 
-    return { content: [{ type: 'text', text: lines.join('\n') }] };
+    return {
+      content: [{ type: 'text', text: lines.join('\n') }],
+      structuredContent: { states, includeTasks: include_tasks === true },
+    };
   },
 );
 
@@ -133,14 +192,12 @@ server.registerTool(
         .describe(
           'State name to filter by (e.g. "Backlog", "Next", "In Progress", "Done", "Rejected"). Omit for all states.',
         ),
-      query: z
-        .string()
-        .optional()
-        .describe('Text query to filter tasks by ID, title, or assignee'),
+      query: z.string().optional().describe('Text query to filter tasks by ID, title, or assignee'),
     },
+    annotations: READ_ONLY_ANNOTATIONS,
   },
   async ({ state, query }) => {
-    const { taskStore } = freshStore();
+    const { taskStore } = await freshStore();
     const config = taskStore.config;
     const statesToList = state
       ? config.states.filter((s) => s.name.toLowerCase() === state.toLowerCase())
@@ -160,6 +217,7 @@ server.registerTool(
     }
 
     const lines: string[] = [];
+    const structuredTasks: Record<string, unknown>[] = [];
     let totalCount = 0;
 
     for (const s of statesToList) {
@@ -179,6 +237,7 @@ server.registerTool(
       lines.push(`## ${s.name} (${tasks.length})`);
       for (const task of tasks) {
         lines.push(formatTask(task, s.name), '\n---');
+        structuredTasks.push(structuredTask(task, s.name));
       }
       totalCount += tasks.length;
     }
@@ -186,11 +245,18 @@ server.registerTool(
     if (totalCount === 0) {
       return {
         content: [{ type: 'text', text: 'No tasks found matching the criteria.' }],
+        structuredContent: { tasks: [], totalCount: 0, state: state ?? null, query: query ?? null },
       };
     }
 
     return {
       content: [{ type: 'text', text: `${totalCount} task(s) found\n\n${lines.join('\n')}` }],
+      structuredContent: {
+        tasks: structuredTasks,
+        totalCount,
+        state: state ?? null,
+        query: query ?? null,
+      },
     };
   },
 );
@@ -203,9 +269,10 @@ server.registerTool(
     inputSchema: {
       task_id: z.string().describe('Task ID (e.g. "TASK-001")'),
     },
+    annotations: READ_ONLY_ANNOTATIONS,
   },
   async ({ task_id }) => {
-    const { taskStore } = freshStore();
+    const { taskStore } = await freshStore();
     const found = taskStore.findTask(task_id);
     if (!found) {
       return {
@@ -215,6 +282,7 @@ server.registerTool(
     }
     return {
       content: [{ type: 'text', text: formatTask(found.task, found.stateName) }],
+      structuredContent: { task: structuredTask(found.task, found.stateName) },
     };
   },
 );
@@ -233,18 +301,16 @@ server.registerTool(
         .describe('Priority level (default: P2)'),
       tags: z.array(z.string()).optional().describe('Tags for the task'),
       assignee: z.string().optional().describe('Assignee name'),
-      state: z
-        .string()
-        .optional()
-        .describe('Target state (default: "Backlog")'),
+      state: z.string().optional().describe('Target state (default: "Backlog")'),
     },
+    annotations: CREATE_ANNOTATIONS,
   },
   async ({ title, description, priority, tags, assignee, state: targetState }) => {
-    const { taskStore, configManager } = freshStore();
+    const { taskStore, configManager } = await freshStore();
     const stateName = targetState || 'Backlog';
-    const validState = configManager.get().states.find(
-      (s) => s.name.toLowerCase() === stateName.toLowerCase(),
-    );
+    const validState = configManager
+      .get()
+      .states.find((s) => s.name.toLowerCase() === stateName.toLowerCase());
     if (!validState) {
       return {
         content: [{ type: 'text', text: `Unknown state "${stateName}".` }],
@@ -271,6 +337,7 @@ server.registerTool(
           text: `Created ${task.id}: ${task.title} [${task.priority}] in ${validState.name}`,
         },
       ],
+      structuredContent: { task: structuredTask(task, validState.name) },
     };
   },
 );
@@ -284,16 +351,15 @@ server.registerTool(
       task_id: z.string().describe('Task ID to move'),
       target_state: z
         .string()
-        .describe(
-          'Target state name (e.g. "Backlog", "Next", "In Progress", "Done", "Rejected")',
-        ),
+        .describe('Target state name (e.g. "Backlog", "Next", "In Progress", "Done", "Rejected")'),
     },
+    annotations: MODIFY_ANNOTATIONS,
   },
   async ({ task_id, target_state }) => {
-    const { taskStore, configManager } = freshStore();
-    const validState = configManager.get().states.find(
-      (s) => s.name.toLowerCase() === target_state.toLowerCase(),
-    );
+    const { taskStore, configManager } = await freshStore();
+    const validState = configManager
+      .get()
+      .states.find((s) => s.name.toLowerCase() === target_state.toLowerCase());
     if (!validState) {
       return {
         content: [{ type: 'text', text: `Unknown state "${target_state}".` }],
@@ -316,6 +382,7 @@ server.registerTool(
           text: `Moved ${result.id}: ${result.title} → ${validState.name}`,
         },
       ],
+      structuredContent: { task: structuredTask(result, validState.name) },
     };
   },
 );
@@ -329,17 +396,16 @@ server.registerTool(
       task_id: z.string().describe('Task ID to update'),
       title: z.string().optional().describe('New title'),
       description: z.string().optional().describe('New description'),
-      priority: z
-        .enum(['P0', 'P1', 'P2', 'P3', 'P4'])
-        .optional()
-        .describe('New priority'),
+      priority: z.enum(['P0', 'P1', 'P2', 'P3', 'P4']).optional().describe('New priority'),
       tags: z.array(z.string()).optional().describe('New tags (replaces existing)'),
       assignee: z.string().optional().describe('New assignee'),
       plan: z.string().optional().describe('New or updated plan text'),
     },
+    annotations: MODIFY_ANNOTATIONS,
   },
   async ({ task_id, title, description, priority, tags, assignee, plan }) => {
-    const { taskStore } = freshStore();
+    const { taskStore } = await freshStore();
+    const existing = taskStore.findTask(task_id);
     const updates: Partial<Omit<Task, 'id'>> = {};
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
@@ -363,6 +429,9 @@ server.registerTool(
           text: `Updated ${result.id}: ${result.title} [${result.priority}]`,
         },
       ],
+      structuredContent: {
+        task: structuredTask(result, existing?.stateName ?? 'Unknown'),
+      },
     };
   },
 );
@@ -388,9 +457,10 @@ server.registerTool(
           'Per-state task limit. Omit for default, set null to disable cap and return all tasks.',
         ),
     },
+    annotations: READ_ONLY_ANNOTATIONS,
   },
   async ({ query, include_completed, limit }) => {
-    const { taskStore, configManager } = freshStore();
+    const { taskStore, configManager } = await freshStore();
     if (include_completed) {
       taskStore.ensureStateLoaded('Done');
       taskStore.ensureStateLoaded('Rejected');
@@ -399,7 +469,10 @@ server.registerTool(
       searchQuery: query,
       limit,
     });
-    return { content: [{ type: 'text', text: JSON.stringify(viewModel) }] };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(viewModel) }],
+      structuredContent: { board: viewModel },
+    };
   },
 );
 
@@ -440,26 +513,30 @@ server.registerTool(
   {
     title: 'Visual Task Board',
     description:
-      'Open the TaskPlanner board as an interactive panel inline in chat. Shows all states as columns with drag-to-move and task details.',
+      'Request the interactive TaskPlanner board. Rendering depends on MCP Apps host support; use taskplanner_board_data as the guaranteed fallback.',
     inputSchema: {},
+    annotations: READ_ONLY_ANNOTATIONS,
     _meta: {
       ui: { resourceUri: BOARD_RESOURCE_URI },
       [LEGACY_UI_META_KEY]: BOARD_RESOURCE_URI,
     },
   },
   async () => {
-    const { taskStore, configManager } = freshStore();
+    const { taskStore, configManager } = await freshStore();
     const viewModel = buildBoardViewModel(taskStore, configManager, {});
-    const totals = viewModel.states
-      .map((s) => `${s.name}: ${s.totalCount}`)
-      .join(' | ');
+    const totals = viewModel.states.map((s) => `${s.name}: ${s.totalCount}`).join(' | ');
     return {
       content: [
         {
           type: 'text',
-          text: `Opening TaskPlanner board (${totals}).`,
+          text: `TaskPlanner board requested (${totals}). If no interactive view appears, call taskplanner_board_data.`,
         },
       ],
+      structuredContent: {
+        board: viewModel,
+        renderMode: 'mcp-app',
+        fallbackTool: 'taskplanner_board_data',
+      },
     };
   },
 );

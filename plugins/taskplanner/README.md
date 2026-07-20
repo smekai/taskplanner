@@ -1,30 +1,31 @@
-# TaskPlanner — Cursor Plugin
+# TaskPlanner — Cursor and Codex Plugin
 
-Markdown-based task management for AI agents. This plugin gives Cursor agents the ability to read, create, move, and implement tasks stored in `.tasks/` files.
+Markdown-based task management for AI agents. This shared package gives Cursor and Codex the ability to read, create, move, plan, and implement tasks stored in `.tasks/` files.
 
-This package is the Cursor Marketplace companion to the TaskPlanner VS Code extension. Use this plugin for agent workflows; use the extension for editor-side UI panels.
+Use this plugin for agent workflows; use the TaskPlanner VS Code extension for persistent editor-side lists and kanban panels.
 
 ## What's included
 
 | Component | Description |
 |-----------|-------------|
 | **MCP Server** | 8 tools: board overview, list, get, create, move, update, board-data (JSON), board-visual (inline UI) |
-| **Commands** | `/list-tasks`, `/next-task`, `/continue-task` slash commands |
-| **Skill** | Full TaskPlanner workflow knowledge for agent auto-discovery |
+| **Cursor commands** | `/list-tasks`, `/next-task`, `/continue-task` slash commands |
+| **Skills** | TaskPlanner, list-tasks, next-task, and continue-task workflows for Codex and compatible hosts |
 | **Rule** | Task markdown format conventions (fires when editing `.tasks/` files) |
+| **Manifests** | Host-specific Cursor and Codex manifests backed by one package |
 
 ## Usage
 
 Once installed, the agent can:
 
-- **List tasks** — type `/list-tasks` or ask "show me all tasks"
-- **Pick next task** — type `/next-task` to start the highest-priority item
-- **Continue current work** — type `/continue-task` to resume an in-progress task
+- **List tasks** — use `/list-tasks` in Cursor, `$taskplanner:list-tasks` in Codex, or ask naturally
+- **Pick next task** — use `/next-task` in Cursor or `$taskplanner:next-task` in Codex
+- **Continue current work** — use `/continue-task` in Cursor or `$taskplanner:continue-task` in Codex
 - **Use MCP tools directly** — e.g. "create a P1 task for fixing the login bug"
 - **Show the visual board** — ask "open the visual task board" (or invoke `taskplanner_board_visual`) to render an inline interactive kanban with drag-to-move and click-for-details (requires an [MCP Apps](https://modelcontextprotocol.io/extensions/apps) host, such as Cursor 2.6+)
 - **Get board JSON** — invoke `taskplanner_board_data` for a machine-readable board view-model (states + cards), useful for hosts without MCP UI rendering
 
-The MCP board renders inline in agent chat. It is separate from the VS Code extension's `TaskPlanner: Open Kanban Board` panel.
+The MCP board is separate from the VS Code extension's `TaskPlanner: Open Kanban Board` panel. Inline rendering is experimental in Codex; text and structured JSON remain available when the UI is not rendered.
 
 ## Requirements
 
@@ -35,6 +36,25 @@ The MCP board renders inline in agent chat. It is separate from the VS Code exte
 If your host does not support MCP Apps UI, `taskplanner_board_visual` may not render an iframe; use `taskplanner_board_data` and the standard task tools (`taskplanner_list`, `taskplanner_get`, `taskplanner_move`, etc.) as fallback.
 
 ## Installation
+
+### Codex app and CLI — repository marketplace
+
+The repository marketplace lives at `.agents/plugins/marketplace.json`. From the repository root, register the non-default local marketplace and install the plugin:
+
+```bash
+codex plugin marketplace add .
+codex plugin add taskplanner@refined-taskplanner
+```
+
+Restart the ChatGPT desktop app or start a new Codex task after installation. Open **Plugins**, choose **TaskPlanner**, and verify the `taskplanner` skills and MCP tools are enabled. Node.js must be available because the bundled MCP server runs locally over stdio.
+
+For local changes, rebuild and reinstall the plugin before opening a new task:
+
+```bash
+npm run build
+npm run validate:codex-plugin
+codex plugin add taskplanner@refined-taskplanner
+```
 
 ### Via Cursor Marketplace
 
@@ -68,7 +88,7 @@ npm run verify:cursor-plugin-local
 npm run smoke:mcp-server
 ```
 
-**Important:** use a real file copy for local testing on Windows. Do not copy into a symlinked plugin folder (that creates nested `cursor-plugin/cursor-plugin/...` junk). The install script copies to:
+**Important:** use a real file copy for local testing on Windows. Do not copy the repository package into a symlinked plugin folder. The install script copies to:
 
 `%USERPROFILE%\.cursor\plugins\taskplanner`
 
@@ -79,7 +99,7 @@ Install the **Task → Plan → AI** VS Code extension — the plugin is auto-re
 ### Manual (macOS/Linux)
 
 ```bash
-ln -s /path/to/this/cursor-plugin ~/.cursor/plugins/taskplanner
+ln -s /path/to/taskplanner/plugins/taskplanner ~/.cursor/plugins/taskplanner
 ```
 
 ## Task format
@@ -108,6 +128,7 @@ For maintainers preparing a publish/update:
    - `npm run build`
 2. Validate plugin packaging from repo root:
    - `npm run validate:cursor-plugin`
-3. Confirm public source repo + open-source license metadata in `cursor-plugin/.cursor-plugin/plugin.json`.
-4. Ensure root `.cursor-plugin/marketplace.json` points `source` to `cursor-plugin`.
+   - `npm run validate:codex-plugin`
+3. Confirm public source repo + open-source license metadata in both manifests under `plugins/taskplanner/`.
+4. Ensure the Cursor and Codex marketplace files point to `plugins/taskplanner`.
 5. Submit/update at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish).

@@ -52,6 +52,10 @@ Use these tools to interact with the task board:
 - **taskplanner_create** — Create a new task with auto-generated ID.
 - **taskplanner_move** — Move a task between states (e.g. "Next" to "In Progress").
 - **taskplanner_update** — Update task fields (title, description, priority, tags, plan).
+- **taskplanner_board_data** — Return the structured board view-model for hosts without inline UI.
+- **taskplanner_board_visual** — Request the interactive MCP Apps board; rendering is host-dependent and experimental in Codex.
+
+Prefer the standard tools or `taskplanner_board_data` when the host does not render the visual resource.
 
 ## Workflow for Implementing a Task
 

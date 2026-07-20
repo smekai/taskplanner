@@ -18,12 +18,7 @@ export function composeImplementationPrompt(
     lines.push('Use plan mode. Read and analyze before making changes.', '');
   }
 
-  lines.push(
-    `Implement task ${task.id}: ${task.title}`,
-    '',
-    meta.join(' | '),
-    '',
-  );
+  lines.push(`Implement task ${task.id}: ${task.title}`, '', meta.join(' | '), '');
 
   if (task.description.trim()) {
     lines.push('Description:', task.description.trim(), '');
@@ -47,7 +42,10 @@ export function composeImplementationPrompt(
     lines.push('3. Move the task to DONE.md when complete');
   }
 
-  lines.push('', 'Refer to .tasks/config.json and CLAUDE.md for project conventions.');
+  lines.push(
+    '',
+    'Refer to .tasks/config.json and the repository AGENTS.md or CLAUDE.md for project conventions.',
+  );
 
   return lines.join('\n');
 }

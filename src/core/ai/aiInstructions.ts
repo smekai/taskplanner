@@ -13,6 +13,7 @@ export function contentHasTaskPlannerMarkers(content: string): boolean {
 export interface AiInstructions {
   claudeMd: string;
   cursorRules: string;
+  agentsMd: string;
 }
 
 export function generateAiInstructions(config: TaskPlannerConfig): AiInstructions {
@@ -20,6 +21,7 @@ export function generateAiInstructions(config: TaskPlannerConfig): AiInstruction
   return {
     claudeMd: content,
     cursorRules: content,
+    agentsMd: content,
   };
 }
 

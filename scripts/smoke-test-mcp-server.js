@@ -6,9 +6,11 @@
  */
 const { spawn } = require('child_process');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
-const serverPath = path.join(__dirname, '..', 'cursor-plugin', 'dist', 'mcp-server.js');
+const serverPath = path.join(__dirname, '..', 'plugins', 'taskplanner', 'dist', 'mcp-server.js');
 const workspaceRoot = path.join(__dirname, '..');
+const pluginRoot = path.dirname(path.dirname(serverPath));
 
 function send(proc, payload) {
   proc.stdin.write(`${JSON.stringify(payload)}\n`);
@@ -21,7 +23,8 @@ function fail(message) {
 
 async function main() {
   const proc = spawn('node', [serverPath], {
-    cwd: workspaceRoot,
+    // Match Codex plugin startup: the process starts in the installed plugin, not the task repo.
+    cwd: pluginRoot,
     env: {
       ...process.env,
       CURSOR_WORKSPACE_ROOT: workspaceRoot,
@@ -33,10 +36,12 @@ async function main() {
   const toolsListId = 2;
   const resourceListId = 3;
   const resourceReadId = 4;
+  const boardDataId = 5;
   const results = {
     tools: null,
     resources: null,
     resourceHtml: null,
+    boardData: null,
   };
 
   let buffer = '';
@@ -59,6 +64,17 @@ async function main() {
       if (!line) continue;
 
       const message = JSON.parse(line);
+
+      if (message.method === 'roots/list' && message.id !== undefined) {
+        send(proc, {
+          jsonrpc: '2.0',
+          id: message.id,
+          result: {
+            roots: [{ uri: pathToFileURL(workspaceRoot).href, name: 'TaskPlanner workspace' }],
+          },
+        });
+        continue;
+      }
 
       if (message.id === initId && message.result) {
         send(proc, {
@@ -99,6 +115,17 @@ async function main() {
 
       if (message.id === resourceReadId && message.result) {
         results.resourceHtml = message.result.contents?.[0]?.text || '';
+        send(proc, {
+          jsonrpc: '2.0',
+          id: boardDataId,
+          method: 'tools/call',
+          params: { name: 'taskplanner_board_data', arguments: { limit: 1 } },
+        });
+        continue;
+      }
+
+      if (message.id === boardDataId && message.result) {
+        results.boardData = message.result;
         finish();
         continue;
       }
@@ -115,10 +142,14 @@ async function main() {
 
     const toolNames = (results.tools || []).map((tool) => tool.name);
     const requiredTools = [
+      'taskplanner_board',
+      'taskplanner_list',
       'taskplanner_board_visual',
       'taskplanner_board_data',
+      'taskplanner_create',
       'taskplanner_move',
       'taskplanner_get',
+      'taskplanner_update',
     ];
     for (const name of requiredTools) {
       if (!toolNames.includes(name)) {
@@ -128,11 +159,16 @@ async function main() {
 
     const visualTool = results.tools.find((tool) => tool.name === 'taskplanner_board_visual');
     const meta = visualTool?._meta || {};
-    if (meta.ui?.resourceUri !== 'ui://taskplanner/board' && meta['ui/resourceUri'] !== 'ui://taskplanner/board') {
+    if (
+      meta.ui?.resourceUri !== 'ui://taskplanner/board' &&
+      meta['ui/resourceUri'] !== 'ui://taskplanner/board'
+    ) {
       fail('taskplanner_board_visual is missing MCP App UI metadata.');
     }
 
-    const resource = (results.resources || []).find((item) => item.uri === 'ui://taskplanner/board');
+    const resource = (results.resources || []).find(
+      (item) => item.uri === 'ui://taskplanner/board',
+    );
     if (!resource) {
       fail('Board resource ui://taskplanner/board not listed.');
     }
@@ -141,10 +177,35 @@ async function main() {
       fail('Board HTML resource did not load expected content.');
     }
 
+    for (const name of [
+      'taskplanner_board',
+      'taskplanner_list',
+      'taskplanner_get',
+      'taskplanner_board_data',
+      'taskplanner_board_visual',
+    ]) {
+      const annotations = results.tools.find((tool) => tool.name === name)?.annotations;
+      if (annotations?.readOnlyHint !== true || annotations?.openWorldHint !== false) {
+        fail(`${name} is missing read-only/closed-world annotations.`);
+      }
+    }
+
+    for (const name of ['taskplanner_move', 'taskplanner_update']) {
+      const annotations = results.tools.find((tool) => tool.name === name)?.annotations;
+      if (annotations?.readOnlyHint !== false || annotations?.destructiveHint !== true) {
+        fail(`${name} is missing modifying/destructive annotations.`);
+      }
+    }
+
+    if (!results.boardData?.structuredContent?.board) {
+      fail('taskplanner_board_data did not return structured board content.');
+    }
+
     console.log('[mcp-smoke] MCP server initialized.');
     console.log(`[mcp-smoke] tools/list OK (${toolNames.length} tools).`);
     console.log('[mcp-smoke] taskplanner_board_visual UI metadata OK.');
     console.log('[mcp-smoke] board resource HTML OK.');
+    console.log('[mcp-smoke] MCP roots, annotations, and structured content OK.');
     console.log('[mcp-smoke] Smoke test passed.');
   }
 
@@ -154,7 +215,7 @@ async function main() {
     method: 'initialize',
     params: {
       protocolVersion: '2024-11-05',
-      capabilities: {},
+      capabilities: { roots: { listChanged: false } },
       clientInfo: { name: 'taskplanner-smoke-test', version: '1.0.0' },
     },
   });

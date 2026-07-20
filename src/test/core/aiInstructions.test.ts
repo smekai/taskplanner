@@ -3,6 +3,7 @@ import {
   MARKER_START,
   contentHasTaskPlannerMarkers,
   generateAiInstructions,
+  upsertMarkedSection,
 } from '../../core/ai/aiInstructions.js';
 import { createDefaultConfig } from '../../core/model/config.js';
 
@@ -25,5 +26,23 @@ describe('generateAiInstructions', () => {
     expect(cursorRules).toContain('WORK_LOG.md');
     expect(cursorRules).toContain('### Work Log');
     expect(cursorRules).toContain('**Work log:**');
+  });
+
+  it('returns the same workflow for AGENTS.md, CLAUDE.md, and Cursor rules', () => {
+    const instructions = generateAiInstructions(createDefaultConfig());
+    expect(instructions.agentsMd).toBe(instructions.claudeMd);
+    expect(instructions.agentsMd).toBe(instructions.cursorRules);
+  });
+});
+
+describe('upsertMarkedSection', () => {
+  it('preserves user-authored AGENTS.md content around the TaskPlanner block', () => {
+    const existing = `# Team Guide\n\nKeep this introduction.\n\n${MARKER_START}\nold\n<!-- TASKPLANNER:END -->\n\n## Review\nKeep this ending.\n`;
+    const updated = upsertMarkedSection(existing, '# Updated TaskPlanner workflow');
+
+    expect(updated).toContain('Keep this introduction.');
+    expect(updated).toContain('Keep this ending.');
+    expect(updated).toContain('# Updated TaskPlanner workflow');
+    expect(updated).not.toContain('\nold\n');
   });
 });

@@ -40,6 +40,7 @@ npm install          # Install dependencies
 npm run build        # Production build (esbuild)
 npm run watch        # Dev build with watch mode
 npm run validate:cursor-plugin  # Validate Cursor plugin manifest/artifacts
+npm run validate:codex-plugin   # Validate Codex plugin manifest/marketplace
 npm run release:check # Build + plugin readiness checks
 npm test             # Run unit tests (Vitest)
 npm run lint         # Run ESLint
@@ -52,13 +53,13 @@ npm run package      # Create .vsix package
 TaskPlanner is distributed through two channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
-- **Plugin channel**: Cursor Marketplace (`cursor-plugin/`) for agent-native MCP/skills/rules/commands.
+- **Plugin channel**: shared Cursor/Codex package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
 
 When preparing a plugin publish, run `npm run release:check` before submitting the repository at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish).
 
 ### Cursor Marketplace submit (manual)
 
-1. Confirm [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner) is **public** and `main` includes current `cursor-plugin/` + root `.cursor-plugin/marketplace.json`.
+1. Confirm [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner) is **public** and `main` includes `plugins/taskplanner/` plus both marketplace files.
 2. Run locally: `npm run release:check`, then `scripts\install-cursor-plugin-local.cmd` + `scripts\register-cursor-plugin-local.cmd`, restart Cursor, and smoke-test MCP / skill / board.
 3. Sign into Cursor → open [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish) → submit repository URL `https://github.com/smekai/taskplanner`.
 4. Wait for Cursor’s manual review (not self-serve). Re-index after later updates.

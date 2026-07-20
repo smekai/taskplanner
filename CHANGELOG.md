@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-20
+
 ### Added
 
+- Codex app/CLI support through a shared installable plugin, repository marketplace, workflow skills, structured MCP tools, `AGENTS.md` synchronization, and a Codex “Implement with AI” provider (TASK-038).
 - Rolling work log at `.tasks/WORK_LOG.md` — agents append a short What/Decisions/Outcome entry when moving tasks to Done; seeded on project init (TASK-037).
 - Interactive task board inside Cursor agent chats via MCP Apps — invoke `taskplanner_board_visual` (requires a host that supports the MCP Apps extension, e.g. Cursor 2.6+). Shows columns with drag-to-move and click-to-view-details (TASK-033).
 
@@ -23,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **(Beta)** Cursor plugin bundled with the extension: MCP server (stdio) with task-oriented tools, slash commands `/list-tasks`, `/next-task`, `/continue-task`, a TaskPlanner **skill**, and a workflow **rule**; intended for agent use alongside `.tasks/` (see `cursor-plugin/README.md`).
+- **(Beta)** Cursor plugin bundled with the extension: MCP server (stdio) with task-oriented tools, slash commands `/list-tasks`, `/next-task`, `/continue-task`, a TaskPlanner **skill**, and a workflow **rule**; intended for agent use alongside `.tasks/` (now located at `plugins/taskplanner/README.md`).
 
 ### Changed
 

@@ -2,4 +2,4 @@
 # Auto-increment patch version on every commit
 
 node scripts/bump-version.js
-git add package.json
+git add package.json plugins/taskplanner/.cursor-plugin/plugin.json plugins/taskplanner/.codex-plugin/plugin.json

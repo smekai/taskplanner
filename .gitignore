@@ -1,7 +1,7 @@
 node_modules/
 dist/
-!cursor-plugin/dist/
-!cursor-plugin/dist/**
+!plugins/taskplanner/dist/
+!plugins/taskplanner/dist/**
 out/
 *.vsix
 .vscode-test/

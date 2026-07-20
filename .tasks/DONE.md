@@ -1,5 +1,21 @@
 # Done
 
+## TASK-038: Add first-class Codex plugin support
+**Priority:** P1 | **Tags:** feature, setup, ui
+**Updated:** 2026-07-20 12:45
+
+Package TaskPlanner for Codex app and CLI by sharing the existing Cursor agent bundle, hardening MCP host compatibility, generating AGENTS.md instructions, and adding a Codex app launch provider. Keep the interactive board experimental with text and JSON fallbacks; defer a standalone web dashboard.
+
+### Plan (done)
+
+- Consolidated Cursor and Codex assets under `plugins/taskplanner` with host-specific manifests and a repository Codex marketplace.
+- Added TaskPlanner, list, next, and continue skills while retaining Cursor rules and slash commands.
+- Added MCP roots-based workspace discovery, structured tool results, safety annotations, and experimental-board fallback guidance.
+- Added marker-preserving `AGENTS.md` synchronization and a Codex app deep-link provider for “Implement with AI.”
+- Added synchronized manifest versioning, Codex validation, expanded smoke coverage, documentation, and release checks; standalone web UI remains deferred.
+
+---
+
 ## TASK-037: Work log convention — `.tasks/WORK_LOG.md` for top-level decisions and outcomes
 **Priority:** P2 | **Tags:** docs, core
 **Updated:** 2026-07-15 10:30

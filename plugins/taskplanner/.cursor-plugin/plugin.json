@@ -1,7 +1,7 @@
 {
   "name": "taskplanner",
-  "description": "Markdown-based task management for AI agents. Read, create, move, and implement tasks stored in .tasks/ files.",
-  "version": "1.1.0",
+  "description": "Task-first AI workflows: manage, prioritize, and execute work stored as markdown tasks in your repo.",
+  "version": "1.8.0",
   "author": { "name": "refined" },
   "repository": "https://github.com/smekai/taskplanner",
   "license": "GPL-3.0",

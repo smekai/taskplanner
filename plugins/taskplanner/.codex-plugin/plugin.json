@@ -1,0 +1,32 @@
+{
+  "name": "taskplanner",
+  "version": "1.8.0",
+  "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
+  "author": {
+    "name": "refined",
+    "url": "https://github.com/smekai"
+  },
+  "homepage": "https://github.com/smekai/taskplanner#readme",
+  "repository": "https://github.com/smekai/taskplanner",
+  "license": "GPL-3.0",
+  "keywords": ["tasks", "planner", "markdown", "project-management", "ai-workflow"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Task Plan AI",
+    "shortDescription": "AI-directed markdown task management in your repo",
+    "longDescription": "AI-directed markdown task management in your repo. Uses git-tracked .tasks files and gives Codex tools and skills to read, create, prioritize, plan, update, and move work.",
+    "developerName": "refined",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/smekai/taskplanner",
+    "defaultPrompt": [
+      "Show my TaskPlanner board.",
+      "Pick the next task and make a plan.",
+      "Continue the current in-progress task."
+    ],
+    "brandColor": "#6C63FF",
+    "composerIcon": "./assets/taskplanner-color.png",
+    "logo": "./assets/taskplanner-color.png"
+  }
+}
