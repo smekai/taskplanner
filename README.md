@@ -1,6 +1,21 @@
-# Task Planner AI
+<p align="center">
+  <img src="resources/icons/taskplanner-color.png" alt="Task Plan AI logo" width="112" height="112" />
+</p>
 
-AI-directed markdown task tracking built for AI-assisted development. Tasks live in your repo as `.md` files — readable by humans, parseable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows tracked by git.
+<h1 align="center">Task Plan AI</h1>
+
+<p align="center">
+  Git-tracked markdown task planning for developers and AI agents.
+</p>
+
+<p align="center">
+  <a href="https://github.com/smekai/taskplanner/actions/workflows/ci.yml"><img src="https://github.com/smekai/taskplanner/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=refined.taskplanner"><img src="https://img.shields.io/visual-studio-marketplace/v/refined.taskplanner?label=VS%20Code" alt="VS Code Marketplace version" /></a>
+  <a href="https://open-vsx.org/extension/refined/taskplanner"><img src="https://img.shields.io/open-vsx/v/refined/taskplanner?label=Open%20VSX" alt="Open VSX version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="GPL v3 license" /></a>
+</p>
+
+Task Plan AI brings AI-directed markdown task tracking into your repository. Tasks stay readable by humans, actionable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows.
 
 ## Why?
 
