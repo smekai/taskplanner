@@ -6,8 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-21
+
+### Changed
+
+- Development and CI now use Node.js 24 LTS, and unused VS Code integration-test tooling has been removed.
+
 ### Fixed
 
+- Updated build, test, and packaging dependencies to patched releases so the complete npm dependency graph audits cleanly.
 - Codex TaskPlanner tools now receive the active repository path explicitly, so installed plugin MCP servers no longer search their cache directory for `.tasks/` (TASK-039).
 
 ## [1.8.0] - 2026-07-20

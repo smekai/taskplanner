@@ -6,7 +6,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
+- [Node.js](https://nodejs.org/) (v24+)
 - [VS Code](https://code.visualstudio.com/)
 - npm (comes with Node.js)
 
@@ -29,7 +29,6 @@ To run the extension in development mode:
 - **Language:** TypeScript (strict mode)
 - **Bundler:** esbuild
 - **Unit tests:** Vitest (`npm test`)
-- **Integration tests:** @vscode/test-cli
 - **Linter:** ESLint (`npm run lint`)
 - **Formatter:** Prettier (`npm run format`)
 
@@ -135,7 +134,6 @@ Project configuration lives in `.tasks/config.json`:
 ## Testing
 
 - **Unit tests** — run `npm test` (Vitest). Tests live in `src/test/core/`.
-- **Integration tests** — use @vscode/test-cli. Tests live in `src/test/extension/`.
 
 ## Code Style
 
