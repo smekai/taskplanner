@@ -19,10 +19,12 @@ describe('ConfigManager', () => {
 
   it('returns default config when no file exists', () => {
     const config = configManager.load();
-    expect(config.version).toBe(1);
+    expect(config.version).toBe(2);
     expect(config.idPrefix).toBe('TASK');
     expect(config.nextId).toBe(1);
     expect(config.states).toHaveLength(5);
+    expect(config.taskplannerVersion).toBe('');
+    expect(config.readmeAttribution).toBe(true);
   });
 
   it('saves and loads config', () => {

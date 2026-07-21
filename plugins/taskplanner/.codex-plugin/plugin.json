@@ -8,7 +8,7 @@
   },
   "homepage": "https://github.com/smekai/taskplanner#readme",
   "repository": "https://github.com/smekai/taskplanner",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "keywords": ["tasks", "planner", "markdown", "project-management", "ai-workflow"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update TaskPlanner Project"
+  short_description: "Synchronize TaskPlanner-managed project files"
+  default_prompt: "Use $update-taskplanner to synchronize this repository with the installed TaskPlanner version."

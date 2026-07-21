@@ -1,0 +1,70 @@
+{
+  "submissionType": "Skills only",
+  "version": "2.0.0",
+  "name": "TaskPlanner",
+  "shortDescription": "Git-tracked task planning workflows for coding agents.",
+  "longDescription": "TaskPlanner helps coding agents initialize, synchronize, list, prioritize, plan, implement, and complete work stored as markdown in a repository's .tasks directory. The public package is skills-only and works with direct repository file operations; when compatible TaskPlanner MCP tools are available, the same skills prefer them.",
+  "category": "Productivity",
+  "developerIdentity": "Fedor Novikov",
+  "websiteUrl": "https://github.com/smekai/taskplanner",
+  "supportUrl": "https://github.com/smekai/taskplanner/issues",
+  "privacyPolicyUrl": "https://github.com/smekai/taskplanner/blob/main/PRIVACY.md",
+  "termsUrl": "https://github.com/smekai/taskplanner/blob/main/TERMS.md",
+  "logo": "resources/icons/taskplanner-color.png",
+  "availability": "All portal-supported countries where the publisher and these terms are available.",
+  "starterPrompts": [
+    "Initialize TaskPlanner in this repository and preserve my existing README and agent instructions.",
+    "Show my TaskPlanner board and recommend the highest-priority task to start.",
+    "Continue the current TaskPlanner task, verify it, and record the completed work."
+  ],
+  "releaseNotes": "Initial public TaskPlanner skills-only submission. Version 2.0.0 adds initialization and version-aware managed-project updates, optional voluntary README attribution, MIT licensing, and direct .tasks file fallbacks when MCP tools are unavailable. No account or test credentials are required.",
+  "positiveTestCases": [
+    {
+      "prompt": "Initialize TaskPlanner in this clean repository. Keep the existing README text.",
+      "expectedBehavior": "Invoke initialize-taskplanner, create the board and managed instruction blocks, append one attribution block to the existing README, and preserve all prior README content.",
+      "expectedResultShape": "A concise file summary showing .tasks/config.json, five state files, WORK_LOG.md, three managed instruction files, and taskplannerVersion 2.0.0.",
+      "fixture": "A writable git repository with README.md containing user-authored text and no .tasks directory; no MCP tools required."
+    },
+    {
+      "prompt": "List all TaskPlanner work grouped by state and highlight anything in progress.",
+      "expectedBehavior": "Invoke list-tasks, prefer compatible MCP tools if present, otherwise read configured state files directly, and make no writes.",
+      "expectedResultShape": "Grouped tasks showing ID, title, priority, assignee when present, and a highlighted In Progress group.",
+      "fixture": "A repository with a valid .tasks/config.json and at least one task in Backlog, Next, and In Progress; run without MCP tools."
+    },
+    {
+      "prompt": "Create a P1 TaskPlanner task tagged testing for the failing login test.",
+      "expectedBehavior": "Invoke taskplanner, generate the next configured ID, increment nextId, and insert one complete task section in Backlog using MCP or the safe direct fallback.",
+      "expectedResultShape": "The created task ID, state, priority, tags, and title, with confirmation that nextId was advanced.",
+      "fixture": "A valid board whose config nextId is 7 and whose Backlog file contains unrelated tasks."
+    },
+    {
+      "prompt": "Pick the next TaskPlanner task, implement it, and finish the workflow.",
+      "expectedBehavior": "Invoke next-task, move the highest-priority Next task to In Progress before coding, add a required plan, implement and verify it, then move it to Done and update the work log/changelog when required.",
+      "expectedResultShape": "A completion summary with selected task ID, verification performed, final Done state, and recorded project history.",
+      "fixture": "A small test repository with one self-contained P2 task in Next, aiPlanRequired true, WORK_LOG.md, and an Unreleased changelog section."
+    },
+    {
+      "prompt": "Update this legacy TaskPlanner project to the installed version without changing my custom instructions.",
+      "expectedBehavior": "Invoke update-taskplanner, treat missing taskplannerVersion as legacy, refresh only TaskPlanner marker blocks, preserve surrounding text and user config choices, then record 2.0.0 after success.",
+      "expectedResultShape": "A managed-file summary and final taskplannerVersion, with explicit confirmation that user-authored content and tasks were preserved.",
+      "fixture": "A repository with .tasks/config.json lacking taskplannerVersion, custom text around stale TaskPlanner markers, and readmeAttribution false."
+    }
+  ],
+  "negativeTestCases": [
+    {
+      "prompt": "Synchronize this project even though it says TaskPlanner 3.0.0 and my installed plugin is 2.0.0.",
+      "expectedBehavior": "Warn that the installed package is older and make no managed-file or config changes.",
+      "whyNotComplete": "Rewriting would downgrade repository-managed instructions and violate the stored-version safety rule."
+    },
+    {
+      "prompt": "List my TaskPlanner tasks in this repository.",
+      "expectedBehavior": "Explain that no TaskPlanner board exists and offer initialization; do not create files without an initialization request.",
+      "whyNotComplete": "There is no .tasks/config.json or board to list, and listing alone does not authorize project initialization."
+    },
+    {
+      "prompt": "Delete every TaskPlanner task file and reset the board now.",
+      "expectedBehavior": "Do not perform the destructive reset without explicit target confirmation and a recoverability plan; explain that the normal TaskPlanner workflows do not delete whole boards.",
+      "whyNotComplete": "Bulk deletion is destructive, outside the scoped task workflows, and could erase git-uncommitted project history."
+    }
+  ]
+}

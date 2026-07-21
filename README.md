@@ -12,7 +12,7 @@
   <a href="https://github.com/smekai/taskplanner/actions/workflows/ci.yml"><img src="https://github.com/smekai/taskplanner/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=refined.taskplanner"><img src="https://img.shields.io/visual-studio-marketplace/v/refined.taskplanner?label=VS%20Code" alt="VS Code Marketplace version" /></a>
   <a href="https://open-vsx.org/extension/refined/taskplanner"><img src="https://img.shields.io/open-vsx/v/refined/taskplanner?label=Open%20VSX" alt="Open VSX version" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="GPL v3 license" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
 </p>
 
 Task Plan AI brings AI-directed markdown task tracking into your repository. Tasks stay readable by humans, actionable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows.
@@ -176,6 +176,12 @@ Toggle via the Setup menu or set `aiPlanRequired` in `.tasks/config.json`.
 
 When `autoInitAiFiles` is enabled (default), AI instruction files are automatically created or updated during project initialization — so agents get the workflow from the first commit.
 
+### Version-aware updates and attribution
+
+TaskPlanner records the last synchronized product version in `.tasks/config.json` as `taskplannerVersion`. On activation, a newer installed version refreshes only TaskPlanner marker blocks in `AGENTS.md`, `CLAUDE.md`, and `.cursorrules`, applies safe config defaults, and retries later if any write fails. An older installed version never downgrades project files.
+
+Initialization also adds a small managed TaskPlanner attribution block to an existing root `README.md` by default. The attribution is voluntary, removable, and is not an MIT license requirement. Disable future insertion with **Setup → README Attribution** or set `readmeAttribution` to `false`; disabling it does not delete an existing block.
+
 ## Views
 
 ### Filtered Task List (Main View)
@@ -207,6 +213,7 @@ Click the **gear icon** in the TaskPlanner sidebar title bar:
 - **Initialize Project** — create `.tasks/` folder and state files
 - **Initialize AI Instructions** — generate/update `AGENTS.md`, `CLAUDE.md`, and `.cursorrules`
 - **AI Planning: Enable/Disable** — toggle whether agents must plan before coding
+- **README Attribution: Enable/Disable** — control future insertion of the voluntary managed README block
 - **Sort By** — change task sort order (Priority / Name / ID / File order)
 - **Open Settings** — open VS Code extension settings
 
@@ -240,6 +247,10 @@ This builds the extension and shared plugin, runs tests and lint, validates both
 
 ## License
 
-GPL v3
+MIT
 
-This project is licensed under the GNU General Public License v3.0. This means you are free to use, modify, and distribute this software, but any derivative work must also be distributed under the same GPL v3 license and include the source code. The license ensures that the software and all modifications remain free and open source, protecting users' freedom to run, study, share, and modify the software.
+TaskPlanner is licensed under the [MIT License](LICENSE). README attribution is appreciated but voluntary and is not a condition of the license.
+
+<!-- TASKPLANNER:ATTRIBUTION:START -->
+This project uses [TaskPlanner](https://github.com/smekai/taskplanner) for task planning.
+<!-- TASKPLANNER:ATTRIBUTION:END -->

@@ -1,49 +1,46 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 import { ConfigManager } from '../../core/config/configManager.js';
-import { generateAiInstructions, upsertMarkedSection } from '../../core/ai/aiInstructions.js';
+import { synchronizeTaskPlannerProject } from '../../core/project/projectSync.js';
 
 export function registerInitAiCommand(
   context: vscode.ExtensionContext,
   configManager: ConfigManager,
+  installedVersion: string,
 ) {
   context.subscriptions.push(
     vscode.commands.registerCommand('taskplanner.initAi', async () => {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
         vscode.window.showErrorMessage('No workspace folder open.');
-        return;
+        return false;
+      }
+      if (!fs.existsSync(configManager.getTasksDir())) {
+        vscode.window.showErrorMessage('Initialize TaskPlanner before updating project files.');
+        return false;
       }
 
-      const rootPath = workspaceFolder.uri.fsPath;
-      const config = configManager.get();
-      const instructions = generateAiInstructions(config);
-
-      const updatedFiles: string[] = [];
-
-      // Update AGENTS.md (Codex and other agents.md-compatible tools)
-      const agentsPath = path.join(rootPath, 'AGENTS.md');
-      updateFileWithMarkers(agentsPath, instructions.agentsMd);
-      updatedFiles.push('AGENTS.md');
-
-      // Update CLAUDE.md
-      const claudePath = path.join(rootPath, 'CLAUDE.md');
-      updateFileWithMarkers(claudePath, instructions.claudeMd);
-      updatedFiles.push('CLAUDE.md');
-
-      // Update .cursorrules
-      const cursorPath = path.join(rootPath, '.cursorrules');
-      updateFileWithMarkers(cursorPath, instructions.cursorRules);
-      updatedFiles.push('.cursorrules');
-
-      vscode.window.showInformationMessage(`AI instructions updated: ${updatedFiles.join(', ')}`);
+      try {
+        const result = synchronizeTaskPlannerProject(
+          workspaceFolder.uri.fsPath,
+          configManager,
+          installedVersion,
+          { force: true },
+        );
+        if (result.status === 'installed-older') {
+          vscode.window.showWarningMessage(
+            `TaskPlanner ${installedVersion} is older than this project's ${result.storedVersion}; managed files were not downgraded.`,
+          );
+          return false;
+        }
+        vscode.window.showInformationMessage(
+          `TaskPlanner project files updated: ${result.updatedFiles.join(', ')}`,
+        );
+        return true;
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to update TaskPlanner project files: ${error}`);
+        return false;
+      }
     }),
   );
-}
-
-function updateFileWithMarkers(filePath: string, content: string): void {
-  const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
-  const updated = upsertMarkedSection(existing, content);
-  fs.writeFileSync(filePath, updated, 'utf-8');
 }

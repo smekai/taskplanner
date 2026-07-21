@@ -49,6 +49,7 @@ function main() {
     if (manifest.version !== packageJson?.version) {
       fail(`plugin.json version must match package.json (${packageJson?.version}).`);
     }
+    if (manifest.license !== 'MIT') fail('plugin.json license must be MIT.');
     if (!manifest.repository || typeof manifest.repository !== 'string') {
       fail('plugin.json should include a repository URL string.');
     }

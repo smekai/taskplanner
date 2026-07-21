@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "author": { "name": "refined" },
   "repository": "https://github.com/smekai/taskplanner",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "keywords": ["tasks", "planner", "project-management", "markdown", "ai-workflow"],
   "logo": "assets/logo.svg"
 }

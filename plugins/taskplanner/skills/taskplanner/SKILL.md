@@ -1,91 +1,64 @@
 ---
 name: taskplanner
-description: >
-  Manage tasks stored in .tasks/ markdown files. Use when the user mentions tasks, backlog,
-  planning, priorities, sprints, or asks you to implement, create, or move tasks.
-  Provides MCP tools for reading and modifying the task board.
+description: Manage tasks stored in .tasks markdown files. Use when the user mentions tasks, backlog, planning, priorities, sprints, or asks to create, implement, update, list, or move TaskPlanner tasks. Prefer TaskPlanner MCP tools when they can access the active workspace and otherwise operate on the files directly.
 ---
 
-# TaskPlanner Skill
+# TaskPlanner
 
-You have access to a markdown-based task management system called TaskPlanner. Tasks are stored as `.md` files in the `.tasks/` directory of the workspace.
+<!-- TASKPLANNER:VERSION:2.0.0 -->
 
-## Task File Structure
+TaskPlanner stores a git-tracked board in `.tasks/`. Use MCP tools when available, always passing the absolute active repository as `workspace_root`. If a tool is unavailable or cannot see that repository, use the direct file workflow below without blocking the user.
 
-Each state has its own file:
+## Version preflight
 
-| State | File |
-|-------|------|
-| Backlog | `BACKLOG.md` |
-| Next | `NEXT.md` |
-| In Progress | `IN_PROGRESS.md` |
-| Done | `DONE.md` |
-| Rejected | `REJECTED.md` |
+Run this once before the first TaskPlanner operation in a Codex/Cursor task:
 
-Auxiliary: **Work Log** → `WORK_LOG.md` (rolling log of decisions and outcomes when tasks complete).
+1. Read `.tasks/config.json` and compare `taskplannerVersion` with the embedded version above. Strip SemVer build metadata such as `+codex.*` before comparing.
+2. If the stored value is missing, malformed, or older, follow the sibling `update-taskplanner` skill before continuing.
+3. If equal, continue without writes.
+4. If the stored value is newer, warn that the installed plugin is older and do not downgrade managed files.
 
-## Task Format
+The installed skill bundle is authoritative. Never query GitHub or invoke a marketplace update.
 
-Each task is a `## ` heading section separated by `---`:
+## Board files
+
+Use the `states` mapping in `.tasks/config.json`; defaults are Backlog (`BACKLOG.md`), Next (`NEXT.md`), In Progress (`IN_PROGRESS.md`), Done (`DONE.md`), and Rejected (`REJECTED.md`). `WORK_LOG.md` is an optional completion log, not a state.
+
+Each task is a complete section from its `## ID: Title` heading through its trailing `---` separator:
 
 ```markdown
-## TASK-001: Task title here
+## TASK-001: Task title
 **Priority:** P1 | **Tags:** tag1, tag2
 
-Description text in markdown.
+Description.
 
 ### Plan
 
-- Step 1: ...
-- Step 2: ...
+- Step 1
 
 ---
 ```
 
-## Available MCP Tools
+## MCP path
 
-Use these tools to interact with the task board:
+Prefer `taskplanner_board`, `taskplanner_list`, `taskplanner_get`, `taskplanner_create`, `taskplanner_move`, and `taskplanner_update`. Use `taskplanner_board_data` when structured board data is useful and `taskplanner_board_visual` only when the host renders MCP Apps.
 
-- **taskplanner_board** — Get board overview with task counts per state. Pass `include_tasks: true` for full listings.
-- **taskplanner_list** — List tasks for a specific state or all states. Supports `state` and `query` filters.
-- **taskplanner_get** — Get full details of a single task by ID.
-- **taskplanner_create** — Create a new task with auto-generated ID.
-- **taskplanner_move** — Move a task between states (e.g. "Next" to "In Progress").
-- **taskplanner_update** — Update task fields (title, description, priority, tags, plan).
-- **taskplanner_board_data** — Return the structured board view-model for hosts without inline UI.
-- **taskplanner_board_visual** — Request the interactive MCP Apps board; rendering is host-dependent and experimental in Codex.
+## Direct file path
 
-Prefer the standard tools or `taskplanner_board_data` when the host does not render the visual resource.
+- List by reading configured state files and parsing `##` sections.
+- Create by reading `idPrefix` and `nextId`, generating the padded ID, incrementing and saving `nextId`, then inserting one complete section at the configured top/bottom position.
+- Update only the selected task section; preserve its ID and every unrelated section.
+- Move by cutting the complete section, including its separator, from the source state file and inserting it into the target state file.
+- Preserve user configuration choices and all content outside the selected task or TaskPlanner marker blocks.
 
-## Workspace Root
+## Implementing work
 
-Every TaskPlanner MCP tool accepts `workspace_root`. Always pass the absolute path of the current repository workspace on every call. This is required for Codex because bundled MCP servers launch from the installed plugin cache rather than the active repository. Do not infer the repository from the MCP server process working directory.
+1. Select the highest-priority task from Next, then Backlog, unless the user chose one.
+2. Move it to In Progress before substantive implementation.
+3. When `aiPlanRequired` is true, add a concise `### Plan` before coding.
+4. Implement and verify the work.
+5. Condense the plan to a done-summary and move the task to Done.
+6. Add one short entry at the top of `.tasks/WORK_LOG.md` when it exists.
+7. Add a `CHANGELOG.md` entry under `## [Unreleased]` when repository guidance requires it.
 
-## Workflow for Implementing a Task
-
-1. **Pick the task** from Next or Backlog (highest priority first).
-2. **Move to In Progress** using `taskplanner_move`.
-3. **Write a plan** — if the project has `aiPlanRequired: true` in `.tasks/config.json`, add a `### Plan` subsection under the task heading in `IN_PROGRESS.md` before coding. Keep it short (3-7 bullets).
-4. **Implement** the task.
-5. **Move to Done** using `taskplanner_move`.
-6. **Condense the `### Plan`** to a short done-summary.
-7. **Append to `.tasks/WORK_LOG.md`** if that file exists — one short entry at the top (What / Decisions / Outcome).
-8. **Add a CHANGELOG.md entry** under `## [Unreleased]` in the appropriate subsection (Added, Changed, Fixed, Removed).
-
-## Important Rules
-
-- Do NOT change task IDs.
-- Do NOT modify tasks you are not working on.
-- Keep the `---` separator between tasks.
-- Priorities: P0 (critical), P1 (high), P2 (normal), P3 (low), P4 (wishlist).
-- When moving to Done, condense the `### Plan` to a short done-summary.
-- When moving to Done, append one short entry to `.tasks/WORK_LOG.md` if that file exists.
-- Configuration lives in `.tasks/config.json` (ID prefix, next ID, states, settings).
-
-## Creating a New Task
-
-Use the `taskplanner_create` MCP tool. It auto-generates the task ID from `.tasks/config.json`. Default state is Backlog, default priority is P2.
-
-## Continuing an In-Progress Task
-
-Call `taskplanner_list` with `state: "In Progress"`, then `taskplanner_get` for full details. Follow the existing plan if present.
+Never change task IDs or modify unrelated task sections.

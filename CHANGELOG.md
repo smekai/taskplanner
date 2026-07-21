@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- TaskPlanner now synchronizes owned project instructions by installed version, supports voluntary README attribution, and includes initialize/update skills with a public skills-only Codex submission package (TASK-040).
+
+### Changed
+
+- TaskPlanner is now licensed under MIT; README attribution is optional and not a license requirement (TASK-040).
+
 ## [2.0.0] - 2026-07-21
 
 ### Changed

@@ -2,8 +2,18 @@ import { TaskPlannerConfig } from '../model/config.js';
 
 const MARKER_START = '<!-- TASKPLANNER:START -->';
 const MARKER_END = '<!-- TASKPLANNER:END -->';
+const ATTRIBUTION_MARKER_START = '<!-- TASKPLANNER:ATTRIBUTION:START -->';
+const ATTRIBUTION_MARKER_END = '<!-- TASKPLANNER:ATTRIBUTION:END -->';
+const ATTRIBUTION_TEXT =
+  'This project uses [TaskPlanner](https://github.com/smekai/taskplanner) for task planning.';
 
-export { MARKER_START, MARKER_END };
+export {
+  MARKER_START,
+  MARKER_END,
+  ATTRIBUTION_MARKER_START,
+  ATTRIBUTION_MARKER_END,
+  ATTRIBUTION_TEXT,
+};
 
 /** True if synced TaskPlanner AI block is present (e.g. after Initialize AI Instructions). */
 export function contentHasTaskPlannerMarkers(content: string): boolean {
@@ -199,6 +209,25 @@ export function upsertMarkedSection(existingContent: string, section: string): s
   }
 
   // Append to end
+  const separator = existingContent.length > 0 && !existingContent.endsWith('\n') ? '\n' : '';
+  const extraNewline = existingContent.length > 0 ? '\n' : '';
+  return existingContent + separator + extraNewline + markedSection + '\n';
+}
+
+/** Add or refresh the voluntary README attribution without touching surrounding content. */
+export function upsertReadmeAttribution(existingContent: string): string {
+  const markedSection = `${ATTRIBUTION_MARKER_START}\n${ATTRIBUTION_TEXT}\n${ATTRIBUTION_MARKER_END}`;
+  const startIdx = existingContent.indexOf(ATTRIBUTION_MARKER_START);
+  const endIdx = existingContent.indexOf(ATTRIBUTION_MARKER_END);
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    return (
+      existingContent.substring(0, startIdx) +
+      markedSection +
+      existingContent.substring(endIdx + ATTRIBUTION_MARKER_END.length)
+    );
+  }
+
   const separator = existingContent.length > 0 && !existingContent.endsWith('\n') ? '\n' : '';
   const extraNewline = existingContent.length > 0 ? '\n' : '';
   return existingContent + separator + extraNewline + markedSection + '\n';

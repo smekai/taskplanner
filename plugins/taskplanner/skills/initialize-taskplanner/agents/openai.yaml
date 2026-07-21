@@ -1,0 +1,4 @@
+interface:
+  display_name: "Initialize TaskPlanner"
+  short_description: "Create a TaskPlanner board and managed instructions"
+  default_prompt: "Use $initialize-taskplanner to initialize TaskPlanner in this repository."

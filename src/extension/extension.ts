@@ -23,6 +23,7 @@ import { TaskListViewProvider } from './views/webview/taskListPanel.js';
 import { KanbanPanel } from './views/webview/kanbanPanel.js';
 import { scheduleAiInstructionSyncPrompt } from './aiInstructionSyncPrompt.js';
 import { getTaskDirectory } from './config/extensionConfig.js';
+import { synchronizeTaskPlannerProject } from '../core/project/projectSync.js';
 
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -36,6 +37,9 @@ export async function activate(context: vscode.ExtensionContext) {
   const configManager = new ConfigManager(tasksDir);
   const fileStore = new FileStore(tasksDir);
   const taskStore = new TaskStore(configManager, fileStore);
+  const installedVersion = String(context.extension.packageJSON.version ?? '');
+  const taskPlannerLog = vscode.window.createOutputChannel('TaskPlanner');
+  context.subscriptions.push(taskPlannerLog);
 
   // Load config and tasks if .tasks/ exists
   const isInitialized = fs.existsSync(tasksDir);
@@ -43,6 +47,26 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (isInitialized) {
     configManager.load();
+    try {
+      const sync = synchronizeTaskPlannerProject(
+        workspaceFolder.uri.fsPath,
+        configManager,
+        installedVersion,
+      );
+      if (sync.synchronized) {
+        taskPlannerLog.appendLine(
+          `Synchronized managed project files for TaskPlanner ${sync.installedVersion}.`,
+        );
+      } else if (sync.status === 'installed-older') {
+        const message = `TaskPlanner ${installedVersion} is older than this project's ${sync.storedVersion}; managed files were not downgraded.`;
+        taskPlannerLog.appendLine(message);
+        vscode.window.showWarningMessage(message);
+      }
+    } catch (error) {
+      const message = `TaskPlanner managed-file synchronization failed: ${error}`;
+      taskPlannerLog.appendLine(message);
+      vscode.window.showWarningMessage(message);
+    }
     await taskStore.reloadAsync();
     configManager.reconcileNextId(taskStore.getMaxTaskIdNumber() + 1);
     void checkAndPromptDuplicateConflicts(taskStore, configManager);
@@ -71,9 +95,15 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Commands
-  registerInitCommand(context, configManager, fileStore, taskStore);
-  registerInitAiCommand(context, configManager);
-  registerSetupCommand(context, tasksDir, configManager);
+  registerInitCommand(context, configManager, fileStore, taskStore, installedVersion);
+  registerInitAiCommand(context, configManager, installedVersion);
+  registerSetupCommand(
+    context,
+    tasksDir,
+    configManager,
+    workspaceFolder.uri.fsPath,
+    installedVersion,
+  );
   registerCreateTaskCommand(context, taskStore, configManager);
   registerMoveTaskCommand(context, taskStore, configManager);
   registerOpenTaskCommand(context, taskStore, fileStore, configManager);
@@ -102,9 +132,6 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.executeCommand('taskplanner.taskView.focus');
     }),
   );
-
-  const taskPlannerLog = vscode.window.createOutputChannel('TaskPlanner');
-  context.subscriptions.push(taskPlannerLog);
 
   const watcher = createFileWatcher(
     workspaceFolder.uri.fsPath,

@@ -105,6 +105,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
+  "taskplannerVersion": "2.0.0",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
@@ -118,17 +119,21 @@ Project configuration lives in `.tasks/config.json`:
   "tags": [],
   "insertPosition": "top",
   "aiPlanRequired": true,
+  "readmeAttribution": true,
   "sortBy": "priority"
 }
 ```
 
 | Field | Description |
 |-------|-------------|
+| `version` | Task-file schema version; independent from the installed application version |
+| `taskplannerVersion` | Installed TaskPlanner version that last completed managed-project synchronization |
 | `idPrefix` | Prefix for task IDs (e.g. `TASK` → `TASK-001`) |
 | `states` | Task board columns with file mappings |
 | `priorities` | Available priority levels |
 | `insertPosition` | Where new tasks are added: `top` or `bottom` |
 | `aiPlanRequired` | Whether AI agents must write a `### Plan` before coding |
+| `readmeAttribution` | Whether future managed updates may add the voluntary attribution block to an existing root README |
 | `sortBy` | Default sort order: `priority`, `name`, or `id` |
 
 ## Testing
@@ -148,4 +153,4 @@ The project uses ESLint and Prettier. Run `npm run lint` and `npm run format` be
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the GPL v3 license.
+By contributing, you agree that your contributions will be licensed under the MIT License.

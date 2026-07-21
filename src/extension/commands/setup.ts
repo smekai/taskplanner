@@ -2,11 +2,14 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ConfigManager } from '../../core/config/configManager.js';
 import { getSortBy, setSortBy } from '../config/extensionConfig.js';
+import { synchronizeTaskPlannerProject } from '../../core/project/projectSync.js';
 
 export function registerSetupCommand(
   context: vscode.ExtensionContext,
   tasksDir: string,
   configManager: ConfigManager,
+  workspaceRoot: string,
+  installedVersion: string,
 ) {
   context.subscriptions.push(
     vscode.commands.registerCommand('taskplanner.setup', async () => {
@@ -47,6 +50,16 @@ export function registerSetupCommand(
           ? 'AI agents must write a plan before coding (click to disable)'
           : 'AI agents skip the planning step (click to enable)',
         action: 'togglePlan',
+      });
+
+      items.push({
+        label: config.readmeAttribution
+          ? '$(check) README Attribution: Enabled'
+          : '$(circle-outline) README Attribution: Disabled',
+        description: config.readmeAttribution
+          ? 'Add voluntary TaskPlanner attribution during managed updates (click to disable)'
+          : 'Do not add TaskPlanner attribution during managed updates (click to enable)',
+        action: 'toggleAttribution',
       });
 
       items.push({
@@ -95,6 +108,27 @@ export function registerSetupCommand(
             `AI Planning ${!config.aiPlanRequired ? 'enabled' : 'disabled'}. Run "Initialize AI Instructions" to update AI files.`,
           );
           break;
+        case 'toggleAttribution': {
+          const enabled = !config.readmeAttribution;
+          configManager.update({ readmeAttribution: enabled });
+          configManager.save();
+          if (enabled) {
+            try {
+              synchronizeTaskPlannerProject(workspaceRoot, configManager, installedVersion, {
+                force: true,
+                syncInstructions: false,
+              });
+            } catch (error) {
+              vscode.window.showWarningMessage(`README attribution update failed: ${error}`);
+            }
+          }
+          vscode.window.showInformationMessage(
+            enabled
+              ? 'Voluntary README attribution enabled.'
+              : 'README attribution disabled. Existing attribution text was left unchanged.',
+          );
+          break;
+        }
         case 'configureAi':
           await vscode.commands.executeCommand('taskplanner.configureAiProvider');
           break;

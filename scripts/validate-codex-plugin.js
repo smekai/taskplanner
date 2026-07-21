@@ -44,6 +44,10 @@ function main() {
     ['skills/list-tasks/SKILL.md', 'List-tasks skill'],
     ['skills/next-task/SKILL.md', 'Next-task skill'],
     ['skills/continue-task/SKILL.md', 'Continue-task skill'],
+    ['skills/initialize-taskplanner/SKILL.md', 'Initialize-taskplanner skill'],
+    ['skills/initialize-taskplanner/agents/openai.yaml', 'Initialize skill UI metadata'],
+    ['skills/update-taskplanner/SKILL.md', 'Update-taskplanner skill'],
+    ['skills/update-taskplanner/agents/openai.yaml', 'Update skill UI metadata'],
   ]) {
     assertExists(path.join(pluginRoot, relative), label);
   }
@@ -58,6 +62,7 @@ function main() {
     if (manifest.description !== packageJson?.description) {
       fail('plugin.json description must match package.json.');
     }
+    if (manifest.license !== 'MIT') fail('plugin.json license must be MIT.');
     if (manifest.interface?.displayName !== 'Task Plan AI') {
       fail('plugin.json interface.displayName must be "Task Plan AI".');
     }

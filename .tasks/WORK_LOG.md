@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-040 — 2026-07-21
+**What:** Relicensed TaskPlanner to MIT and added version-aware managed-project synchronization, initialization/update skills, and the public Codex skills-only release kit.
+**Decisions:** Kept schema and product versions separate, made attribution voluntary, preferred MCP with direct-file fallback, and blocked managed-file downgrades.
+**Outcome:** Audit, 122 tests, lint, build, validators, MCP smoke, skills packaging, and VSIX packaging pass for 2.0.0.
+
+---
+
 ## TASK-039 — 2026-07-21
 **What:** Fixed Codex MCP workspace resolution by passing the active repository root explicitly through every tool and visual-board call.
 **Decisions:** Kept MCP roots and environment discovery as compatible fallbacks; explicit per-call roots avoid shared mutable server state.

@@ -4,7 +4,7 @@
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
   "version": "2.0.0",
   "publisher": "refined",
-  "license": "GPL v3",
+  "license": "MIT",
   "icon": "resources/icons/taskplanner-color.png",
   "repository": {
     "type": "git",
@@ -232,14 +232,17 @@
     "watch": "node esbuild.js --watch",
     "validate:cursor-plugin": "node scripts/validate-cursor-plugin.js",
     "validate:codex-plugin": "node scripts/validate-codex-plugin.js",
+    "validate:versions": "node scripts/validate-versions.js",
+    "validate:codex-submission": "node scripts/validate-codex-submission.js",
     "verify:cursor-plugin-local": "node scripts/verify-cursor-plugin-local.js",
     "smoke:mcp-server": "node scripts/smoke-test-mcp-server.js",
-    "release:check": "npm run build && npm run lint && npm test && npm run validate:cursor-plugin && npm run validate:codex-plugin && npm run smoke:mcp-server",
+    "release:check": "npm run build && npm run lint && npm test && npm run validate:versions && npm run validate:cursor-plugin && npm run validate:codex-plugin && npm run validate:codex-submission && npm run smoke:mcp-server",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext ts",
     "format": "prettier --write \"src/**/*.ts\" \"esbuild.js\"",
-    "package": "vsce package"
+    "package": "vsce package",
+    "package:codex-skills": "node scripts/package-codex-skills.js"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

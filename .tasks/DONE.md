@@ -1,5 +1,20 @@
 # Done
 
+## TASK-040: Relicense to MIT and add version-aware TaskPlanner skills
+**Priority:** P2 | **Tags:** setup, docs
+**Updated:** 2026-07-21 20:36
+
+Relicense TaskPlanner to MIT, add voluntary README attribution, introduce version-aware project synchronization and initialize/update skills, and prepare the public Codex skills-only package.
+
+### Plan (done)
+
+- Replaced active GPL declarations with MIT metadata, legal documents, contributor terms, badges, and release documentation.
+- Added safe version-aware project synchronization, voluntary README attribution controls, activation/init wiring, and comprehensive unit coverage.
+- Added initialize/update skills, MCP-optional task fallbacks, version enforcement, official skill validation, and a public skills-only submission bundle.
+- Regenerated and verified extension/plugin artifacts with zero npm vulnerabilities, 122 passing tests, and complete release/package checks.
+
+---
+
 ## TASK-039: Fix Codex MCP workspace resolution from installed plugin cache
 **Priority:** P1 | **Tags:** core, feature, testing
 **Updated:** 2026-07-21 16:17

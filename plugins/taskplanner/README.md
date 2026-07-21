@@ -10,7 +10,7 @@ Use this plugin for agent workflows; use the TaskPlanner VS Code extension for p
 |-----------|-------------|
 | **MCP Server** | 8 tools: board overview, list, get, create, move, update, board-data (JSON), board-visual (inline UI) |
 | **Cursor commands** | `/list-tasks`, `/next-task`, `/continue-task` slash commands |
-| **Skills** | TaskPlanner, list-tasks, next-task, and continue-task workflows for Codex and compatible hosts |
+| **Skills** | TaskPlanner, initialize, update, list, next-task, and continue-task workflows for Codex and compatible hosts |
 | **Rule** | Task markdown format conventions (fires when editing `.tasks/` files) |
 | **Manifests** | Host-specific Cursor and Codex manifests backed by one package |
 
@@ -21,6 +21,7 @@ Once installed, the agent can:
 - **List tasks** — use `/list-tasks` in Cursor, `$taskplanner:list-tasks` in Codex, or ask naturally
 - **Pick next task** — use `/next-task` in Cursor or `$taskplanner:next-task` in Codex
 - **Continue current work** — use `/continue-task` in Cursor or `$taskplanner:continue-task` in Codex
+- **Initialize or update a project** — ask to set up TaskPlanner or invoke the initialize/update skills; MCP tools are preferred when available and direct `.tasks` file operations provide the public skills-only fallback
 - **Use MCP tools directly** — e.g. "create a P1 task for fixing the login bug"
 - **Show the visual board** — ask "open the visual task board" (or invoke `taskplanner_board_visual`) to render an inline interactive kanban with drag-to-move and click-for-details (requires an [MCP Apps](https://modelcontextprotocol.io/extensions/apps) host, such as Cursor 2.6+)
 - **Get board JSON** — invoke `taskplanner_board_data` for a machine-readable board view-model (states + cards), useful for hosts without MCP UI rendering
@@ -47,6 +48,8 @@ The repository marketplace lives at `.agents/plugins/marketplace.json`. From the
 codex plugin marketplace add .
 codex plugin add taskplanner@refined-taskplanner
 ```
+
+The local development flow applies a Codex cachebuster before reinstalling. Always start a new Codex task after reinstalling so the updated skills are loaded.
 
 Restart the ChatGPT desktop app or start a new Codex task after installation. Open **Plugins**, choose **TaskPlanner**, and verify the `taskplanner` skills and MCP tools are enabled. Node.js must be available because the bundled MCP server runs locally over stdio.
 
@@ -120,7 +123,7 @@ Description in markdown.
 
 ## License
 
-GPL-3.0
+MIT. The optional README attribution added during initialization is voluntary and removable; it is not a license condition.
 
 ## Marketplace submission checklist
 
