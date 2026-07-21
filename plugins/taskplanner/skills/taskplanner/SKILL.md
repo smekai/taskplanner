@@ -57,6 +57,10 @@ Use these tools to interact with the task board:
 
 Prefer the standard tools or `taskplanner_board_data` when the host does not render the visual resource.
 
+## Workspace Root
+
+Every TaskPlanner MCP tool accepts `workspace_root`. Always pass the absolute path of the current repository workspace on every call. This is required for Codex because bundled MCP servers launch from the installed plugin cache rather than the active repository. Do not infer the repository from the MCP server process working directory.
+
 ## Workflow for Implementing a Task
 
 1. **Pick the task** from Next or Backlog (highest priority first).

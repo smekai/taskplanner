@@ -35,6 +35,8 @@ The MCP board is separate from the VS Code extension's `TaskPlanner: Open Kanban
 
 If your host does not support MCP Apps UI, `taskplanner_board_visual` may not render an iframe; use `taskplanner_board_data` and the standard task tools (`taskplanner_list`, `taskplanner_get`, `taskplanner_move`, etc.) as fallback.
 
+All TaskPlanner tools accept `workspace_root`. Agent workflows pass the absolute active repository path explicitly because Codex starts bundled MCP servers from the installed plugin cache, not from the repository.
+
 ## Installation
 
 ### Codex app and CLI — repository marketplace

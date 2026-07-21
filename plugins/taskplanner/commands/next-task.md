@@ -9,6 +9,8 @@ Pick the highest-priority unstarted task and begin implementation.
 
 ## Steps
 
+Determine the absolute current repository root first and pass it as `workspace_root` on every MCP call.
+
 1. Call `taskplanner_list` with `state: "Next"` to find tasks queued for implementation.
 2. If no tasks are in Next, fall back to `taskplanner_list` with `state: "Backlog"`.
 3. Select the first task (highest priority, since tasks are sorted by priority).

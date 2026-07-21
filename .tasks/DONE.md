@@ -1,5 +1,20 @@
 # Done
 
+## TASK-039: Fix Codex MCP workspace resolution from installed plugin cache
+**Priority:** P1 | **Tags:** core, feature, testing
+**Updated:** 2026-07-21 16:17
+
+Codex launches bundled MCP servers from the installed plugin cache and does not currently provide MCP roots, so TaskPlanner searches the plugin directory instead of the active repository. Accept the repository workspace explicitly on every tool call, propagate it through the interactive board, and update skills and smoke coverage so Codex calls always target the current repo.
+
+### Plan (done)
+
+- Added optional `workspace_root` input to all MCP tools and made it the first workspace discovery candidate.
+- Propagated the resolved workspace through visual-board loading, refresh, details, and move calls.
+- Updated bundled skills, commands, and plugin documentation to always pass the active repository root.
+- Extended smoke coverage for cache-directory startup without MCP roots or workspace environment variables; release checks and the installed plugin cache pass.
+
+---
+
 ## TASK-038: Add first-class Codex plugin support
 **Priority:** P1 | **Tags:** feature, setup, ui
 **Updated:** 2026-07-20 12:45

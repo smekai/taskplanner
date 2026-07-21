@@ -9,6 +9,8 @@ Show the user a summary of all tasks in their TaskPlanner board.
 
 ## Steps
 
+Determine the absolute current repository root first and pass it as `workspace_root` on every MCP call.
+
 1. Call the `taskplanner_board` MCP tool with `include_tasks: true` to get the full board overview.
 2. Present the results to the user in a clear, readable format grouped by state (Backlog, Next, In Progress, Done).
 3. If the user asked for a specific filter (e.g. "show me P0 tasks" or "tasks assigned to me"), use the `taskplanner_list` MCP tool with the appropriate `query` or `state` parameter instead.

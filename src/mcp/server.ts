@@ -22,13 +22,14 @@ function findExistingTasksDir(rootDir: string): string | null {
   return null;
 }
 
-function candidateRoots(clientRoots: string[]): string[] {
+function candidateRoots(clientRoots: string[], explicitRoot?: string): string[] {
   const candidates = new Set<string>();
   const push = (value: string | undefined) => {
     if (!value || !value.trim()) return;
     candidates.add(path.resolve(value));
   };
 
+  push(explicitRoot);
   push(process.env.TASKPLANNER_WORKSPACE_ROOT);
   for (const root of clientRoots) push(root);
   push(process.cwd());
@@ -65,9 +66,9 @@ async function readClientRoots(): Promise<string[]> {
   }
 }
 
-async function findTasksDir(): Promise<string> {
+async function findTasksDir(explicitRoot?: string): Promise<string> {
   const checked: string[] = [];
-  for (const root of candidateRoots(await readClientRoots())) {
+  for (const root of candidateRoots(await readClientRoots(), explicitRoot)) {
     checked.push(root);
     const resolved = findExistingTasksDir(root);
     if (resolved) return resolved;
@@ -78,14 +79,18 @@ async function findTasksDir(): Promise<string> {
   );
 }
 
-async function freshStore(): Promise<{ taskStore: TaskStore; configManager: ConfigManager }> {
-  const tasksDir = await findTasksDir();
+async function freshStore(explicitRoot?: string): Promise<{
+  taskStore: TaskStore;
+  configManager: ConfigManager;
+  workspaceRoot: string;
+}> {
+  const tasksDir = await findTasksDir(explicitRoot);
   const configManager = new ConfigManager(tasksDir);
   configManager.load();
   const fileStore = new FileStore(tasksDir);
   const taskStore = new TaskStore(configManager, fileStore);
   taskStore.reload();
-  return { taskStore, configManager };
+  return { taskStore, configManager, workspaceRoot: path.dirname(tasksDir) };
 }
 
 function formatTask(task: Task, stateName: string): string {
@@ -130,9 +135,17 @@ const MODIFY_ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 
+const WORKSPACE_ROOT_INPUT = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    'Absolute path to the active repository workspace. Always pass the current workspace root when known; Codex launches plugin MCP servers from the plugin cache.',
+  );
+
 const server = new McpServer({
   name: 'taskplanner',
-    version: '1.8.0',
+  version: '1.8.0',
 });
 
 // ── taskplanner_board ───────────────────────────────────
@@ -141,6 +154,7 @@ server.registerTool(
   {
     description: 'Get a board overview with task counts per state and optionally list all tasks',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       include_tasks: z
         .boolean()
         .optional()
@@ -148,8 +162,8 @@ server.registerTool(
     },
     annotations: READ_ONLY_ANNOTATIONS,
   },
-  async ({ include_tasks }) => {
-    const { taskStore } = await freshStore();
+  async ({ workspace_root, include_tasks }) => {
+    const { taskStore } = await freshStore(workspace_root);
     const config = taskStore.config;
     const lines: string[] = ['# Task Board'];
     const states: Record<string, unknown>[] = [];
@@ -186,6 +200,7 @@ server.registerTool(
   {
     description: 'List tasks for a specific state or all states, with optional text query filter',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       state: z
         .string()
         .optional()
@@ -196,8 +211,8 @@ server.registerTool(
     },
     annotations: READ_ONLY_ANNOTATIONS,
   },
-  async ({ state, query }) => {
-    const { taskStore } = await freshStore();
+  async ({ workspace_root, state, query }) => {
+    const { taskStore } = await freshStore(workspace_root);
     const config = taskStore.config;
     const statesToList = state
       ? config.states.filter((s) => s.name.toLowerCase() === state.toLowerCase())
@@ -267,12 +282,13 @@ server.registerTool(
   {
     description: 'Get full details of a single task by its ID',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       task_id: z.string().describe('Task ID (e.g. "TASK-001")'),
     },
     annotations: READ_ONLY_ANNOTATIONS,
   },
-  async ({ task_id }) => {
-    const { taskStore } = await freshStore();
+  async ({ workspace_root, task_id }) => {
+    const { taskStore } = await freshStore(workspace_root);
     const found = taskStore.findTask(task_id);
     if (!found) {
       return {
@@ -293,6 +309,7 @@ server.registerTool(
   {
     description: 'Create a new task. Returns the created task with its auto-generated ID.',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       title: z.string().describe('Task title'),
       description: z.string().optional().describe('Task description in markdown'),
       priority: z
@@ -305,8 +322,8 @@ server.registerTool(
     },
     annotations: CREATE_ANNOTATIONS,
   },
-  async ({ title, description, priority, tags, assignee, state: targetState }) => {
-    const { taskStore, configManager } = await freshStore();
+  async ({ workspace_root, title, description, priority, tags, assignee, state: targetState }) => {
+    const { taskStore, configManager } = await freshStore(workspace_root);
     const stateName = targetState || 'Backlog';
     const validState = configManager
       .get()
@@ -348,6 +365,7 @@ server.registerTool(
   {
     description: 'Move a task to a different state (e.g. from Backlog to In Progress)',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       task_id: z.string().describe('Task ID to move'),
       target_state: z
         .string()
@@ -355,8 +373,8 @@ server.registerTool(
     },
     annotations: MODIFY_ANNOTATIONS,
   },
-  async ({ task_id, target_state }) => {
-    const { taskStore, configManager } = await freshStore();
+  async ({ workspace_root, task_id, target_state }) => {
+    const { taskStore, configManager } = await freshStore(workspace_root);
     const validState = configManager
       .get()
       .states.find((s) => s.name.toLowerCase() === target_state.toLowerCase());
@@ -393,6 +411,7 @@ server.registerTool(
   {
     description: 'Update fields of an existing task',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       task_id: z.string().describe('Task ID to update'),
       title: z.string().optional().describe('New title'),
       description: z.string().optional().describe('New description'),
@@ -403,8 +422,8 @@ server.registerTool(
     },
     annotations: MODIFY_ANNOTATIONS,
   },
-  async ({ task_id, title, description, priority, tags, assignee, plan }) => {
-    const { taskStore } = await freshStore();
+  async ({ workspace_root, task_id, title, description, priority, tags, assignee, plan }) => {
+    const { taskStore } = await freshStore(workspace_root);
     const existing = taskStore.findTask(task_id);
     const updates: Partial<Omit<Task, 'id'>> = {};
     if (title !== undefined) updates.title = title;
@@ -442,6 +461,7 @@ server.registerTool(
   {
     description: 'Get board state as JSON (states + tasks). Used by the visual board iframe.',
     inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
       query: z.string().optional().describe('Optional text query to filter tasks'),
       include_completed: z
         .boolean()
@@ -459,8 +479,8 @@ server.registerTool(
     },
     annotations: READ_ONLY_ANNOTATIONS,
   },
-  async ({ query, include_completed, limit }) => {
-    const { taskStore, configManager } = await freshStore();
+  async ({ workspace_root, query, include_completed, limit }) => {
+    const { taskStore, configManager, workspaceRoot } = await freshStore(workspace_root);
     if (include_completed) {
       taskStore.ensureStateLoaded('Done');
       taskStore.ensureStateLoaded('Rejected');
@@ -471,7 +491,7 @@ server.registerTool(
     });
     return {
       content: [{ type: 'text', text: JSON.stringify(viewModel) }],
-      structuredContent: { board: viewModel },
+      structuredContent: { board: viewModel, workspaceRoot },
     };
   },
 );
@@ -514,15 +534,17 @@ server.registerTool(
     title: 'Visual Task Board',
     description:
       'Request the interactive TaskPlanner board. Rendering depends on MCP Apps host support; use taskplanner_board_data as the guaranteed fallback.',
-    inputSchema: {},
+    inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
+    },
     annotations: READ_ONLY_ANNOTATIONS,
     _meta: {
       ui: { resourceUri: BOARD_RESOURCE_URI },
       [LEGACY_UI_META_KEY]: BOARD_RESOURCE_URI,
     },
   },
-  async () => {
-    const { taskStore, configManager } = await freshStore();
+  async ({ workspace_root }) => {
+    const { taskStore, configManager, workspaceRoot } = await freshStore(workspace_root);
     const viewModel = buildBoardViewModel(taskStore, configManager, {});
     const totals = viewModel.states.map((s) => `${s.name}: ${s.totalCount}`).join(' | ');
     return {
@@ -534,6 +556,7 @@ server.registerTool(
       ],
       structuredContent: {
         board: viewModel,
+        workspaceRoot,
         renderMode: 'mcp-app',
         fallbackTool: 'taskplanner_board_data',
       },

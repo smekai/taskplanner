@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Codex TaskPlanner tools now receive the active repository path explicitly, so installed plugin MCP servers no longer search their cache directory for `.tasks/` (TASK-039).
+
 ## [1.8.0] - 2026-07-20
 
 ### Added

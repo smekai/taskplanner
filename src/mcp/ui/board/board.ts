@@ -24,10 +24,12 @@ interface TaskViewData {
 interface ToolTextResult {
   content?: { type: string; text?: string }[];
   isError?: boolean;
+  structuredContent?: Record<string, unknown>;
 }
 
 interface BoardDataArgs {
   [key: string]: unknown;
+  workspace_root?: string;
   query?: string;
   include_completed?: boolean;
   limit?: number | null;
@@ -41,6 +43,7 @@ const NARROW_LAYOUT_BREAKPOINT = 900;
 const DEFAULT_EXPANDED_NARROW_STATES = new Set(['Next', 'In Progress']);
 
 let currentData: TaskViewData | null = null;
+let workspaceRoot: string | undefined;
 let refreshInFlight = false;
 let expandedAllStates = false;
 let expandedCompleted = false;
@@ -61,6 +64,16 @@ function extractText(result: ToolTextResult | undefined): string {
   if (!result?.content) return '';
   const block = result.content.find((c) => c.type === 'text');
   return block?.text ?? '';
+}
+
+function captureWorkspaceRoot(value: unknown): void {
+  if (typeof value === 'string' && value.trim()) {
+    workspaceRoot = value;
+  }
+}
+
+function withWorkspaceRoot(args: Record<string, unknown>): Record<string, unknown> {
+  return workspaceRoot ? { ...args, workspace_root: workspaceRoot } : args;
 }
 
 function renderError(msg: string): void {
@@ -255,7 +268,7 @@ async function moveTask(taskId: string, targetState: string): Promise<void> {
   try {
     await app.callServerTool({
       name: 'taskplanner_move',
-      arguments: { task_id: taskId, target_state: targetState },
+      arguments: withWorkspaceRoot({ task_id: taskId, target_state: targetState }),
     });
     await refreshBoard();
   } catch (err) {
@@ -268,12 +281,14 @@ async function refreshBoard(): Promise<void> {
   refreshInFlight = true;
   try {
     const args: BoardDataArgs = {};
+    if (workspaceRoot) args.workspace_root = workspaceRoot;
     if (expandedAllStates) args.limit = null;
     if (expandedCompleted) args.include_completed = true;
     const result = await app.callServerTool({
       name: 'taskplanner_board_data',
       arguments: args,
     });
+    captureWorkspaceRoot(result.structuredContent?.workspaceRoot);
     if (result.isError) {
       renderError(`Could not load board: ${extractText(result) || 'unknown error'}`);
       return;
@@ -314,7 +329,7 @@ async function openDrawer(taskId: string): Promise<void> {
   try {
     const result = await app.callServerTool({
       name: 'taskplanner_get',
-      arguments: { task_id: taskId },
+      arguments: withWorkspaceRoot({ task_id: taskId }),
     });
     const text = extractText(result);
     const task = findTaskInCurrent(taskId);
@@ -370,9 +385,19 @@ window.addEventListener('resize', () => {
   }
 });
 
-app.ontoolresult = () => {
+app.addEventListener('toolinput', (params) => {
+  captureWorkspaceRoot(params.arguments?.workspace_root);
+});
+
+app.addEventListener('toolresult', (params) => {
+  captureWorkspaceRoot(params.structuredContent?.workspaceRoot);
+  const board = params.structuredContent?.board as TaskViewData | undefined;
+  if (board) {
+    renderBoard(board);
+    return;
+  }
   void refreshBoard();
-};
+});
 
 void (async () => {
   try {

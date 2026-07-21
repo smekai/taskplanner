@@ -9,6 +9,8 @@ Resume implementation of a task that is already in progress.
 
 ## Steps
 
+Determine the absolute current repository root first and pass it as `workspace_root` on every MCP call.
+
 1. Call `taskplanner_list` with `state: "In Progress"` to find current tasks.
 2. If no tasks are in progress, tell the user and suggest using `/next-task` instead.
 3. If exactly one task is in progress, proceed with that task.

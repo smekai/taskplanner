@@ -8,7 +8,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const serverPath = path.join(__dirname, '..', 'plugins', 'taskplanner', 'dist', 'mcp-server.js');
+const serverPath = process.env.TASKPLANNER_MCP_SERVER_PATH
+  ? path.resolve(process.env.TASKPLANNER_MCP_SERVER_PATH)
+  : path.join(__dirname, '..', 'plugins', 'taskplanner', 'dist', 'mcp-server.js');
 const workspaceRoot = path.join(__dirname, '..');
 const pluginRoot = path.dirname(path.dirname(serverPath));
 
@@ -25,10 +27,7 @@ async function main() {
   const proc = spawn('node', [serverPath], {
     // Match Codex plugin startup: the process starts in the installed plugin, not the task repo.
     cwd: pluginRoot,
-    env: {
-      ...process.env,
-      CURSOR_WORKSPACE_ROOT: workspaceRoot,
-    },
+    env: { ...process.env },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -119,7 +118,10 @@ async function main() {
           jsonrpc: '2.0',
           id: boardDataId,
           method: 'tools/call',
-          params: { name: 'taskplanner_board_data', arguments: { limit: 1 } },
+          params: {
+            name: 'taskplanner_board_data',
+            arguments: { workspace_root: workspaceRoot, limit: 1 },
+          },
         });
         continue;
       }
@@ -155,6 +157,11 @@ async function main() {
       if (!toolNames.includes(name)) {
         fail(`Missing tool: ${name}`);
       }
+      const workspaceSchema = results.tools.find((tool) => tool.name === name)?.inputSchema
+        ?.properties?.workspace_root;
+      if (!workspaceSchema) {
+        fail(`${name} is missing the workspace_root input.`);
+      }
     }
 
     const visualTool = results.tools.find((tool) => tool.name === 'taskplanner_board_visual');
@@ -175,6 +182,9 @@ async function main() {
 
     if (!results.resourceHtml || !results.resourceHtml.includes('TaskPlanner Board')) {
       fail('Board HTML resource did not load expected content.');
+    }
+    if (!results.resourceHtml.includes('workspace_root')) {
+      fail('Board HTML does not propagate workspace_root to follow-up tool calls.');
     }
 
     for (const name of [
@@ -200,12 +210,15 @@ async function main() {
     if (!results.boardData?.structuredContent?.board) {
       fail('taskplanner_board_data did not return structured board content.');
     }
+    if (path.resolve(results.boardData?.structuredContent?.workspaceRoot || '') !== workspaceRoot) {
+      fail('taskplanner_board_data did not resolve the explicit workspace root.');
+    }
 
     console.log('[mcp-smoke] MCP server initialized.');
     console.log(`[mcp-smoke] tools/list OK (${toolNames.length} tools).`);
     console.log('[mcp-smoke] taskplanner_board_visual UI metadata OK.');
     console.log('[mcp-smoke] board resource HTML OK.');
-    console.log('[mcp-smoke] MCP roots, annotations, and structured content OK.');
+    console.log('[mcp-smoke] Explicit workspace root, annotations, and structured content OK.');
     console.log('[mcp-smoke] Smoke test passed.');
   }
 
@@ -215,7 +228,7 @@ async function main() {
     method: 'initialize',
     params: {
       protocolVersion: '2024-11-05',
-      capabilities: { roots: { listChanged: false } },
+      capabilities: {},
       clientInfo: { name: 'taskplanner-smoke-test', version: '1.0.0' },
     },
   });

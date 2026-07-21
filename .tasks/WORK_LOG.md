@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-039 — 2026-07-21
+**What:** Fixed Codex MCP workspace resolution by passing the active repository root explicitly through every tool and visual-board call.
+**Decisions:** Kept MCP roots and environment discovery as compatible fallbacks; explicit per-call roots avoid shared mutable server state.
+**Outcome:** Release checks pass, and plugin `1.9.0+codex.20260721131442` was reinstalled and smoke-tested from the Codex cache.
+
+---
+
 ## TASK-038 — 2026-07-20
 **What:** Added an installable shared Cursor/Codex plugin with Codex skills, MCP tools, `AGENTS.md` sync, and Codex task launching.
 **Decisions:** Kept the MCP board experimental with structured/text fallback; deferred a standalone web dashboard.
