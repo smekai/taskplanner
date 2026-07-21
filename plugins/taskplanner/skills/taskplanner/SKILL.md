@@ -5,7 +5,7 @@ description: Manage tasks stored in .tasks markdown files. Use when the user men
 
 # TaskPlanner
 
-<!-- TASKPLANNER:VERSION:2.0.0 -->
+<!-- TASKPLANNER:VERSION:2.0.1 -->
 
 TaskPlanner stores a git-tracked board in `.tasks/`. Use MCP tools when available, always passing the absolute active repository as `workspace_root`. If a tool is unavailable or cannot see that repository, use the direct file workflow below without blocking the user.
 

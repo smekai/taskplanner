@@ -51,6 +51,10 @@ Description text in markdown.
 
 When you move a task to **Done**, add an entry to `CHANGELOG.md` under the `## [Unreleased]` section. Use the appropriate subsection (`Added`, `Changed`, `Fixed`, `Removed`) and reference the task ID. Keep entries concise — one line per change, written from the user's perspective.
 
+## Versioning
+
+Every commit must include a patch version bump. The pre-commit hook runs `scripts/bump-version.js` and synchronizes `package.json`, `package-lock.json`, the MCP server, both plugin manifests, and embedded skill version markers. Use `--no-verify` only when the exact version was set and validated before the commit, so the hook would otherwise double-bump it.
+
 ## Architecture Decisions
 
 - **Core is VS Code-free** so it can be reused for JetBrains plugin or CLI later.
