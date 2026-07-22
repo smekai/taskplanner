@@ -1,6 +1,6 @@
 /**
- * Bumps the patch version in package.json.
- * Called by the pre-commit git hook.
+ * Bumps the requested semantic version component in package.json.
+ * Defaults to patch when called by the pre-commit git hook.
  */
 const fs = require('fs');
 const path = require('path');
@@ -51,7 +51,15 @@ const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 const previousVersion = pkg.version;
 
 const parts = pkg.version.split('.').map(Number);
-parts[2] += 1;
+const bump = process.argv[2] ?? 'patch';
+const bumpIndex = { major: 0, minor: 1, patch: 2 }[bump];
+if (bumpIndex === undefined) {
+  throw new Error(`Unsupported version bump "${bump}"; use major, minor, or patch`);
+}
+parts[bumpIndex] += 1;
+for (let index = bumpIndex + 1; index < parts.length; index += 1) {
+  parts[index] = 0;
+}
 pkg.version = parts.join('.');
 
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
