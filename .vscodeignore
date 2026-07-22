@@ -18,6 +18,7 @@ vitest.config.ts
 example/**
 CONTRIBUTING.md
 agent-transcripts/**
+scripts/**
 
 # Include the shared Cursor/Codex plugin and its built MCP server
 !plugins/taskplanner/**

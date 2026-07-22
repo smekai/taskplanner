@@ -67,35 +67,40 @@ Search for "taskplanner" in the Cursor marketplace panel.
 
 ### Local test on Windows (recommended before publish)
 
-From the repository root:
+Build and validate from the repository root, then copy the plugin into Cursor's supported local-development directory:
 
-```cmd
-scripts\install-cursor-plugin-local.cmd
-scripts\register-cursor-plugin-local.cmd
+```powershell
+npm.cmd run build
+npm.cmd run validate:cursor-plugin
+
+$cursorPluginTarget = Join-Path $env:USERPROFILE '.cursor\plugins\local\taskplanner'
+if (Test-Path -LiteralPath $cursorPluginTarget) {
+  Remove-Item -LiteralPath $cursorPluginTarget -Recurse -Force
+}
+Copy-Item -LiteralPath 'plugins\taskplanner' -Destination $cursorPluginTarget -Recurse
 ```
 
 Then:
 
-1. In Cursor Settings, enable **Include third-party Plugins, Skills, and other configs**
-2. Fully restart Cursor (File → Exit, then reopen)
-3. Open **Customize** and filter by **User** scope
-4. Verify these entries appear:
+1. Fully restart Cursor or run **Developer: Reload Window**.
+2. Open **Customize** and locate the local TaskPlanner plugin.
+3. Verify these entries appear:
    - **MCP:** `taskplanner` (toggle ON)
    - **Skills:** `taskplanner`
    - **Rules:** `taskplanner-workflow`
    - **Commands:** `/list-tasks`, `/next-task`, `/continue-task`
-5. In Agent chat (workspace with `.tasks/`), ask: **open the visual task board**
+4. In Agent chat (workspace with `.tasks/`), ask: **open the visual task board**
 
 Headless checks from repo root:
 
 ```cmd
-npm run verify:cursor-plugin-local
+npm run validate:cursor-plugin
 npm run smoke:mcp-server
 ```
 
-**Important:** use a real file copy for local testing on Windows. Do not copy the repository package into a symlinked plugin folder. The install script copies to:
+The local plugin path is:
 
-`%USERPROFILE%\.cursor\plugins\taskplanner`
+`%USERPROFILE%\.cursor\plugins\local\taskplanner`
 
 ### Via the VS Code extension
 
@@ -104,7 +109,7 @@ Install the **Task → Plan → AI** VS Code extension — the plugin is auto-re
 ### Manual (macOS/Linux)
 
 ```bash
-ln -s /path/to/taskplanner/plugins/taskplanner ~/.cursor/plugins/taskplanner
+ln -s /path/to/taskplanner/plugins/taskplanner ~/.cursor/plugins/local/taskplanner
 ```
 
 ## Task format

@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/smekai/taskplanner/actions/workflows/ci.yml"><img src="https://github.com/smekai/taskplanner/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=refined.taskplanner"><img src="https://img.shields.io/visual-studio-marketplace/v/refined.taskplanner?label=VS%20Code" alt="VS Code Marketplace version" /></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=refined.taskplanner"><img src="https://vsmarketplacebadges.dev/version-short/refined.taskplanner.svg" alt="VS Code Marketplace version" /></a>
   <a href="https://open-vsx.org/extension/refined/taskplanner"><img src="https://img.shields.io/open-vsx/v/refined/taskplanner?label=Open%20VSX" alt="Open VSX version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
 </p>

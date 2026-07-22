@@ -5,12 +5,12 @@ description: Synchronize an existing TaskPlanner project with the installed skil
 
 # Update TaskPlanner Project
 
-<!-- TASKPLANNER:VERSION:2.1.0 -->
+<!-- TASKPLANNER:VERSION:2.1.1 -->
 
 ## Compare versions
 
 1. Read `.tasks/config.json`. The numeric `version` is only the task-file schema; never use it as the installed product version.
-2. Compare `taskplannerVersion` with `2.1.0`, stripping SemVer build metadata such as `+codex.*`.
+2. Compare `taskplannerVersion` with `2.1.1`, stripping SemVer build metadata such as `+codex.*`.
 3. Missing/malformed stored value is legacy: synchronize once. Installed newer: synchronize. Equal: no action unless the user explicitly requested a refresh. Installed older: warn and do not downgrade.
 
 The installed package is authoritative. Do not query GitHub or run plugin/marketplace upgrades.
@@ -31,6 +31,6 @@ This project uses [TaskPlanner](https://github.com/smekai/taskplanner) for task 
 
 4. When attribution is false, leave any existing attribution untouched and do not insert one.
 5. Never rewrite task sections, state files, or content outside managed markers.
-6. Only after all writes succeed, set `taskplannerVersion` to `2.1.0` and save config. On failure, leave the previous value so a later invocation retries.
+6. Only after all writes succeed, set `taskplannerVersion` to `2.1.1` and save config. On failure, leave the previous value so a later invocation retries.
 
 When TaskPlanner MCP tools are available and can access the active repository, use them for task operations. Managed-file synchronization itself may use direct file operations; the public skills-only package must work without MCP.

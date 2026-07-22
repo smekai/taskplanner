@@ -1,6 +1,6 @@
 {
   "submissionType": "Skills only",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "name": "TaskPlanner",
   "shortDescription": "Git-tracked task planning workflows for coding agents.",
   "longDescription": "TaskPlanner helps coding agents initialize, synchronize, list, prioritize, plan, implement, and complete work stored as markdown in a repository's .tasks directory. The public package is skills-only and works with direct repository file operations; when compatible TaskPlanner MCP tools are available, the same skills prefer them.",
@@ -17,12 +17,12 @@
     "Show my TaskPlanner board and recommend the highest-priority task to start.",
     "Continue the current TaskPlanner task, verify it, and record the completed work."
   ],
-  "releaseNotes": "Initial public TaskPlanner skills-only submission. Version 2.1.0 adds initialization and version-aware managed-project updates, optional voluntary README attribution, MIT licensing, and direct .tasks file fallbacks when MCP tools are unavailable. No account or test credentials are required.",
+  "releaseNotes": "TaskPlanner 2.1.1 introduces the graphite product identity and a corrected public skills-only plugin bundle containing the manifest, skills, and referenced brand asset. It retains initialization, version-aware project synchronization, optional voluntary README attribution, MIT licensing, and direct .tasks file fallbacks when MCP tools are unavailable. No account or test credentials are required.",
   "positiveTestCases": [
     {
       "prompt": "Initialize TaskPlanner in this clean repository. Keep the existing README text.",
       "expectedBehavior": "Invoke initialize-taskplanner, create the board and managed instruction blocks, append one attribution block to the existing README, and preserve all prior README content.",
-      "expectedResultShape": "A concise file summary showing .tasks/config.json, five state files, WORK_LOG.md, three managed instruction files, and taskplannerVersion 2.1.0.",
+      "expectedResultShape": "A concise file summary showing .tasks/config.json, five state files, WORK_LOG.md, three managed instruction files, and taskplannerVersion 2.1.1.",
       "fixture": "A writable git repository with README.md containing user-authored text and no .tasks directory; no MCP tools required."
     },
     {
@@ -45,14 +45,14 @@
     },
     {
       "prompt": "Update this legacy TaskPlanner project to the installed version without changing my custom instructions.",
-      "expectedBehavior": "Invoke update-taskplanner, treat missing taskplannerVersion as legacy, refresh only TaskPlanner marker blocks, preserve surrounding text and user config choices, then record 2.1.0 after success.",
+      "expectedBehavior": "Invoke update-taskplanner, treat missing taskplannerVersion as legacy, refresh only TaskPlanner marker blocks, preserve surrounding text and user config choices, then record 2.1.1 after success.",
       "expectedResultShape": "A managed-file summary and final taskplannerVersion, with explicit confirmation that user-authored content and tasks were preserved.",
       "fixture": "A repository with .tasks/config.json lacking taskplannerVersion, custom text around stale TaskPlanner markers, and readmeAttribution false."
     }
   ],
   "negativeTestCases": [
     {
-      "prompt": "Synchronize this project even though it says TaskPlanner 3.0.0 and my installed plugin is 2.1.0.",
+      "prompt": "Synchronize this project even though it says TaskPlanner 3.0.0 and my installed plugin is 2.1.1.",
       "expectedBehavior": "Warn that the installed package is older and make no managed-file or config changes.",
       "whyNotComplete": "Rewriting would downgrade repository-managed instructions and violate the stored-version safety rule."
     },

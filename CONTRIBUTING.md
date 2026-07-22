@@ -61,7 +61,7 @@ When preparing a plugin publish, run `npm run release:check` before submitting t
 ### Cursor Marketplace submit (manual)
 
 1. Confirm [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner) is **public** and `main` includes `plugins/taskplanner/` plus both marketplace files.
-2. Run locally: `npm run release:check`, then `scripts\install-cursor-plugin-local.cmd` + `scripts\register-cursor-plugin-local.cmd`, restart Cursor, and smoke-test MCP / skill / board.
+2. Run `npm run release:check`, copy `plugins/taskplanner` to `%USERPROFILE%\.cursor\plugins\local\taskplanner`, restart Cursor, and smoke-test the MCP server, skills, and board.
 3. Sign into Cursor → open [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish) → submit repository URL `https://github.com/smekai/taskplanner`.
 4. Wait for Cursor’s manual review (not self-serve). Re-index after later updates.
 
@@ -83,6 +83,16 @@ Packaged artifacts are gitignored and grouped by release channel:
 - `dist/codex/taskplanner-codex-skills-<version>/`
 
 Run `npm run package` or `npm run package:codex-skills` after the latest commit.
+
+For a clean local Cursor test on Windows:
+
+```powershell
+$cursorPluginTarget = Join-Path $env:USERPROFILE '.cursor\plugins\local\taskplanner'
+if (Test-Path -LiteralPath $cursorPluginTarget) {
+  Remove-Item -LiteralPath $cursorPluginTarget -Recurse -Force
+}
+Copy-Item -LiteralPath 'plugins\taskplanner' -Destination $cursorPluginTarget -Recurse
+```
 
 ## Project Structure
 
@@ -114,7 +124,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.0",
+  "taskplannerVersion": "2.1.1",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
