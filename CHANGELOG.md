@@ -13,10 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Adopted the approved graphite TaskPlanner identity across the extension marketplace, Activity Bar, README, and bundled Cursor/Codex plugin assets.
 - Simplified local Cursor plugin testing to use Cursor's supported local plugin directory instead of legacy Claude plugin registration files.
 - Kept repository-only build, validation, and release scripts out of the published VSIX.
+- Replaced the Codex continuation starter prompt with a guided new-task creation prompt.
 
 ### Fixed
 
 - Packaged the public Codex skills-only release as a valid plugin root with its manifest, skills, and referenced brand asset.
+- Generated the Codex upload ZIP with portable `/` entry paths accepted by the OpenAI plugin portal.
 - Replaced the retired VS Code Marketplace version badge with the supported marketplace badge provider.
 - Updated the transitive Hono server dependency to the patched release while retaining the MCP SDK used by TaskPlanner's stdio server.
 

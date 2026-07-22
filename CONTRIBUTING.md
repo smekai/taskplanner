@@ -81,8 +81,9 @@ Packaged artifacts are gitignored and grouped by release channel:
 
 - `dist/vscode/taskplanner-<version>.vsix`
 - `dist/codex/taskplanner-codex-skills-<version>/`
+- `dist/codex/taskplanner-codex-skills-<version>.zip`
 
-Run `npm run package` or `npm run package:codex-skills` after the latest commit.
+Run `npm run package` or `npm run package:codex-skills` after the latest commit. The Codex package command creates both the inspectable plugin root and the upload-ready ZIP with portable archive paths.
 
 For a clean local Cursor test on Windows:
 

@@ -15,7 +15,7 @@
   "starterPrompts": [
     "Initialize TaskPlanner in this repository and preserve my existing README and agent instructions.",
     "Show my TaskPlanner board and recommend the highest-priority task to start.",
-    "Continue the current TaskPlanner task, verify it, and record the completed work."
+    "Create a new TaskPlanner task for this repository. Ask me for any missing title, priority, or tags."
   ],
   "releaseNotes": "TaskPlanner 2.1.1 introduces the graphite product identity and a corrected public skills-only plugin bundle containing the manifest, skills, and referenced brand asset. It retains initialization, version-aware project synchronization, optional voluntary README attribution, MIT licensing, and direct .tasks file fallbacks when MCP tools are unavailable. No account or test credentials are required.",
   "positiveTestCases": [

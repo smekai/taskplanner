@@ -57,6 +57,61 @@ function validateCopiedTree(source, destination, label) {
   }
 }
 
+function readZipEntries(zipPath) {
+  const zip = fs.readFileSync(zipPath);
+  const endOfCentralDirectorySignature = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+  const endOfCentralDirectory = zip.lastIndexOf(endOfCentralDirectorySignature);
+  if (endOfCentralDirectory < 0) {
+    throw new Error('End-of-central-directory record not found.');
+  }
+
+  const entryCount = zip.readUInt16LE(endOfCentralDirectory + 10);
+  let offset = zip.readUInt32LE(endOfCentralDirectory + 16);
+  const entries = [];
+
+  for (let index = 0; index < entryCount; index += 1) {
+    if (zip.readUInt32LE(offset) !== 0x02014b50) {
+      throw new Error(`Invalid central-directory entry at byte ${offset}.`);
+    }
+
+    const nameLength = zip.readUInt16LE(offset + 28);
+    const extraLength = zip.readUInt16LE(offset + 30);
+    const commentLength = zip.readUInt16LE(offset + 32);
+    const nameStart = offset + 46;
+    const nameEnd = nameStart + nameLength;
+    entries.push(zip.toString('utf8', nameStart, nameEnd));
+    offset = nameEnd + extraLength + commentLength;
+  }
+
+  return entries;
+}
+
+function validateZip(packageRoot) {
+  const zipPath = `${packageRoot}.zip`;
+  if (!assertExists(zipPath, 'Packaged Codex upload ZIP')) return;
+
+  let archiveEntries;
+  try {
+    archiveEntries = readZipEntries(zipPath);
+  } catch (error) {
+    fail(`Failed to inspect Codex upload ZIP: ${error.message}`);
+    return;
+  }
+
+  for (const entry of archiveEntries) {
+    const segments = entry.split('/');
+    if (entry.includes('\\') || entry.startsWith('/') || segments.includes('..')) {
+      fail(`Codex upload ZIP contains a non-portable entry path: ${entry}`);
+    }
+  }
+
+  const expectedEntries = listFiles(packageRoot);
+  const actualEntries = archiveEntries.sort();
+  if (JSON.stringify(actualEntries) !== JSON.stringify(expectedEntries)) {
+    fail('Codex upload ZIP file tree does not match the packaged plugin root.');
+  }
+}
+
 function main() {
   const root = path.resolve(__dirname, '..');
   const packageJson = readJson(path.join(root, 'package.json'));
@@ -171,6 +226,7 @@ function main() {
   ) {
     fail('Packaged Codex icon differs from the plugin source icon.');
   }
+  validateZip(packageRoot);
 
   if (!process.exitCode) console.log('[codex-submission] Validation passed.');
 }
