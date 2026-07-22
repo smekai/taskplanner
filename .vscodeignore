@@ -1,7 +1,8 @@
 .vscode/**
 .vscode-test/**
 src/**
-dist/taskplanner-codex-skills-*/**
+dist/codex/**
+dist/vscode/**
 node_modules/**
 .gitignore
 .git/**

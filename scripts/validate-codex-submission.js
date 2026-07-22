@@ -8,7 +8,13 @@ function fail(message) {
 
 function main() {
   const root = path.resolve(__dirname, '..');
-  const submissionPath = path.join(root, 'codex-submission', 'submission.json');
+  const submissionPath = path.join(
+    root,
+    'plugins',
+    'taskplanner',
+    '.codex-plugin',
+    'submission.json',
+  );
   const submission = JSON.parse(fs.readFileSync(submissionPath, 'utf8'));
   const skillsRoot = path.join(root, 'plugins', 'taskplanner', 'skills');
 

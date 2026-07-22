@@ -20,6 +20,8 @@ TaskPlanner is a VS Code extension that provides markdown-based task tracking di
 - `src/test/core/` — Vitest unit tests for core library.
 - `src/test/extension/` — VS Code integration tests.
 - `resources/` — SVG icons and templates.
+- `plugins/taskplanner/` — Shared Cursor/Codex plugin source, manifests, skills, and runtime.
+- `dist/` — Generated extension output and channel-specific release packages.
 
 ## Key Commands
 
@@ -30,7 +32,7 @@ npm run watch        # Dev build with watch mode
 npm test             # Run unit tests (Vitest)
 npm run lint         # Run ESLint
 npm run format       # Run Prettier
-npm run package      # Create .vsix package
+npm run package      # Create dist/vscode/taskplanner-<version>.vsix
 ```
 
 ## Task File Format

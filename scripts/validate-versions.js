@@ -55,7 +55,9 @@ function main() {
     }
   }
 
-  const submission = readJson(path.join(root, 'codex-submission', 'submission.json'));
+  const submission = readJson(
+    path.join(root, 'plugins', 'taskplanner', '.codex-plugin', 'submission.json'),
+  );
   if (submission.version !== expected) {
     fail(`Codex submission is ${submission.version}; expected ${expected}.`);
   }

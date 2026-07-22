@@ -241,7 +241,7 @@
     "test:watch": "vitest",
     "lint": "eslint src --ext ts",
     "format": "prettier --write \"src/**/*.ts\" \"esbuild.js\"",
-    "package": "vsce package",
+    "package": "node scripts/package-vsix.js",
     "package:codex-skills": "node scripts/package-codex-skills.js"
   },
   "devDependencies": {

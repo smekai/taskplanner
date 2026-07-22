@@ -18,7 +18,7 @@ const mcpBundlePath = path.resolve(
 );
 const projectConfigPath = path.resolve(__dirname, '..', '.tasks', 'config.json');
 const versionTextPaths = [
-  path.resolve(__dirname, '..', 'codex-submission', 'submission.json'),
+  path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.codex-plugin', 'submission.json'),
   path.resolve(__dirname, '..', 'docs', 'CODEX_PLUGIN_SUBMISSION.md'),
   path.resolve(__dirname, '..', 'CONTRIBUTING.md'),
 ];

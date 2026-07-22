@@ -5,7 +5,7 @@ function main() {
   const root = path.resolve(__dirname, '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const source = path.join(root, 'plugins', 'taskplanner', 'skills');
-  const destination = path.join(root, 'dist', `taskplanner-codex-skills-${pkg.version}`);
+  const destination = path.join(root, 'dist', 'codex', `taskplanner-codex-skills-${pkg.version}`);
 
   fs.rmSync(destination, { recursive: true, force: true });
   fs.mkdirSync(destination, { recursive: true });

@@ -72,12 +72,17 @@ Identity stays `refined.taskplanner`. Package then publish with your publisher P
 ```bash
 npm run package
 # VS Code Marketplace (Azure DevOps PAT with Marketplace scope for publisher refined):
-npx @vscode/vsce publish --packagePath taskplanner-<version>.vsix --pat <VSCE_PAT>
+npx @vscode/vsce publish --packagePath dist/vscode/taskplanner-<version>.vsix --pat <VSCE_PAT>
 # Open VSX (token from https://open-vsx.org/user-settings/tokens for namespace refined):
-npx ovsx publish taskplanner-<version>.vsix -p <OVSX_PAT>
+npx ovsx publish dist/vscode/taskplanner-<version>.vsix -p <OVSX_PAT>
 ```
 
-Packaged artifact is gitignored: `taskplanner-<version>.vsix` (run `npm run package` after the latest commit).
+Packaged artifacts are gitignored and grouped by release channel:
+
+- `dist/vscode/taskplanner-<version>.vsix`
+- `dist/codex/taskplanner-codex-skills-<version>/`
+
+Run `npm run package` or `npm run package:codex-skills` after the latest commit.
 
 ## Project Structure
 
@@ -91,6 +96,8 @@ src/
 │   ├── core/       # Vitest unit tests for core library
 │   └── extension/  # VS Code integration tests
 resources/          # SVG icons and templates
+plugins/taskplanner/ # Shared Cursor/Codex plugin source and manifests
+dist/               # Generated output (extension bundle and release packages)
 ```
 
 ## Architecture Decisions
