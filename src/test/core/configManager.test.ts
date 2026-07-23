@@ -24,6 +24,7 @@ describe('ConfigManager', () => {
     expect(config.nextId).toBe(1);
     expect(config.states).toHaveLength(5);
     expect(config.taskplannerVersion).toBe('');
+    expect(config.aiPlanRequired).toBe(true);
     expect(config.readmeAttribution).toBe(true);
   });
 

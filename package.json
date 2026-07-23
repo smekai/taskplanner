@@ -212,9 +212,9 @@
         },
         "taskplanner.cursorPlanAndSubmitAfterOpen": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "window",
-          "description": "Cursor only: after Tier 1 chat.open succeeds, best-effort run plan-mode and submit commands (may not exist in all Cursor versions)."
+          "description": "Cursor only: when AI Planning is enabled, best-effort run Plan-mode and submit commands after opening the task (may not exist in all Cursor versions)."
         },
         "taskplanner.claudeCliCommand": {
           "type": "string",

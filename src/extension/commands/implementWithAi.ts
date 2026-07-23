@@ -6,6 +6,7 @@ import { TaskStore } from '../../core/store/taskStore.js';
 import { ConfigManager } from '../../core/config/configManager.js';
 import { composeImplementationPrompt } from '../../core/ai/promptComposer.js';
 import { buildCodexDeepLink } from '../../core/ai/codexDeepLink.js';
+import { shouldAutomateCursorPlanMode } from '../../core/ai/planMode.js';
 import {
   getAiTool,
   setAiTool,
@@ -96,7 +97,7 @@ export function registerImplementWithAiCommand(
       const tool = setting === 'auto' ? detectAiTool() : setting;
       const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-      await dispatch(context, tool, prompt, workspacePath);
+      await dispatch(context, tool, prompt, config.aiPlanRequired, workspacePath);
     }),
   );
 
@@ -199,14 +200,15 @@ async function dispatch(
   context: vscode.ExtensionContext,
   tool: Exclude<AiTool, 'auto'>,
   prompt: string,
+  aiPlanRequired: boolean,
   workspacePath?: string,
 ): Promise<void> {
   switch (tool) {
     case 'cursor':
-      await dispatchCursor(context, prompt);
+      await dispatchCursor(context, prompt, aiPlanRequired);
       break;
     case 'codex-app':
-      await dispatchCodexApp(prompt, workspacePath);
+      await dispatchCodexApp(prompt, aiPlanRequired, workspacePath);
       break;
     case 'claude-code':
       await dispatchClaudeCode(prompt);
@@ -223,7 +225,11 @@ async function dispatch(
   }
 }
 
-async function dispatchCodexApp(prompt: string, workspacePath?: string): Promise<void> {
+async function dispatchCodexApp(
+  prompt: string,
+  aiPlanRequired: boolean,
+  workspacePath?: string,
+): Promise<void> {
   if (!workspacePath) {
     await copyToClipboard(prompt, 'No workspace folder is open for Codex.');
     return;
@@ -231,7 +237,7 @@ async function dispatchCodexApp(prompt: string, workspacePath?: string): Promise
 
   try {
     const opened = await vscode.env.openExternal(
-      vscode.Uri.parse(buildCodexDeepLink(prompt, workspacePath)),
+      vscode.Uri.parse(buildCodexDeepLink(prompt, workspacePath, { planMode: aiPlanRequired })),
     );
     if (!opened) {
       await copyToClipboard(prompt, 'Codex could not be opened.');
@@ -286,7 +292,15 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function dispatchCursor(context: vscode.ExtensionContext, prompt: string): Promise<void> {
+async function dispatchCursor(
+  context: vscode.ExtensionContext,
+  prompt: string,
+  aiPlanRequired: boolean,
+): Promise<void> {
+  const automatePlanMode = shouldAutomateCursorPlanMode(
+    aiPlanRequired,
+    getCursorPlanAndSubmitAfterOpen(),
+  );
   let tier1Ok = false;
   try {
     await openVsCodeChat(prompt);
@@ -300,7 +314,7 @@ async function dispatchCursor(context: vscode.ExtensionContext, prompt: string):
   }
 
   if (tier1Ok) {
-    if (getCursorPlanAndSubmitAfterOpen()) {
+    if (automatePlanMode) {
       await delay(200);
       await tryCursorPlanAndSubmit();
     }
@@ -314,9 +328,17 @@ async function dispatchCursor(context: vscode.ExtensionContext, prompt: string):
     await vscode.commands.executeCommand('composer.newAgentChat');
     await delay(150);
     await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
-    vscode.window.showInformationMessage(
-      'Prompt pasted into Cursor Agent Chat — review and submit.',
-    );
+    if (automatePlanMode) {
+      await delay(100);
+      await tryCursorPlanAndSubmit();
+      vscode.window.showInformationMessage(
+        'Plan request sent to Cursor chat — review the plan before implementation.',
+      );
+    } else {
+      vscode.window.showInformationMessage(
+        'Prompt pasted into Cursor Agent Chat — review and submit.',
+      );
+    }
     return;
   } catch {
     /* Tier 3 */

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- “Implement with AI” now opens a reviewable planning phase by default, including Codex `/plan` and best-effort Cursor Plan mode, before implementation begins (TASK-042).
+
+### Fixed
+
+- Restored the simple checkmark selector in the VS Code and Cursor Activity Bar while retaining the branded marketplace logo (TASK-041).
+
 ## [2.1.1] - 2026-07-22
 
 ### Changed

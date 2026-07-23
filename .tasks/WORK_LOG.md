@@ -15,6 +15,20 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-042 — 2026-07-23
+**What:** Restored a plan-first, approval-gated “Implement with AI” workflow across providers.
+**Decisions:** Used Codex `/plan`, enabled Cursor's best-effort Plan automation by default, and retained `aiPlanRequired: false` as the direct-execution escape hatch.
+**Outcome:** All 126 tests, lint, production build, and formatting checks pass.
+
+---
+
+## TASK-041 — 2026-07-23
+**What:** Restored the checkmark Activity Bar selector while preserving the branded marketplace logo.
+**Decisions:** Reused the historical monochrome SVG and added a manifest regression test to keep the two icon roles separate.
+**Outcome:** All 123 tests, lint, and the production build pass.
+
+---
+
 ## TASK-040 — 2026-07-21
 **What:** Relicensed TaskPlanner to MIT and added version-aware managed-project synchronization, initialization/update skills, and the public Codex skills-only release kit.
 **Decisions:** Kept schema and product versions separate, made attribution voluntary, preferred MCP with direct-file fallback, and blocked managed-file downgrades.

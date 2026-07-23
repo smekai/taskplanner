@@ -34,17 +34,24 @@ describe('composeImplementationPrompt', () => {
     expect(result).toContain('Add an Implement with AI action button.');
   });
 
-  it('includes plan-mode instruction when aiPlanRequired is true', () => {
+  it('requires read-only planning and approval when aiPlanRequired is true', () => {
     const withPlan: TaskPlannerConfig = { ...config, aiPlanRequired: true };
     const result = composeImplementationPrompt(makeTask(), 'Next', withPlan);
-    expect(result).toContain('Use plan mode. Read and analyze before making changes.');
+    expect(result).toContain('During planning, work read-only');
+    expect(result).toContain('Stop and wait for explicit user approval');
+    expect(result).toContain('After approval:');
+    expect(result.indexOf('Stop and wait')).toBeLessThan(
+      result.indexOf('Move the task from Next to In Progress'),
+    );
   });
 
   it('omits plan-mode instruction when aiPlanRequired is false', () => {
     const noPlanConfig: TaskPlannerConfig = { ...config, aiPlanRequired: false };
     const result = composeImplementationPrompt(makeTask(), 'Backlog', noPlanConfig);
-    expect(result).not.toContain('Use plan mode.');
+    expect(result).not.toContain('During planning, work read-only');
+    expect(result).not.toContain('Stop and wait for explicit user approval');
     expect(result).not.toContain('### Plan subsection');
+    expect(result).not.toContain('After approval:');
     expect(result).toContain('Move the task to DONE.md');
   });
 
@@ -52,15 +59,17 @@ describe('composeImplementationPrompt', () => {
     const result = composeImplementationPrompt(makeTask(), 'Next', config);
     expect(result).not.toContain('git branch');
     expect(result).toContain('Move the task from Next to In Progress');
-    expect(result).toContain('Write a ### Plan subsection');
+    expect(result).toContain('Save the approved plan as a ### Plan subsection');
+    expect(result).toContain('Verify the implementation');
     expect(result).toContain('Move the task to DONE.md');
   });
 
-  it('includes existing plan when present', () => {
+  it('requires an existing plan to be reviewed instead of silently replaced', () => {
     const task = makeTask({ plan: '- Step 1\n- Step 2' });
     const result = composeImplementationPrompt(task, 'Next', config);
     expect(result).toContain('Existing plan:');
     expect(result).toContain('- Step 1');
+    expect(result).toContain('Review and refine the existing plan; do not silently replace it');
   });
 
   it('includes assignee when present', () => {

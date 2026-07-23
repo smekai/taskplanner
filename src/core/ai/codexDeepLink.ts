@@ -1,8 +1,17 @@
 const TASKPLANNER_PLUGIN_MENTION = '[@TaskPlanner](plugin://taskplanner@refined-taskplanner)';
 
-export function buildCodexDeepLink(prompt: string, workspacePath: string): string {
+export interface CodexDeepLinkOptions {
+  planMode?: boolean;
+}
+
+export function buildCodexDeepLink(
+  prompt: string,
+  workspacePath: string,
+  options: CodexDeepLinkOptions = {},
+): string {
+  const taskPrompt = `${TASKPLANNER_PLUGIN_MENTION} ${prompt}`;
   const params = new URLSearchParams({
-    prompt: `${TASKPLANNER_PLUGIN_MENTION} ${prompt}`,
+    prompt: options.planMode ? `/plan ${taskPrompt}` : taskPrompt,
     path: workspacePath,
   });
   return `codex://new?${params.toString()}`;

@@ -1,5 +1,34 @@
 # Done
 
+## TASK-042: Restore plan-first Implement with AI flow
+**Priority:** P1 | **Tags:** feature, ui, testing
+**Updated:** 2026-07-23 08:55
+
+When AI planning is enabled, open implementation requests in a real planning phase, require plan review before workspace changes, and only implement after approval. Use Codex `/plan`, enable Cursor's best-effort Plan mode by default, and preserve the planning-disabled direct workflow.
+
+### Plan
+
+- Split generated AI prompts into read-only planning, explicit approval, and post-approval implementation phases; existing plans are reviewed rather than replaced.
+- Added Codex deep-link `planMode` support using `/plan`, conditional on `aiPlanRequired`.
+- Enabled Cursor Plan-mode automation by default and gated it on both project planning and the existing user setting, including the paste fallback.
+- Added coverage for prompt ordering, existing plans, Codex enabled/disabled links, Cursor gating/defaults, and the default project config; 126 tests, lint, build, and formatting pass.
+
+---
+
+## TASK-041: Restore checkmark activity-bar icon
+**Priority:** P2 | **Tags:** ui
+**Updated:** 2026-07-23 08:45
+
+Use the simple checkmark icon for the TaskPlanner activity-bar selector in VS Code and Cursor while preserving the branded color logo for marketplace listings.
+
+### Plan
+
+- Restored the historical monochrome checkmark in `resources/icons/taskplanner.svg`, used by the VS Code/Cursor activity-bar view container.
+- Preserved `resources/icons/taskplanner-color.png` as the top-level marketplace logo.
+- Added `extensionBranding.test.ts` to lock the distinct marketplace and activity-bar icon behavior; tests, lint, and production build pass.
+
+---
+
 ## TASK-040: Relicense to MIT and add version-aware TaskPlanner skills
 **Priority:** P2 | **Tags:** setup, docs
 **Updated:** 2026-07-21 20:36

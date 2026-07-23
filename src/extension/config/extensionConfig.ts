@@ -31,7 +31,7 @@ export function getClaudeCliCommand(): string {
 }
 
 export function getCursorPlanAndSubmitAfterOpen(): boolean {
-  return cfg().get<boolean>('cursorPlanAndSubmitAfterOpen', false);
+  return cfg().get<boolean>('cursorPlanAndSubmitAfterOpen', true);
 }
 
 const SORT_BY_VALUES: readonly TaskListSortBy[] = ['priority', 'name', 'id', 'file'];
