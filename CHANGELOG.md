@@ -6,9 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-07-24
+
 ### Changed
 
-- “Implement with AI” now opens a reviewable planning phase by default, including Codex `/plan` and best-effort Cursor Plan mode, before implementation begins (TASK-042).
+- “Implement with AI” now opens a reviewable planning phase by default (when AI Planning is enabled), including Codex `/plan` and best-effort Cursor Plan mode, before implementation begins (TASK-042).
 
 ### Fixed
 

@@ -228,7 +228,7 @@ Extension settings (accessible via VS Code Settings UI):
 | `taskplanner.sortBy` | `priority` | Sort order for tasks: `priority`, `name`, `id`, or `file` (markdown order) |
 | `taskplanner.groupBy` | `status` | Group tasks by: `status`, `assignee`, `date`, or `none` |
 | `taskplanner.aiTool` **(Beta)** | `auto` | AI tool for "Implement with AI": `auto`, `codex-app`, `cursor`, `claude-code`, `vscode-chat`, `claude-cli`, `clipboard` |
-| `taskplanner.cursorPlanAndSubmitAfterOpen` **(Beta)** | `false` | Cursor: after chat.open succeeds, best-effort plan/submit commands |
+| `taskplanner.cursorPlanAndSubmitAfterOpen` **(Beta)** | `true` | Cursor: when AI Planning is enabled, best-effort Plan mode and submit after opening the task |
 | `taskplanner.claudeCliCommand` **(Beta)** | `claude {{file}}` | claude-cli: shell command; `{{file}}` is replaced with temp prompt path |
 
 Project config is stored in `.tasks/config.json`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full config reference.
