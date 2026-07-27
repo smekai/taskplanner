@@ -1,5 +1,45 @@
 # Done
 
+## TASK-045: Show task ID prominently in the edit detail view
+**Priority:** P1 | **Tags:** ui
+**Updated:** 2026-07-27 10:01
+
+Add labeled read-only ID field near the top of the task edit/detail webview. Remove redundant footer `.detail-id` if duplicated.
+
+### Plan
+
+- Added labeled read-only ID field above Title in `buildDetailHtml`.
+- Removed footer `.detail-id`; styled with `.detail-readonly`.
+
+---
+
+## TASK-044: Filter tasks by tag in the sidebar
+**Priority:** P1 | **Tags:** core, ui, feature
+**Updated:** 2026-07-27 10:01
+
+Add tag filter to core `TaskFilter` and sidebar list UI. Filter tasks where `task.tags` includes the selected tag. Add Tag control in filter popup.
+
+### Plan
+
+- Added `TaskFilter.tag` and filtering in `filterAndPaginate` / `groupTasks`.
+- Extended text search to match tags; added Tag popup in list filter bar.
+- Tests for tag, query-on-tag, and combined filters.
+
+---
+
+## TASK-043: Stable list sorting by priority then ID
+**Priority:** P1 | **Tags:** core, ui
+**Updated:** 2026-07-27 09:59
+
+Change `sortTasks` so non-`file` sorts always use ID ascending as the final tie-breaker. Priority primary = P0→P4. Replace current priority→title tie-break with priority→ID.
+
+### Plan
+
+- Updated `sortTasks` to tie-break priority and name sorts by ID ascending via `compareById`.
+- Added unit tests for priority/name ties ordered by ID.
+
+---
+
 ## TASK-042: Restore plan-first Implement with AI flow
 **Priority:** P1 | **Tags:** feature, ui, testing
 **Updated:** 2026-07-23 08:55

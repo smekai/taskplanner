@@ -28,6 +28,7 @@ export interface TaskViewData {
 export interface TaskFilter {
   status?: string;
   query?: string;
+  tag?: string;
   groupBy?: 'status' | 'assignee' | 'date' | 'none';
 }
 

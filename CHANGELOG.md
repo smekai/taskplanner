@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Task list sorting now tie-breaks by task ID (ascending) when priority or name sort keys match, giving stable ordering within groups (TASK-043).
+
+### Added
+
+- Tag filter in the sidebar task list filter bar to show tasks matching a selected tag (TASK-044).
+- Labeled read-only task ID field at the top of the task edit detail view (TASK-045).
+
 ## [2.1.2] - 2026-07-24
 
 ### Changed

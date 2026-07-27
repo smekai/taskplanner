@@ -40,11 +40,20 @@ function matchesQuery(task: Task, query: string): boolean {
     task.id.toLowerCase().includes(q) ||
     task.title.toLowerCase().includes(q) ||
     (task.assignee?.toLowerCase().includes(q) ?? false) ||
-    (task.updatedAt?.toLowerCase().includes(q) ?? false)
+    (task.updatedAt?.toLowerCase().includes(q) ?? false) ||
+    task.tags.some((tag) => tag.toLowerCase().includes(q))
   );
 }
 
+function matchesTag(task: Task, tag: string): boolean {
+  return task.tags.includes(tag);
+}
+
 const PRIORITY_ORDER: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3, P4: 4 };
+
+function compareById(a: Task, b: Task): number {
+  return a.id.localeCompare(b.id);
+}
 
 export type TaskListSortBy = 'priority' | 'name' | 'id' | 'file';
 
@@ -57,12 +66,14 @@ export function sortTasks(tasks: Task[], sortBy: TaskListSortBy): Task[] {
     switch (sortBy) {
       case 'priority': {
         const diff = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
-        return diff !== 0 ? diff : a.title.localeCompare(b.title);
+        return diff !== 0 ? diff : compareById(a, b);
       }
-      case 'name':
-        return a.title.localeCompare(b.title);
+      case 'name': {
+        const diff = a.title.localeCompare(b.title);
+        return diff !== 0 ? diff : compareById(a, b);
+      }
       case 'id':
-        return a.id.localeCompare(b.id);
+        return compareById(a, b);
       default:
         return 0;
     }
@@ -93,10 +104,16 @@ export function filterAndPaginate(
       tasks = tasks.filter((t) => matchesQuery(t, filter.query!));
     }
 
+    // Apply tag filter
+    if (filter?.tag) {
+      tasks = tasks.filter((t) => matchesTag(t, filter.tag!));
+    }
+
     // Apply sorting
     tasks = sortTasks(tasks, sortBy);
 
-    const totalCount = filter?.query
+    const hasContentFilter = Boolean(filter?.query?.trim()) || Boolean(filter?.tag);
+    const totalCount = hasContentFilter
       ? tasks.length
       : (stateDisplayCounts?.get(state.name) ?? tasks.length);
     const { sliced, hasMore } = applyLimit(tasks, totalCount, limit);
@@ -141,6 +158,11 @@ export function groupTasks(
     allTasks = allTasks.filter((t) => matchesQuery(t.task, filter.query!));
   }
 
+  // Apply tag filter
+  if (filter?.tag) {
+    allTasks = allTasks.filter((t) => matchesTag(t.task, filter.tag!));
+  }
+
   // Group
   const groups = new Map<string, { task: Task; stateName: string }[]>();
 
@@ -180,7 +202,8 @@ export function groupTasks(
         entries.map((e) => e.task),
         sortBy,
       );
-      const totalCount = filter?.query
+      const hasContentFilter = Boolean(filter?.query?.trim()) || Boolean(filter?.tag);
+      const totalCount = hasContentFilter
         ? sorted.length
         : (stateDisplayCounts?.get(state.name) ?? sorted.length);
       const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterAndPaginate } from '../../core/filter/taskFilter.js';
+import { filterAndPaginate, sortTasks } from '../../core/filter/taskFilter.js';
 import { Task, Priority } from '../../core/model/task.js';
 import { TaskState } from '../../core/model/state.js';
 
@@ -9,8 +9,13 @@ const states: TaskState[] = [
   { name: 'Done', fileName: 'DONE.md', order: 2 },
 ];
 
-function makeTask(id: string, title: string, priority: Priority = Priority.P3): Task {
-  return { id, title, description: '', priority, tags: [] };
+function makeTask(
+  id: string,
+  title: string,
+  priority: Priority = Priority.P3,
+  tags: string[] = [],
+): Task {
+  return { id, title, description: '', priority, tags };
 }
 
 function makeTasks(count: number, prefix: string): Task[] {
@@ -106,5 +111,96 @@ describe('filterAndPaginate', () => {
     expect(result.states).toHaveLength(1);
     expect(result.states[0].tasks).toHaveLength(1);
     expect(result.states[0].tasks[0].id).toBe('TASK-001');
+  });
+
+  it('filters by tag', () => {
+    const tasksByState = new Map<string, Task[]>([
+      [
+        'Backlog',
+        [
+          makeTask('TASK-001', 'Alpha', Priority.P2, ['ui']),
+          makeTask('TASK-002', 'Beta', Priority.P2, ['core']),
+        ],
+      ],
+      ['In Progress', [makeTask('TASK-003', 'Gamma', Priority.P2, ['ui'])]],
+      ['Done', []],
+    ]);
+
+    const result = filterAndPaginate(tasksByState, states, { tag: 'ui' });
+    expect(result.states[0].tasks).toHaveLength(1);
+    expect(result.states[0].tasks[0].id).toBe('TASK-001');
+    expect(result.states[1].tasks).toHaveLength(1);
+    expect(result.states[1].tasks[0].id).toBe('TASK-003');
+  });
+
+  it('filters by query matching tags', () => {
+    const tasksByState = new Map<string, Task[]>([
+      ['Backlog', [makeTask('TASK-001', 'Alpha', Priority.P2, ['feature']), makeTask('TASK-002', 'Beta')]],
+      ['In Progress', []],
+      ['Done', []],
+    ]);
+
+    const result = filterAndPaginate(tasksByState, states, { query: 'feature' });
+    expect(result.states[0].tasks).toHaveLength(1);
+    expect(result.states[0].tasks[0].id).toBe('TASK-001');
+  });
+
+  it('combines status, tag, and query filters', () => {
+    const tasksByState = new Map<string, Task[]>([
+      [
+        'Backlog',
+        [
+          makeTask('TASK-001', 'Fix ui bug', Priority.P2, ['ui']),
+          makeTask('TASK-002', 'Fix core bug', Priority.P2, ['core']),
+        ],
+      ],
+      ['In Progress', [makeTask('TASK-003', 'Fix ui crash', Priority.P2, ['ui'])]],
+      ['Done', []],
+    ]);
+
+    const result = filterAndPaginate(tasksByState, states, {
+      status: 'Backlog',
+      tag: 'ui',
+      query: 'fix',
+    });
+    expect(result.states).toHaveLength(1);
+    expect(result.states[0].tasks).toHaveLength(1);
+    expect(result.states[0].tasks[0].id).toBe('TASK-001');
+  });
+});
+
+describe('sortTasks', () => {
+  it('sorts by priority then ID when priorities tie', () => {
+    const tasks = [
+      makeTask('TASK-003', 'Third', Priority.P1),
+      makeTask('TASK-001', 'First', Priority.P1),
+      makeTask('TASK-002', 'Second', Priority.P1),
+      makeTask('TASK-004', 'Fourth', Priority.P2),
+    ];
+
+    const sorted = sortTasks(tasks, 'priority');
+    expect(sorted.map((t) => t.id)).toEqual([
+      'TASK-001',
+      'TASK-002',
+      'TASK-003',
+      'TASK-004',
+    ]);
+  });
+
+  it('sorts by name then ID when titles tie', () => {
+    const tasks = [
+      makeTask('TASK-003', 'Same title'),
+      makeTask('TASK-001', 'Same title'),
+      makeTask('TASK-002', 'Same title'),
+      makeTask('TASK-004', 'Other title'),
+    ];
+
+    const sorted = sortTasks(tasks, 'name');
+    expect(sorted.map((t) => t.id)).toEqual([
+      'TASK-004',
+      'TASK-001',
+      'TASK-002',
+      'TASK-003',
+    ]);
   });
 });

@@ -248,7 +248,10 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     const states = config.states;
     const groupBy = this.filter.groupBy ?? 'status';
     const needAllTasks =
-      groupBy !== 'status' || this.sortBy === 'file' || Boolean(this.filter.query?.trim());
+      groupBy !== 'status' ||
+      this.sortBy === 'file' ||
+      Boolean(this.filter.query?.trim()) ||
+      Boolean(this.filter.tag);
     if (needAllTasks) {
       this.taskStore.ensureAllDeferredStatesLoaded();
     }
@@ -367,7 +370,9 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
   }
 
   private buildListHtml(groups: GroupViewData[], groupBy: string): string {
-    const states = this.configManager.get().states;
+    const config = this.configManager.get();
+    const states = config.states;
+    const availableTags = this.collectAvailableTags(config.tags, this.taskStore.getAllTasks());
     const statusFilterItems = [
       { value: '', label: 'All statuses' },
       ...states.map((s) => ({ value: s.name, label: s.name })),
@@ -375,6 +380,16 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       .map((o) => {
         const isActive = o.value === '' ? !this.filter.status : this.filter.status === o.value;
         return `<div class="popup-item${isActive ? ' active' : ''}" data-action="setStatus" data-value="${this.escapeAttr(o.value)}">${o.label}</div>`;
+      })
+      .join('\n');
+
+    const tagFilterItems = [
+      { value: '', label: 'All tags' },
+      ...availableTags.map((tag) => ({ value: tag, label: tag })),
+    ]
+      .map((o) => {
+        const isActive = o.value === '' ? !this.filter.tag : this.filter.tag === o.value;
+        return `<div class="popup-item${isActive ? ' active' : ''}" data-action="setTag" data-value="${this.escapeAttr(o.value)}">${this.escapeHtml(o.label)}</div>`;
       })
       .join('\n');
 
@@ -428,6 +443,15 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
             </div>
           </div>
           <div class="icon-btn-wrap">
+            <button class="icon-btn${this.filter.tag ? ' icon-btn-active' : ''}" id="tagBtn" title="Tag: ${this.escapeAttr(this.filter.tag ?? 'All tags')}">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5.5l1 1H14v8.5l-1 1H2V2zm1 1v7h7.8l.7-.7V4.5l-.7-.7H7.5L6.5 3H3zm2.5 2.5a1 1 0 100 2 1 1 0 000-2z"/></svg>
+            </button>
+            <div class="popup-menu" id="tagMenu">
+              <div class="popup-label">Tag</div>
+              ${tagFilterItems}
+            </div>
+          </div>
+          <div class="icon-btn-wrap">
             <button class="icon-btn${this.filter.status ? ' icon-btn-active' : ''}" id="statusBtn" title="Status: ${this.escapeAttr(this.filter.status ?? 'All statuses')}">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v1l-5 6v5l-2-1V9L2 3V2z"/></svg>
             </button>
@@ -452,6 +476,8 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       const queryEl = document.getElementById('queryFilter');
       const statusBtn = document.getElementById('statusBtn');
       const statusMenu = document.getElementById('statusMenu');
+      const tagBtn = document.getElementById('tagBtn');
+      const tagMenu = document.getElementById('tagMenu');
       const groupByBtn = document.getElementById('groupByBtn');
       const groupByMenu = document.getElementById('groupByMenu');
       const sortByBtn = document.getElementById('sortByBtn');
@@ -460,6 +486,7 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       let currentGroupBy = ${JSON.stringify(groupBy)};
       let currentSortBy = ${JSON.stringify(this.sortBy)};
       let currentStatus = ${JSON.stringify(this.filter.status ?? '')};
+      let currentTag = ${JSON.stringify(this.filter.tag ?? '')};
       let taskListSuppressClickUntil = 0;
 
       let debounceTimer;
@@ -470,6 +497,7 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
             type: 'applyFilter',
             filter: {
               status: currentStatus || undefined,
+              tag: currentTag || undefined,
               query: queryEl.value || undefined,
               groupBy: currentGroupBy
             },
@@ -514,6 +542,13 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         if (!isOpen) statusMenu.classList.add('open');
       });
 
+      tagBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = tagMenu.classList.contains('open');
+        closeAllMenus();
+        if (!isOpen) tagMenu.classList.add('open');
+      });
+
       document.addEventListener('click', () => closeAllMenus());
 
       document.addEventListener('click', (e) => {
@@ -538,6 +573,10 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
           applyFilter();
         } else if (action === 'setStatus') {
           currentStatus = btn.dataset.value ?? '';
+          closeAllMenus();
+          applyFilter();
+        } else if (action === 'setTag') {
+          currentTag = btn.dataset.value ?? '';
           closeAllMenus();
           applyFilter();
         } else if (action === 'implementWithAi') {
@@ -1069,6 +1108,11 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         <button class="ai-hero-btn" id="aiBtnTop"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px;margin-right:6px"><path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5Z" fill="#fff"/><path d="M12.5 0l.75 2.25L15.5 3l-2.25.75L12.5 6l-.75-2.25L9.5 3l2.25-.75Z" fill="#fff" opacity="0.7"/></svg>Build with AI</button>
 
         <div class="detail-field">
+          <label>ID</label>
+          <div class="detail-readonly">${this.escapeHtml(task.id)}</div>
+        </div>
+
+        <div class="detail-field">
           <label>Title</label>
           <input type="text" id="fieldTitle" value="${this.escapeAttr(task.title)}" />
         </div>
@@ -1125,8 +1169,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
           <button class="editor-btn" id="backBtnBottom">Back</button>
           <button class="editor-btn" id="editorBtn">Locate in File</button>
         </div>
-
-        <div class="detail-id">${this.escapeHtml(task.id)}</div>
       </div>
     `;
 
@@ -1481,10 +1523,10 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         .editor-btn:hover {
           background: #4a4a4a;
         }
-        .detail-id {
-          font-size: 0.75em;
+        .detail-readonly {
+          font-size: 0.9em;
           color: var(--muted-fg);
-          text-align: right;
+          padding: 6px 0 2px;
         }
         .parse-warning-banner {
           border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-border));
@@ -1540,6 +1582,18 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
+
+  private collectAvailableTags(configTags: string[], tasksByState: Map<string, Task[]>): string[] {
+    const tags = new Set<string>(configTags);
+    for (const tasks of tasksByState.values()) {
+      for (const task of tasks) {
+        for (const tag of task.tags) {
+          tags.add(tag);
+        }
+      }
+    }
+    return [...tags].sort((a, b) => a.localeCompare(b));
+  }
 
   private escapeHtml(text: string): string {
     return text

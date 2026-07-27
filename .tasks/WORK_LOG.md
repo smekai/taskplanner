@@ -15,6 +15,24 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-045 — 2026-07-27
+**What:** Labeled read-only task ID at the top of the edit detail view.
+**Outcome:** Removed redundant footer ID; ID shown above Title with `.detail-readonly` styling.
+
+---
+
+## TASK-044 — 2026-07-27
+**What:** Tag filter in sidebar list plus core `TaskFilter.tag` support.
+**Outcome:** Tag popup in filter bar; text search also matches tags; unit tests added.
+
+---
+
+## TASK-043 — 2026-07-27
+**What:** Stable list sorting by priority then ID within each group.
+**Outcome:** Priority and name sorts now tie-break by task ID ascending; tests added.
+
+---
+
 ## TASK-042 — 2026-07-23
 **What:** Restored a plan-first, approval-gated “Implement with AI” workflow across providers.
 **Decisions:** Used Codex `/plan`, enabled Cursor's best-effort Plan automation by default, and retained `aiPlanRequired: false` as the direct-execution escape hatch.
