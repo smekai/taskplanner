@@ -2,32 +2,68 @@
 
 ## TASK-036: Harden config.json loading — validate states, log failures to output channel
 **Priority:** P1 | **Tags:** core, setup
-**Updated:** 2026-07-13 00:00
+**Updated:** 2026-07-27 13:35
 
-A malformed `.tasks/config.json` (e.g. `states` as plain strings instead of `{name, fileName, order}` objects, as found in the adhd repo) makes every `path.join(tasksDir, state.fileName)` throw and the extension silently fails — the sidebar just shows nothing. `ConfigManager.load()` should validate/normalize `states` (map known string names to their default state objects, otherwise fall back to `DEFAULT_STATES`), log the problem to the "TaskPlanner" output channel, and surface a warning notification instead of dying silently. Note: `migrateConfig()` also corrupts such configs further by appending an object `Rejected` entry to the string array.
+**Validation (2026-07-27):** Still needed. `ConfigManager.load()` merges parsed JSON with defaults but does not validate `states` entries. Malformed `states` (e.g. plain strings instead of `{name, fileName, order}`) still break `path.join(tasksDir, state.fileName)` in `fileStore.ts`. `migrateConfig()` can still append a `Rejected` object onto a string-array `states` list. A `TaskPlanner` output channel exists in `extension.ts` but is not used for config load failures; no user warning on bad config. No tests for malformed `states`.
+
+**Scope:**
+- Validate/normalize `states` on load (map known names to `DEFAULT_STATES` objects; otherwise fall back to `DEFAULT_STATES`).
+- Log problems to the `TaskPlanner` output channel and show a warning notification.
+- Fix `migrateConfig()` so it does not corrupt string-array configs.
+- Add unit tests for malformed `states`.
 
 ---
 
 ## TASK-023: CI/CD pipeline for extension delivery
-**Priority:** P4 | **Tags:** setup
-**Updated:** 2026-03-22 19:15
+**Priority:** P4 | **Tags:** setup, ci
+**Updated:** 2026-07-27 13:35
 
-Automate publishing the extension to VS Code Marketplace and Cursor. Explore JetBrains Marketplace for the future plugin. Set up auto-merge for PRs into master after checks pass.
+**Validation (2026-07-27):** Partially addressed — not done as originally written.
+
+**Already in place:**
+- PR CI workflow (`.github/workflows/ci.yml`): `npm ci`, lint, test, build.
+- Manual release path: `npm run release:check`, `npm run package`, CONTRIBUTING publish steps (`vsce` / `ovsx`).
+- Extension published on [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) and [Open VSX](https://open-vsx.org/extension/refined/taskplanner).
+- Cursor/Codex plugin packaging and validation scripts; Cursor marketplace submission documented (see TASK-035 in Done).
+
+**Still missing:**
+- Automated publish/release workflow (tag → build → publish VSIX to Marketplace/Open VSX).
+- Auto-merge for PRs into `main` after checks pass.
+- JetBrains Marketplace exploration (no IntelliJ plugin in repo yet).
+
+**Scope (revised):** Add release/publish automation and optional auto-merge; treat JetBrains as a separate follow-up once TASK-019 exists.
 
 ---
 
 ## TASK-019: IntelliJ IDEA extension and Julia format support
 **Priority:** P3 | **Tags:** feature
-**Updated:** 2026-03-20 00:00
+**Updated:** 2026-07-27 13:35
 
-Build an IntelliJ IDEA plugin that reuses the core library for task parsing/serialization. Integrate support for the Julia task format.
+**Validation (2026-07-27):** Still needed — no implementation in repo. README lists JetBrains IDEs as planned. `src/core/` has no `vscode` imports and is reused by the MCP server and plugins today, but there is no IntelliJ/Kotlin/Gradle project and no Julia-related code or docs beyond this task title.
+
+**Scope:**
+- New IntelliJ plugin that reuses `src/core/` for parse/serialize/store.
+- Clarify **Julia format** before implementation (no definition in codebase — confirm whether this means a Julia-language task file format, a person/project name, or something else).
 
 ---
 
 ## TASK-021: Task date tracking and statistics
 **Priority:** P3 | **Tags:** feature, core
-**Updated:** 2026-03-21 19:01
+**Updated:** 2026-07-27 13:35
 
-Add created date, updated date, and finished date fields to tasks. Provide a way to track and display statistics (cycle time, throughput, etc.) for tasks and overall performance.
+**Validation (2026-07-27):** Partially addressed — statistics not done; date tracking is incomplete.
+
+**Already in place:**
+- `updatedAt` on `Task`; parsed/serialized as `**Updated:**` in markdown.
+- Auto-set on create, update, and move (`taskStore.ts`).
+- Shown in list cards, Kanban, detail view, and MCP output.
+- List filter: group-by **Date** uses `updatedAt` (day bucket).
+- Text search matches `updatedAt`.
+
+**Still missing:**
+- `createdAt` and `finishedAt` (or equivalent) fields and markdown metadata.
+- Statistics UI or reports (cycle time, throughput, performance metrics).
+
+**Scope (revised):** Add created/finished dates with parser/serializer support; build statistics view or export on top of the date fields. Do not re-implement `updatedAt` or group-by-date.
 
 ---
