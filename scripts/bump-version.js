@@ -18,8 +18,6 @@ const mcpBundlePath = path.resolve(
 );
 const projectConfigPath = path.resolve(__dirname, '..', '.tasks', 'config.json');
 const mcpPackagePath = path.resolve(__dirname, '..', 'packages', 'mcp-server', 'package.json');
-// Generated copy of the plugin bundle. Not committed, but validate-versions.js requires the two
-// bundles to stay byte-identical, so bump it alongside rather than leaving it a rebuild behind.
 const mcpPackageBundlePath = path.resolve(
   __dirname,
   '..',

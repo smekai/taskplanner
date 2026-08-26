@@ -43,8 +43,6 @@ function main() {
     fail(`Bundled MCP server is ${mcpBundleVersion}; expected ${expected}.`);
   }
 
-  // The npm package and the plugin ship the same bundle, copied by esbuild.js. If they ever differ,
-  // there are two MCP servers in the repo rather than one.
   const mcpPackageBundlePath = path.join(root, 'packages', 'mcp-server', 'dist', 'mcp-server.js');
   if (!fs.existsSync(mcpPackageBundlePath)) {
     fail(`${mcpPackage.name} has no built bundle; run "npm run build" first.`);

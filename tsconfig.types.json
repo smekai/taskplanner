@@ -1,6 +1,3 @@
-// Declaration-only build for the @refined/taskplanner library entry point.
-// esbuild bundles src/core/index.ts to packages/mcp-server/dist/index.js; tsc emits the matching
-// .d.ts tree next to it so TypeScript consumers get types. Run via `npm run build:types`.
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -8,7 +5,6 @@
     "outDir": "packages/mcp-server/dist",
     "emitDeclarationOnly": true,
     "declaration": true,
-    // The sources are not published, so maps would point at files the consumer does not have.
     "declarationMap": false,
     "sourceMap": false
   },

@@ -1,25 +1,12 @@
 /**
- * Headless smoke test for the TaskPlanner MCP server (stdio).
+ * Headless smoke test for the TaskPlanner npm package (stdio).
  *
- * This runs against the *published npm artifact*, not the extension bundle: it packs
- * packages/mcp-server, installs the tarball into an empty temporary directory, and spawns the
- * resolved module with plain `node`. That is the check that says the published output actually
- * runs outside a VS Code extension install.
- *
- * It covers the contract downstream consumers depend on:
- *   - spawned as process.execPath + a resolved module path, never a bare bin name;
- *   - the workspace root supplied via TASKPLANNER_WORKSPACE_ROOT *and* via the workspace_root
- *     tool input, both walking up from the given directory to find .tasks/;
- *   - the six agent-facing tools, plus the board UI resource and tool annotations;
- *   - **Assignee:** written directly to markdown round-tripping across taskplanner_move;
- *   - the `.` library entry loading without starting a server, with its .d.ts alongside;
- *   - the declared `bin` mapping, launched through `npm exec` the way an npx user reaches it;
- *   - the tarball carrying LICENSE, both bundles, the types, and the board HTML.
+ * Packs packages/mcp-server, installs the tarball into an empty temporary directory, and exercises
+ * the published artifact there: both workspace-root paths, the tool set and annotations, the board
+ * resource, the Assignee round-trip, the bin mapping, and the library entry.
  *
  * Usage: node scripts/smoke-test-mcp-server.js
- *
- * Set TASKPLANNER_MCP_SERVER_PATH to skip the pack/install step and test a bundle in place
- * (useful while iterating; it does not exercise the packaging itself).
+ * Set TASKPLANNER_MCP_SERVER_PATH to test a bundle in place, skipping pack/install.
  */
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
@@ -66,8 +53,6 @@ class McpClient {
   }
 
   handle(message) {
-    // Server-initiated requests (e.g. roots/list): this client advertises no capabilities, so
-    // answer with an error rather than leaving the server waiting.
     if (message.method && message.id !== undefined) {
       this.send({
         jsonrpc: '2.0',
@@ -113,7 +98,6 @@ class McpClient {
     return result;
   }
 
-  /** Call a tool and fail the run if the server reports a tool error. */
   async callTool(name, args) {
     const result = await this.request('tools/call', { name, arguments: args });
     if (result.isError) {
@@ -135,11 +119,7 @@ class McpClient {
   }
 }
 
-/**
- * Environment for a server child. The confounding roots are stripped so a pass proves the
- * variable under test is what located .tasks/ — an inherited PWD or INIT_CWD pointing at this
- * repository would otherwise make every case pass.
- */
+/** Strips confounding roots so a pass proves the variable under test is what located .tasks/. */
 function childEnv(extra = {}) {
   const env = { ...process.env };
   for (const key of [
@@ -164,8 +144,6 @@ function startServerProcess(command, args, { cwd, env, label }) {
 }
 
 function startServer(serverPath, options) {
-  // process.execPath + a resolved module path: the spawn form consumers are told to use, and the
-  // only one that behaves the same on Windows as elsewhere (a bin name is a .cmd shim there).
   return startServerProcess(process.execPath, [serverPath], options);
 }
 
@@ -191,14 +169,12 @@ const npmCli = path.join(
 );
 
 function npm(args, options) {
-  // Invoke npm's JS entry directly rather than the npm/npm.cmd shim, for the same reason the
-  // server is spawned as process.execPath: no shell, no .cmd quoting rules.
+  // npm's JS entry, not the npm.cmd shim: no shell, no .cmd quoting rules.
   const cli = fs.existsSync(npmCli) ? npmCli : null;
   if (cli) return run(process.execPath, [cli, ...args], options);
   return run('npm', args, { shell: process.platform === 'win32', ...options });
 }
 
-/** npm pack the package, install the tarball into an empty dir, and resolve the module path. */
 function installPublishedPackage(tempRoot) {
   const packDir = path.join(tempRoot, 'pack');
   const installDir = path.join(tempRoot, 'install');
@@ -209,7 +185,6 @@ function installPublishedPackage(tempRoot) {
   const packed = JSON.parse(packJson.slice(packJson.indexOf('[')))[0];
   const tarball = path.join(packDir, packed.filename);
 
-  // The tarball must actually carry the runtime files; `files` whitelists are easy to get wrong.
   const packedPaths = (packed.files || []).map((file) => file.path.replace(/\\/g, '/'));
   for (const required of [
     'LICENSE',
@@ -233,8 +208,6 @@ function installPublishedPackage(tempRoot) {
     cwd: installDir,
   });
 
-  // The server lives on the ./mcp-server subpath; `.` is the library. Resolving through the
-  // package's exports map is exactly what a consumer does, so a broken map fails here.
   const serverPath = require.resolve(`${packageName}/mcp-server`, { paths: [installDir] });
   if (!serverPath.startsWith(fs.realpathSync(installDir))) {
     fail(`Resolved ${serverPath}, which is outside the fresh install at ${installDir}.`);
@@ -247,10 +220,6 @@ function installPublishedPackage(tempRoot) {
 
 const SCRATCH_TASK_ID = 'SMOKE-001';
 
-/**
- * A .tasks/ board written straight to markdown, the way a consumer with its own writer produces
- * one — note **Assignee:** on its own line rather than joined into the metadata line.
- */
 function createScratchWorkspace(tempRoot) {
   const root = path.join(tempRoot, 'scratch-repo');
   const tasksDir = path.join(root, '.tasks');
@@ -360,11 +329,6 @@ function checkTools(tools) {
   log(`tools/list OK (${names.length} tools).`);
 }
 
-/**
- * Case 1 — the environment-variable path, for a host driving several projects from one process.
- * The server runs from the empty install directory and is pointed at a *subdirectory* of this
- * repository, so answering at all proves it walked up to find .tasks/.
- */
 async function checkEnvVarRoot(serverPath, installDir) {
   const nestedRepoDir = path.join(repoRoot, 'src', 'mcp');
   const client = startServer(serverPath, {
@@ -415,11 +379,6 @@ async function checkEnvVarRoot(serverPath, installDir) {
   }
 }
 
-/**
- * The `.` entry: the core library, for a consumer reading the board from its own code with no model
- * in the loop. Requiring it must NOT start a server — that is the whole reason the server moved to
- * its own subpath — so this also asserts the process stays alive and stdio stays untouched.
- */
 function checkLibraryEntry(installDir, scratch) {
   const libraryPath = require.resolve(packageName, { paths: [installDir] });
   if (!/[\\/]dist[\\/]index\.js$/.test(libraryPath)) {
@@ -431,7 +390,6 @@ function checkLibraryEntry(installDir, scratch) {
     if (!taskplanner[name]) fail(`Library entry does not export ${name}.`);
   }
 
-  // Parse the same board the MCP tools just edited, through the same parser.
   const markdown = fs.readFileSync(path.join(scratch.tasksDir, 'IN_PROGRESS.md'), 'utf8');
   const result = taskplanner.parseTasks(markdown);
   const task = result.tasks.find((candidate) => candidate.id === SCRATCH_TASK_ID);
@@ -440,7 +398,6 @@ function checkLibraryEntry(installDir, scratch) {
     fail(`Library read assignee as ${JSON.stringify(task.assignee)}; expected "owner".`);
   }
 
-  // Types are what make the entry usable from TypeScript; a missing .d.ts is a silent downgrade.
   const types = path.join(path.dirname(libraryPath), 'index.d.ts');
   if (!fs.existsSync(types)) fail(`Library entry has no type declarations at ${types}.`);
 
@@ -449,11 +406,7 @@ function checkLibraryEntry(installDir, scratch) {
 
 const BIN_NAME = 'taskplanner-mcp';
 
-/**
- * The bin exists for `npx` and shell use. Check the mapping the package actually declares — not a
- * hardcoded path — and then drive it the way an npx user does, through `npm exec`. Hardcoding the
- * launcher path would keep passing if `bin` were deleted or pointed at the wrong file.
- */
+/** Reads the bin mapping the manifest declares; hardcoding it would pass with `bin` deleted. */
 async function checkBinLauncher(installDir, scratch) {
   const manifestPath = require.resolve(`${packageName}/package.json`, { paths: [installDir] });
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -469,7 +422,6 @@ async function checkBinLauncher(installDir, scratch) {
     fail(`bin "${BIN_NAME}" points at ${target}, which is not present in the published package.`);
   }
 
-  // npm must have installed the shim; that is what makes npx/npm exec resolve the name at all.
   const shimDir = path.join(installDir, 'node_modules', '.bin');
   const shims = fs.existsSync(shimDir) ? fs.readdirSync(shimDir) : [];
   if (!shims.some((entry) => entry === BIN_NAME || entry.startsWith(`${BIN_NAME}.`))) {
@@ -478,8 +430,6 @@ async function checkBinLauncher(installDir, scratch) {
     );
   }
 
-  // Run the documented npx path for real. npm's JS entry is invoked directly, so no shell is
-  // involved on our side, while npm itself resolves the platform shim exactly as npx would.
   const client = startServerProcess(process.execPath, [npmCli, 'exec', '--', BIN_NAME], {
     cwd: installDir,
     env: {},
@@ -494,10 +444,7 @@ async function checkBinLauncher(installDir, scratch) {
   }
 }
 
-/**
- * Case 2 — the workspace_root tool input, for editor clients, plus the Assignee round-trip.
- * No TASKPLANNER_WORKSPACE_ROOT is set here, so the argument is doing all the work.
- */
+/** No TASKPLANNER_WORKSPACE_ROOT here, so the workspace_root argument does all the work. */
 async function checkToolInputRootAndAssignee(serverPath, installDir, scratch) {
   const client = startServer(serverPath, {
     cwd: installDir,
@@ -508,7 +455,6 @@ async function checkToolInputRootAndAssignee(serverPath, installDir, scratch) {
   try {
     await client.initialize();
 
-    // Point at a nested directory again: the input path must walk up too.
     const board = await client.callTool('taskplanner_board_data', {
       workspace_root: scratch.nested,
       limit: 1,
@@ -546,7 +492,6 @@ async function checkToolInputRootAndAssignee(serverPath, installDir, scratch) {
       fail('Assignee did not survive taskplanner_move.');
     }
 
-    // And it survives on disk, where the consumer's own reader will look for it.
     const markdown = fs.readFileSync(path.join(scratch.tasksDir, 'IN_PROGRESS.md'), 'utf8');
     if (!markdown.includes('**Assignee:** owner')) {
       fail(`IN_PROGRESS.md lost **Assignee:** owner after the move:\n${markdown}`);
@@ -590,8 +535,7 @@ async function main() {
 
     log('Smoke test passed.');
   } finally {
-    // Best-effort: on Windows a just-killed child can still hold the bundle open, and a temp
-    // directory that outlives the run must never turn a passing smoke test into a failure.
+    // Best-effort: a just-killed child can still hold the bundle open on Windows.
     try {
       fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     } catch (error) {

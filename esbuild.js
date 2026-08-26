@@ -22,22 +22,13 @@ const boardHtmlTemplate = path.join(boardUiDir, 'board.html');
 const boardCssFile = path.join(boardUiDir, 'board.css');
 const boardHtmlOut = path.join(boardUiOutDir, 'index.html');
 
-// The MCP server bundle is written once, for the plugin, and copied into the npm package.
-// Copying rather than building twice makes the two artifacts byte-identical: one implementation
-// shipped to two install locations, never a fork.
 const mcpServerOut = path.join(pluginRoot, 'dist', 'mcp-server.js');
 const mcpPackageRoot = path.join(__dirname, 'packages', 'mcp-server');
 const mcpPackageServerOut = path.join(mcpPackageRoot, 'dist', 'mcp-server.js');
 const mcpPackageBoardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
 
-// The package's `.` entry: the core library, for consumers calling from their own code rather than
-// through an agent. Built from the same src/core/* the server uses, so the two cannot drift.
-// Types for it are emitted separately by `npm run build:types` (tsconfig.types.json).
 const mcpPackageLibraryOut = path.join(mcpPackageRoot, 'dist', 'index.js');
 
-// The bundle resolves its board HTML through __dirname, which only exists because the output
-// format is CJS. Keep it that way — `shared.format` is load-bearing for the published package,
-// which is spawned by plain `node` (see scripts/smoke-test-mcp-server.js).
 function syncMcpPackage() {
   if (shared.format !== 'cjs') {
     throw new Error(
@@ -54,8 +45,6 @@ function syncMcpPackage() {
     fs.copyFileSync(from, to);
   }
 
-  // No sourcemap in the package: `files` ships all of dist/, and a dev-build map would be
-  // published alongside the production bundle it does not describe.
   fs.rmSync(`${mcpPackageServerOut}.map`, { force: true });
 
   console.log(`[mcp-package] synced ${path.relative(__dirname, mcpPackageRoot)}`);
