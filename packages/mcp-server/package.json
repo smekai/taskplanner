@@ -1,6 +1,6 @@
 {
   "name": "@refined/taskplanner",
-  "version": "2.1.11",
+  "version": "2.1.12",
   "description": "TaskPlanner's markdown task board (.tasks/) as a library and as an MCP server.",
   "license": "MIT",
   "homepage": "https://github.com/smekai/taskplanner#readme",
