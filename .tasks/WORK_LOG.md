@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-046 — 2026-08-26
+**What:** Published the MCP server as its own npm package, `@refined/taskplanner` (`packages/mcp-server/`), so hosts outside an editor install can resolve it as a dependency.
+**Decisions:** Build once and copy — esbuild still writes `plugins/taskplanner/dist/mcp-server.js` and the package ships those exact bytes, with `validate-versions` failing on any divergence, so there is still one board parser. Output stays CJS because the bundle reads its board HTML through `__dirname`. Kept a `bin` for `npx` but documented that programmatic consumers must spawn `process.execPath` + `require.resolve`, since a bin name is a `.cmd` shim on Windows.
+**Outcome:** `npm run release:check` passes on Windows; the smoke test now packs, installs into an empty temp dir, and exercises both workspace-root paths plus the `**Assignee:**` round-trip. macOS/Linux untested. npm name `taskplanner` was taken, and the `@refined` npm org must be created before the first publish.
+
+---
+
 ## TASK-045 — 2026-07-27
 **What:** Labeled read-only task ID at the top of the edit detail view.
 **Outcome:** Removed redundant footer ID; ID shown above Title with `.detail-readonly` styling.

@@ -41,6 +41,7 @@ npm run watch        # Dev build with watch mode
 npm run validate:cursor-plugin  # Validate Cursor plugin manifest/artifacts
 npm run validate:codex-plugin   # Validate Codex plugin manifest/marketplace
 npm run release:check # Build + plugin readiness checks
+npm run smoke:mcp-server        # Pack, install, and exercise the published npm package
 npm test             # Run unit tests (Vitest)
 npm run lint         # Run ESLint
 npm run format       # Run Prettier
@@ -49,10 +50,11 @@ npm run package      # Create .vsix package
 
 ## Release Channels
 
-TaskPlanner is distributed through two channels:
+TaskPlanner is distributed through three channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
 - **Plugin channel**: shared Cursor/Codex package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
+- **npm channel**: [`@refined/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the MCP server for any host that is not an editor plugin install.
 
 Every commit must include a patch version bump. The configured pre-commit hook runs `scripts/bump-version.js` and stages all synchronized version-bearing files. If an exact release version was set manually before committing, use `--no-verify` only after `npm run validate:versions` passes to avoid a second bump.
 
@@ -76,6 +78,29 @@ npx @vscode/vsce publish --packagePath dist/vscode/taskplanner-<version>.vsix --
 # Open VSX (token from https://open-vsx.org/user-settings/tokens for namespace refined):
 npx ovsx publish dist/vscode/taskplanner-<version>.vsix -p <OVSX_PAT>
 ```
+
+### npm publish (`@refined/taskplanner`)
+
+The MCP server is published from `packages/mcp-server/`. It ships the **same bundle bytes** as
+`plugins/taskplanner/dist/mcp-server.js` — `esbuild.js` builds once and copies, and
+`npm run validate:versions` fails if the two ever diverge. There is one MCP server in this repo, in
+two install locations; do not build a second one.
+
+`packages/mcp-server/dist/` and `packages/mcp-server/ui/` are generated and gitignored, so the build
+must run before the pack:
+
+```bash
+npm run release:check                       # includes the build and the published-artifact smoke test
+npm publish ./packages/mcp-server --access public
+```
+
+First publish only: the `@refined` npm organization must exist and your account must be a member of
+it (`npm org create refined`, or publish under a scope you already own after renaming the package).
+
+`npm run smoke:mcp-server` is the gate that this artifact runs outside an editor: it packs the
+package, installs the tarball into an empty temp directory, spawns it with plain `node`, and checks
+both workspace-root paths plus the `**Assignee:**` round-trip. Keep the bundle format CommonJS —
+the server reads its board HTML through `__dirname`.
 
 Packaged artifacts are gitignored and grouped by release channel:
 
@@ -125,7 +150,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.4",
+  "taskplannerVersion": "2.1.5",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [

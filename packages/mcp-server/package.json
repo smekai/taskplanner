@@ -1,0 +1,46 @@
+{
+  "name": "@refined/taskplanner",
+  "version": "2.1.5",
+  "description": "TaskPlanner MCP server — read and edit a repository's markdown task board (.tasks/) over stdio.",
+  "license": "MIT",
+  "homepage": "https://github.com/smekai/taskplanner#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smekai/taskplanner",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/smekai/taskplanner/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "taskplanner",
+    "tasks",
+    "kanban",
+    "markdown",
+    "agent"
+  ],
+  "type": "commonjs",
+  "main": "./dist/mcp-server.js",
+  "exports": {
+    ".": "./dist/mcp-server.js",
+    "./mcp-server.js": "./dist/mcp-server.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "taskplanner-mcp": "./bin/taskplanner-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "ui/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

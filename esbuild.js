@@ -22,6 +22,40 @@ const boardHtmlTemplate = path.join(boardUiDir, 'board.html');
 const boardCssFile = path.join(boardUiDir, 'board.css');
 const boardHtmlOut = path.join(boardUiOutDir, 'index.html');
 
+// The MCP server bundle is written once, for the plugin, and copied into the npm package.
+// Copying rather than building twice makes the two artifacts byte-identical: one implementation
+// shipped to two install locations, never a fork.
+const mcpServerOut = path.join(pluginRoot, 'dist', 'mcp-server.js');
+const mcpPackageRoot = path.join(__dirname, 'packages', 'mcp-server');
+const mcpPackageServerOut = path.join(mcpPackageRoot, 'dist', 'mcp-server.js');
+const mcpPackageBoardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
+
+// The bundle resolves its board HTML through __dirname, which only exists because the output
+// format is CJS. Keep it that way — `shared.format` is load-bearing for the published package,
+// which is spawned by plain `node` (see scripts/smoke-test-mcp-server.js).
+function syncMcpPackage() {
+  if (shared.format !== 'cjs') {
+    throw new Error(
+      `MCP bundle format must stay "cjs" (__dirname is used at runtime); got "${shared.format}".`,
+    );
+  }
+
+  const copies = [
+    [mcpServerOut, mcpPackageServerOut],
+    [boardHtmlOut, mcpPackageBoardHtmlOut],
+  ];
+  for (const [from, to] of copies) {
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(from, to);
+  }
+
+  // No sourcemap in the package: `files` ships all of dist/, and a dev-build map would be
+  // published alongside the production bundle it does not describe.
+  fs.rmSync(`${mcpPackageServerOut}.map`, { force: true });
+
+  console.log(`[mcp-package] synced ${path.relative(__dirname, mcpPackageRoot)}`);
+}
+
 async function buildBoardUi() {
   const result = await esbuild.build({
     entryPoints: [path.join(boardUiDir, 'board.ts')],
@@ -82,7 +116,7 @@ async function main() {
   const mcpCtx = await esbuild.context({
     ...shared,
     entryPoints: ['src/mcp/server.ts'],
-    outfile: 'plugins/taskplanner/dist/mcp-server.js',
+    outfile: mcpServerOut,
     plugins: [
       boardUiWatchPlugin(),
       {
@@ -90,6 +124,7 @@ async function main() {
         setup(build) {
           build.onEnd((result) => {
             if (result.errors.length === 0) {
+              syncMcpPackage();
               console.log('[watch] mcp-server build succeeded');
             }
           });

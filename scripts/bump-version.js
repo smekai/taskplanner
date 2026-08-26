@@ -17,6 +17,17 @@ const mcpBundlePath = path.resolve(
   'mcp-server.js',
 );
 const projectConfigPath = path.resolve(__dirname, '..', '.tasks', 'config.json');
+const mcpPackagePath = path.resolve(__dirname, '..', 'packages', 'mcp-server', 'package.json');
+// Generated copy of the plugin bundle. Not committed, but validate-versions.js requires the two
+// bundles to stay byte-identical, so bump it alongside rather than leaving it a rebuild behind.
+const mcpPackageBundlePath = path.resolve(
+  __dirname,
+  '..',
+  'packages',
+  'mcp-server',
+  'dist',
+  'mcp-server.js',
+);
 const versionTextPaths = [
   path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.codex-plugin', 'submission.json'),
   path.resolve(__dirname, '..', 'docs', 'CODEX_PLUGIN_SUBMISSION.md'),
@@ -71,6 +82,12 @@ if (fs.existsSync(lockPath)) {
   fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
 }
 
+if (fs.existsSync(mcpPackagePath)) {
+  const mcpPackage = JSON.parse(fs.readFileSync(mcpPackagePath, 'utf8'));
+  mcpPackage.version = pkg.version;
+  fs.writeFileSync(mcpPackagePath, JSON.stringify(mcpPackage, null, 2) + '\n');
+}
+
 for (const manifestPath of pluginManifestPaths) {
   if (!fs.existsSync(manifestPath)) continue;
   const source = fs.readFileSync(manifestPath, 'utf8');
@@ -84,9 +101,10 @@ if (fs.existsSync(mcpServerPath)) {
   fs.writeFileSync(mcpServerPath, updated);
 }
 
-if (fs.existsSync(mcpBundlePath)) {
-  const source = fs.readFileSync(mcpBundlePath, 'utf8');
-  fs.writeFileSync(mcpBundlePath, source.replaceAll(previousVersion, pkg.version));
+for (const bundlePath of [mcpBundlePath, mcpPackageBundlePath]) {
+  if (!fs.existsSync(bundlePath)) continue;
+  const source = fs.readFileSync(bundlePath, 'utf8');
+  fs.writeFileSync(bundlePath, source.replaceAll(previousVersion, pkg.version));
 }
 
 for (const skillPath of skillVersionPaths) {
@@ -109,5 +127,5 @@ if (fs.existsSync(projectConfigPath)) {
 }
 
 console.log(
-  `Version bumped to ${pkg.version} across package, lockfile, MCP, plugins, skills, and release metadata`,
+  `Version bumped to ${pkg.version} across package, lockfile, MCP, npm package, plugins, skills, and release metadata`,
 );

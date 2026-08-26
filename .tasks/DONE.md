@@ -1,5 +1,45 @@
 # Done
 
+## TASK-046: The MCP server ships as its own package, not only inside the extension
+**Priority:** P1 | **Tags:** core, refactor, ci
+**Updated:** 2026-08-26 12:00
+
+The MCP server is `src/mcp/server.ts`, bundled by `esbuild.js` to
+`plugins/taskplanner/dist/mcp-server.js` — a path inside a VS Code extension install. That is fine
+for the extension and unusable for anything else. Isotopy (`TASK-162`) is the first consumer: it
+needs the board as MCP tools resolvable as a dependency, not as an editor- and OS-dependent path.
+
+### Plan
+
+Shipped as `@refined/taskplanner` (npm `taskplanner` is taken — mcollina's, 2014).
+
+- **One implementation, not a fork.** `esbuild.js` builds `src/mcp/server.ts` once to
+  `plugins/taskplanner/dist/mcp-server.js` (unchanged) and *copies* it plus the board UI into
+  `packages/mcp-server/`. The two artifacts are byte-identical; `validate-versions.js` fails the
+  build if they ever diverge, and `syncMcpPackage()` throws if the bundle format leaves `cjs`.
+- **CJS is a decision, not a default.** The bundle reads its board HTML through `__dirname`, so
+  the package declares `"type": "commonjs"` and the smoke test runs it under plain `node`.
+- **Package layout:** `packages/mcp-server/` holds only the manifest, `bin/taskplanner-mcp.js`, and
+  the README; `dist/` and `ui/` are generated and gitignored. `exports` resolves both
+  `require.resolve('@refined/taskplanner')` and the explicit `dist/mcp-server.js` subpath.
+- **Both workspace-root paths kept:** `TASKPLANNER_WORKSPACE_ROOT` and the `workspace_root` tool
+  input, each walking up from the given directory to `.tasks/`.
+- **Smoke test rewritten to run against the published artifact:** packs the package, installs the
+  tarball into an empty temp dir, and spawns `process.execPath <resolved path>` from that empty dir
+  with the confounding root env vars stripped. Covers the env var, the tool input, tool set and
+  annotations, the board UI resource, the `npx` bin launcher, and an `**Assignee:**` round-trip
+  (markdown written directly → get → move → get → markdown).
+- **Version wiring:** `bump-version.js` and `validate-versions.js` now cover the npm manifest.
+  `packages/**` excluded from the VSIX.
+
+Verified on Windows: `npm run release:check` passes end to end, including the smoke test. The
+negative case was confirmed too — removing `TASKPLANNER_WORKSPACE_ROOT` makes the test fail with
+only two candidate roots, both inside the temp install, so the pass is not coming from an inherited
+`cwd`. macOS and Linux are reasoned through (no platform-specific paths: `process.execPath`,
+`require.resolve`, `path.join`) but untested — no Mac was used.
+
+---
+
 ## TASK-045: Show task ID prominently in the edit detail view
 **Priority:** P1 | **Tags:** ui
 **Updated:** 2026-07-27 10:01
