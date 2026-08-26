@@ -94,8 +94,14 @@ npm run release:check                       # includes the build and the publish
 npm publish ./packages/mcp-server --access public
 ```
 
-First publish only: the `@refined` npm organization must exist and your account must be a member of
-it (`npm org create refined`, or publish under a scope you already own after renaming the package).
+First publish only: the `@refined` npm organization must exist and the publishing account must be a
+member of it. Create the org on the website at [npmjs.com/org/create](https://www.npmjs.com/org/create)
+— it is free for public packages, and there is no `npm org create`; the CLI only manages members
+(`npm org set refined <username>`). Alternatively, rename the package to a scope you already own.
+
+Whoever runs `npm publish` is recorded permanently in each published version's `_npmUser` metadata,
+username and account email included, and is listed as the package maintainer. Publish from the
+account you want associated with the package publicly.
 
 `npm run smoke:mcp-server` is the gate that this artifact runs outside an editor: it packs the
 package, installs the tarball into an empty temp directory, spawns it with plain `node`, and checks
@@ -150,7 +156,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.5",
+  "taskplannerVersion": "2.1.6",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
