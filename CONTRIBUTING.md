@@ -54,7 +54,7 @@ TaskPlanner is distributed through three channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
 - **Plugin channel**: shared Cursor/Codex package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
-- **npm channel**: [`@refined/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
+- **npm channel**: [`@smekai/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
 
 Every commit must include a patch version bump. The configured pre-commit hook runs `scripts/bump-version.js` and stages all synchronized version-bearing files. If an exact release version was set manually before committing, use `--no-verify` only after `npm run validate:versions` passes to avoid a second bump.
 
@@ -79,7 +79,7 @@ npx @vscode/vsce publish --packagePath dist/vscode/taskplanner-<version>.vsix --
 npx ovsx publish dist/vscode/taskplanner-<version>.vsix -p <OVSX_PAT>
 ```
 
-### npm publish (`@refined/taskplanner`)
+### npm publish (`@smekai/taskplanner`)
 
 The MCP server is published from `packages/mcp-server/`. It ships the **same bundle bytes** as
 `plugins/taskplanner/dist/mcp-server.js` — `esbuild.js` builds once and copies, and
@@ -90,8 +90,8 @@ The package has two entry points, both built from `src/core/`:
 
 | Specifier | Output | For |
 | --- | --- | --- |
-| `@refined/taskplanner` | `dist/index.js` + `dist/*.d.ts` | The library, from `src/core/index.ts`. Callers using their own code. |
-| `@refined/taskplanner/mcp-server` | `dist/mcp-server.js` | The stdio server, from `src/mcp/server.ts`. Callers exposing tools to a model. |
+| `@smekai/taskplanner` | `dist/index.js` + `dist/*.d.ts` | The library, from `src/core/index.ts`. Callers using their own code. |
+| `@smekai/taskplanner/mcp-server` | `dist/mcp-server.js` | The stdio server, from `src/mcp/server.ts`. Callers exposing tools to a model. |
 
 Types come from `npm run build:types` (`tsconfig.types.json`, declaration-only), which `npm run build`
 chains after esbuild. `npm run watch` does **not** rebuild them — run `build:types` if you are
@@ -105,10 +105,13 @@ npm run release:check                       # includes the build and the publish
 npm publish ./packages/mcp-server --access public
 ```
 
-First publish only: the `@refined` npm organization must exist and the publishing account must be a
-member of it. Create the org on the website at [npmjs.com/org/create](https://www.npmjs.com/org/create)
-— it is free for public packages, and there is no `npm org create`; the CLI only manages members
-(`npm org set refined <username>`). Alternatively, rename the package to a scope you already own.
+`@smekai` is the personal scope of the `smekai` npm account, so no organization is involved and
+nothing needs creating. `--access public` is required because scoped packages default to private,
+which is a paid plan; `publishConfig.access` already sets it, and the flag repeats it explicitly.
+
+Publishing requires 2FA on the account — a passkey or security key, set up at
+[npmjs.com/settings/~/profile](https://www.npmjs.com/settings/~/profile). npm stopped accepting new
+authenticator-app (TOTP) enrolments in September 2025.
 
 Whoever runs `npm publish` is recorded permanently in each published version's `_npmUser` metadata,
 username and account email included, and is listed as the package maintainer. Publish from the
@@ -167,7 +170,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.12",
+  "taskplannerVersion": "2.1.13",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [

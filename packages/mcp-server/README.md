@@ -1,4 +1,4 @@
-# @refined/taskplanner
+# @smekai/taskplanner
 
 [TaskPlanner](https://github.com/smekai/taskplanner)'s task board as a standalone npm package — as a
 library you call, and as an MCP server you spawn.
@@ -9,7 +9,7 @@ the VS Code extension and the Cursor/Codex plugin run, built from the same sourc
 board parser, not a fork.
 
 ```bash
-npm install @refined/taskplanner
+npm install @smekai/taskplanner
 ```
 
 The published bundle is self-contained (the MCP SDK and Zod are bundled in), so the package has no
@@ -21,8 +21,8 @@ Pick by who is calling:
 
 | Entry | Import | Use when |
 | --- | --- | --- |
-| Library | `@refined/taskplanner` | **Your own code** reads or edits the board. Direct calls, typed, no subprocess. |
-| MCP server | `@refined/taskplanner/mcp-server` | **A model** picks the tools. Spawned over stdio; ships tool schemas, descriptions, and safety annotations. |
+| Library | `@smekai/taskplanner` | **Your own code** reads or edits the board. Direct calls, typed, no subprocess. |
+| MCP server | `@smekai/taskplanner/mcp-server` | **A model** picks the tools. Spawned over stdio; ships tool schemas, descriptions, and safety annotations. |
 
 Both are built from the same `src/core/`, so they cannot disagree about what a board says. Use both
 in one host if it suits — the agent gets MCP tools, your own code calls the library.
@@ -30,7 +30,7 @@ in one host if it suits — the agent gets MCP tools, your own code calls the li
 ## Using it as a library
 
 ```js
-const { parseTasks, TaskStore, FileStore, ConfigManager } = require('@refined/taskplanner');
+const { parseTasks, TaskStore, FileStore, ConfigManager } = require('@smekai/taskplanner');
 
 // Parse a single state file
 const { tasks, warnings } = parseTasks(fs.readFileSync('.tasks/BACKLOG.md', 'utf8'));
@@ -46,7 +46,7 @@ store.moveTask('TASK-001', 'In Progress');
 TypeScript declarations ship with the package. ESM named imports work too:
 
 ```js
-import { parseTasks } from '@refined/taskplanner';
+import { parseTasks } from '@smekai/taskplanner';
 ```
 
 Requiring the library does **not** start a server — that lives on its own subpath precisely so this
@@ -59,7 +59,7 @@ import stays inert.
 ```js
 const { spawn } = require('node:child_process');
 
-const serverPath = require.resolve('@refined/taskplanner/mcp-server');
+const serverPath = require.resolve('@smekai/taskplanner/mcp-server');
 
 const child = spawn(process.execPath, [serverPath], {
   env: { ...process.env, TASKPLANNER_WORKSPACE_ROOT: '/path/to/the/repo' },
@@ -71,7 +71,7 @@ From ESM:
 
 ```js
 import { createRequire } from 'node:module';
-const serverPath = createRequire(import.meta.url).resolve('@refined/taskplanner/mcp-server');
+const serverPath = createRequire(import.meta.url).resolve('@smekai/taskplanner/mcp-server');
 ```
 
 Why not the bin name? `taskplanner-mcp` resolves to a `.cmd` shim on Windows, and spawning a `.cmd`
@@ -109,7 +109,7 @@ For clients that read a JSON config, resolve the path once and write it in:
   "mcpServers": {
     "taskplanner": {
       "command": "node",
-      "args": ["/absolute/path/to/node_modules/@refined/taskplanner/dist/mcp-server.js"],
+      "args": ["/absolute/path/to/node_modules/@smekai/taskplanner/dist/mcp-server.js"],
       "env": { "TASKPLANNER_WORKSPACE_ROOT": "/path/to/the/repo" }
     }
   }

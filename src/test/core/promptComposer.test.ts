@@ -73,9 +73,9 @@ describe('composeImplementationPrompt', () => {
   });
 
   it('includes assignee when present', () => {
-    const task = makeTask({ assignee: 'Fedor' });
+    const task = makeTask({ assignee: 'owner' });
     const result = composeImplementationPrompt(task, 'Next', config);
-    expect(result).toContain('Assignee: Fedor');
+    expect(result).toContain('Assignee: owner');
   });
 
   it('includes status in metadata', () => {

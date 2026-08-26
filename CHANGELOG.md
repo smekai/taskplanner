@@ -8,14 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- The MCP server is now published to npm as `@refined/taskplanner`, so agent hosts outside a VS Code or Cursor install can depend on it instead of pointing at an extension path. Same server as the editor plugin, built from the same sources; spawn it as `node <require.resolve('@refined/taskplanner')>` and point it at a repository with `TASKPLANNER_WORKSPACE_ROOT` or the `workspace_root` tool input (TASK-046).
+- The MCP server is now published to npm as `@smekai/taskplanner`, so agent hosts outside a VS Code or Cursor install can depend on it instead of pointing at an extension path. Same server as the editor plugin, built from the same sources; spawn it as `node <require.resolve('@smekai/taskplanner/mcp-server')>` and point it at a repository with `TASKPLANNER_WORKSPACE_ROOT` or the `workspace_root` tool input (TASK-046).
 
-- `@refined/taskplanner` also ships the task board as a library, with TypeScript declarations: `import { parseTasks, TaskStore } from '@refined/taskplanner'` reads and edits a board directly, with no subprocess and no MCP round-trip. Use it when your own code is the caller; use the MCP server when a model is (TASK-047).
+- `@smekai/taskplanner` also ships the task board as a library, with TypeScript declarations: `import { parseTasks, TaskStore } from '@smekai/taskplanner'` reads and edits a board directly, with no subprocess and no MCP round-trip. Use it when your own code is the caller; use the MCP server when a model is (TASK-047).
 
 ### Changed
 
 - `npm run smoke:mcp-server` now packs and installs the published npm package before exercising it, instead of testing the extension's own bundle (TASK-046).
-- The MCP server moved from the package root to the `@refined/taskplanner/mcp-server` subpath, so the package's main entry is the library and importing it no longer starts a server. Spawn it as `node <require.resolve('@refined/taskplanner/mcp-server')>` (TASK-047).
+- The MCP server moved from the package root to the `@smekai/taskplanner/mcp-server` subpath, so the package's main entry is the library and importing it no longer starts a server. Spawn it as `node <require.resolve('@smekai/taskplanner/mcp-server')>` (TASK-047).
 
 ## [2.1.4] - 2026-08-03
 
