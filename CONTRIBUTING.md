@@ -54,7 +54,7 @@ TaskPlanner is distributed through three channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
 - **Plugin channel**: shared Cursor/Codex package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
-- **npm channel**: [`@refined/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the MCP server for any host that is not an editor plugin install.
+- **npm channel**: [`@refined/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
 
 Every commit must include a patch version bump. The configured pre-commit hook runs `scripts/bump-version.js` and stages all synchronized version-bearing files. If an exact release version was set manually before committing, use `--no-verify` only after `npm run validate:versions` passes to avoid a second bump.
 
@@ -167,7 +167,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.7",
+  "taskplannerVersion": "2.1.8",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
