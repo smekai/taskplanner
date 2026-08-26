@@ -1,0 +1,51 @@
+{
+  "name": "@refined/taskplanner",
+  "version": "2.1.12",
+  "description": "TaskPlanner's markdown task board (.tasks/) as a library and as an MCP server.",
+  "license": "MIT",
+  "homepage": "https://github.com/smekai/taskplanner#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smekai/taskplanner",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/smekai/taskplanner/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "taskplanner",
+    "tasks",
+    "kanban",
+    "markdown",
+    "agent"
+  ],
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./mcp-server": "./dist/mcp-server.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "taskplanner-mcp": "./bin/taskplanner-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "ui/",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

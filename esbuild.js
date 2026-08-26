@@ -22,6 +22,34 @@ const boardHtmlTemplate = path.join(boardUiDir, 'board.html');
 const boardCssFile = path.join(boardUiDir, 'board.css');
 const boardHtmlOut = path.join(boardUiOutDir, 'index.html');
 
+const mcpServerOut = path.join(pluginRoot, 'dist', 'mcp-server.js');
+const mcpPackageRoot = path.join(__dirname, 'packages', 'mcp-server');
+const mcpPackageServerOut = path.join(mcpPackageRoot, 'dist', 'mcp-server.js');
+const mcpPackageBoardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
+
+const mcpPackageLibraryOut = path.join(mcpPackageRoot, 'dist', 'index.js');
+
+function syncMcpPackage() {
+  if (shared.format !== 'cjs') {
+    throw new Error(
+      `MCP bundle format must stay "cjs" (__dirname is used at runtime); got "${shared.format}".`,
+    );
+  }
+
+  const copies = [
+    [mcpServerOut, mcpPackageServerOut],
+    [boardHtmlOut, mcpPackageBoardHtmlOut],
+  ];
+  for (const [from, to] of copies) {
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(from, to);
+  }
+
+  fs.rmSync(`${mcpPackageServerOut}.map`, { force: true });
+
+  console.log(`[mcp-package] synced ${path.relative(__dirname, mcpPackageRoot)}`);
+}
+
 async function buildBoardUi() {
   const result = await esbuild.build({
     entryPoints: [path.join(boardUiDir, 'board.ts')],
@@ -82,7 +110,7 @@ async function main() {
   const mcpCtx = await esbuild.context({
     ...shared,
     entryPoints: ['src/mcp/server.ts'],
-    outfile: 'plugins/taskplanner/dist/mcp-server.js',
+    outfile: mcpServerOut,
     plugins: [
       boardUiWatchPlugin(),
       {
@@ -90,7 +118,26 @@ async function main() {
         setup(build) {
           build.onEnd((result) => {
             if (result.errors.length === 0) {
+              syncMcpPackage();
               console.log('[watch] mcp-server build succeeded');
+            }
+          });
+        },
+      },
+    ],
+  });
+
+  const libraryCtx = await esbuild.context({
+    ...shared,
+    entryPoints: ['src/core/index.ts'],
+    outfile: mcpPackageLibraryOut,
+    plugins: [
+      {
+        name: 'watch-plugin',
+        setup(build) {
+          build.onEnd((result) => {
+            if (result.errors.length === 0) {
+              console.log('[watch] core library build succeeded');
             }
           });
         },
@@ -101,12 +148,16 @@ async function main() {
   if (watch) {
     await extensionCtx.watch();
     await mcpCtx.watch();
+    await libraryCtx.watch();
     console.log('[watch] watching for changes...');
+    console.log('[watch] note: .d.ts output is not rebuilt here — run "npm run build:types".');
   } else {
     await extensionCtx.rebuild();
     await mcpCtx.rebuild();
+    await libraryCtx.rebuild();
     await extensionCtx.dispose();
     await mcpCtx.dispose();
+    await libraryCtx.dispose();
   }
 }
 

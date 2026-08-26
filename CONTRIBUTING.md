@@ -41,6 +41,7 @@ npm run watch        # Dev build with watch mode
 npm run validate:cursor-plugin  # Validate Cursor plugin manifest/artifacts
 npm run validate:codex-plugin   # Validate Codex plugin manifest/marketplace
 npm run release:check # Build + plugin readiness checks
+npm run smoke:mcp-server        # Pack, install, and exercise the published npm package
 npm test             # Run unit tests (Vitest)
 npm run lint         # Run ESLint
 npm run format       # Run Prettier
@@ -49,10 +50,11 @@ npm run package      # Create .vsix package
 
 ## Release Channels
 
-TaskPlanner is distributed through two channels:
+TaskPlanner is distributed through three channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
 - **Plugin channel**: shared Cursor/Codex package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
+- **npm channel**: [`@refined/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
 
 Every commit must include a patch version bump. The configured pre-commit hook runs `scripts/bump-version.js` and stages all synchronized version-bearing files. If an exact release version was set manually before committing, use `--no-verify` only after `npm run validate:versions` passes to avoid a second bump.
 
@@ -76,6 +78,46 @@ npx @vscode/vsce publish --packagePath dist/vscode/taskplanner-<version>.vsix --
 # Open VSX (token from https://open-vsx.org/user-settings/tokens for namespace refined):
 npx ovsx publish dist/vscode/taskplanner-<version>.vsix -p <OVSX_PAT>
 ```
+
+### npm publish (`@refined/taskplanner`)
+
+The MCP server is published from `packages/mcp-server/`. It ships the **same bundle bytes** as
+`plugins/taskplanner/dist/mcp-server.js` — `esbuild.js` builds once and copies, and
+`npm run validate:versions` fails if the two ever diverge. There is one MCP server in this repo, in
+two install locations; do not build a second one.
+
+The package has two entry points, both built from `src/core/`:
+
+| Specifier | Output | For |
+| --- | --- | --- |
+| `@refined/taskplanner` | `dist/index.js` + `dist/*.d.ts` | The library, from `src/core/index.ts`. Callers using their own code. |
+| `@refined/taskplanner/mcp-server` | `dist/mcp-server.js` | The stdio server, from `src/mcp/server.ts`. Callers exposing tools to a model. |
+
+Types come from `npm run build:types` (`tsconfig.types.json`, declaration-only), which `npm run build`
+chains after esbuild. `npm run watch` does **not** rebuild them — run `build:types` if you are
+changing the library's public shape. Anything added to `src/core/index.ts` becomes public API.
+
+`packages/mcp-server/dist/` and `packages/mcp-server/ui/` are generated and gitignored, so the build
+must run before the pack:
+
+```bash
+npm run release:check                       # includes the build and the published-artifact smoke test
+npm publish ./packages/mcp-server --access public
+```
+
+First publish only: the `@refined` npm organization must exist and the publishing account must be a
+member of it. Create the org on the website at [npmjs.com/org/create](https://www.npmjs.com/org/create)
+— it is free for public packages, and there is no `npm org create`; the CLI only manages members
+(`npm org set refined <username>`). Alternatively, rename the package to a scope you already own.
+
+Whoever runs `npm publish` is recorded permanently in each published version's `_npmUser` metadata,
+username and account email included, and is listed as the package maintainer. Publish from the
+account you want associated with the package publicly.
+
+`npm run smoke:mcp-server` is the gate that this artifact runs outside an editor: it packs the
+package, installs the tarball into an empty temp directory, spawns it with plain `node`, and checks
+both workspace-root paths plus the `**Assignee:**` round-trip. Keep the bundle format CommonJS —
+the server reads its board HTML through `__dirname`.
 
 Packaged artifacts are gitignored and grouped by release channel:
 
@@ -125,7 +167,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.4",
+  "taskplannerVersion": "2.1.12",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [

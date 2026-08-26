@@ -5,3 +5,6 @@ dist/
 out/
 *.vsix
 .vscode-test/
+
+# Generated npm package artifacts (built by esbuild.js from src/, published from packages/mcp-server)
+packages/mcp-server/ui/

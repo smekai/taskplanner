@@ -6,14 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- Task list sorting now tie-breaks by task ID (ascending) when priority or name sort keys match, giving stable ordering within groups (TASK-043).
+- The MCP server is now published to npm as `@refined/taskplanner`, so agent hosts outside a VS Code or Cursor install can depend on it instead of pointing at an extension path. Same server as the editor plugin, built from the same sources; spawn it as `node <require.resolve('@refined/taskplanner')>` and point it at a repository with `TASKPLANNER_WORKSPACE_ROOT` or the `workspace_root` tool input (TASK-046).
+
+- `@refined/taskplanner` also ships the task board as a library, with TypeScript declarations: `import { parseTasks, TaskStore } from '@refined/taskplanner'` reads and edits a board directly, with no subprocess and no MCP round-trip. Use it when your own code is the caller; use the MCP server when a model is (TASK-047).
+
+### Changed
+
+- `npm run smoke:mcp-server` now packs and installs the published npm package before exercising it, instead of testing the extension's own bundle (TASK-046).
+- The MCP server moved from the package root to the `@refined/taskplanner/mcp-server` subpath, so the package's main entry is the library and importing it no longer starts a server. Spawn it as `node <require.resolve('@refined/taskplanner/mcp-server')>` (TASK-047).
+
+## [2.1.4] - 2026-08-03
 
 ### Added
 
 - Tag filter in the sidebar task list filter bar to show tasks matching a selected tag (TASK-044).
 - Labeled read-only task ID field at the top of the task edit detail view (TASK-045).
+
+### Fixed
+
+- Task list sorting now tie-breaks by task ID (ascending) when priority or name sort keys match, giving stable ordering within groups (TASK-043).
 
 ## [2.1.2] - 2026-07-24
 

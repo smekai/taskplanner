@@ -18,6 +18,7 @@ function main() {
     path.join(root, 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
   );
   const codex = readJson(path.join(root, 'plugins', 'taskplanner', '.codex-plugin', 'plugin.json'));
+  const mcpPackage = readJson(path.join(root, 'packages', 'mcp-server', 'package.json'));
   const expected = pkg.version;
 
   const versions = [
@@ -25,6 +26,7 @@ function main() {
     ['package-lock.json root package', lock.packages?.['']?.version],
     ['Cursor plugin manifest', cursor.version],
     ['Codex plugin manifest', codex.version?.split('+')[0]],
+    [`npm package ${mcpPackage.name}`, mcpPackage.version],
   ];
   for (const [label, actual] of versions) {
     if (actual !== expected) fail(`${label} is ${actual}; expected ${expected}.`);
@@ -34,13 +36,18 @@ function main() {
   const mcpVersion = /version: '([^']+)',/.exec(mcpSource)?.[1];
   if (mcpVersion !== expected) fail(`MCP server is ${mcpVersion}; expected ${expected}.`);
 
-  const mcpBundle = fs.readFileSync(
-    path.join(root, 'plugins', 'taskplanner', 'dist', 'mcp-server.js'),
-    'utf8',
-  );
+  const mcpBundlePath = path.join(root, 'plugins', 'taskplanner', 'dist', 'mcp-server.js');
+  const mcpBundle = fs.readFileSync(mcpBundlePath, 'utf8');
   const mcpBundleVersion = /name:"taskplanner",version:"([^"]+)"/.exec(mcpBundle)?.[1];
   if (mcpBundleVersion !== expected) {
     fail(`Bundled MCP server is ${mcpBundleVersion}; expected ${expected}.`);
+  }
+
+  const mcpPackageBundlePath = path.join(root, 'packages', 'mcp-server', 'dist', 'mcp-server.js');
+  if (!fs.existsSync(mcpPackageBundlePath)) {
+    fail(`${mcpPackage.name} has no built bundle; run "npm run build" first.`);
+  } else if (!fs.readFileSync(mcpPackageBundlePath).equals(fs.readFileSync(mcpBundlePath))) {
+    fail(`${mcpPackage.name} bundle differs from the plugin bundle; rebuild to resync.`);
   }
 
   for (const skillName of ['taskplanner', 'initialize-taskplanner', 'update-taskplanner']) {
