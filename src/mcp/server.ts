@@ -145,7 +145,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-    version: '2.1.8',
+    version: '2.1.9',
 });
 
 // ── taskplanner_board ───────────────────────────────────

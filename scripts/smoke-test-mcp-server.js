@@ -11,7 +11,10 @@
  *   - the workspace root supplied via TASKPLANNER_WORKSPACE_ROOT *and* via the workspace_root
  *     tool input, both walking up from the given directory to find .tasks/;
  *   - the six agent-facing tools, plus the board UI resource and tool annotations;
- *   - **Assignee:** written directly to markdown round-tripping across taskplanner_move.
+ *   - **Assignee:** written directly to markdown round-tripping across taskplanner_move;
+ *   - the `.` library entry loading without starting a server, with its .d.ts alongside;
+ *   - the declared `bin` mapping, launched through `npm exec` the way an npx user reaches it;
+ *   - the tarball carrying LICENSE, both bundles, the types, and the board HTML.
  *
  * Usage: node scripts/smoke-test-mcp-server.js
  *
@@ -151,15 +154,19 @@ function childEnv(extra = {}) {
   return { ...env, ...extra };
 }
 
-function startServer(serverPath, { cwd, env, label }) {
-  // process.execPath + a resolved module path: the spawn form consumers are told to use, and the
-  // only one that behaves the same on Windows as elsewhere (a bin name is a .cmd shim there).
-  const proc = spawn(process.execPath, [serverPath], {
+function startServerProcess(command, args, { cwd, env, label }) {
+  const proc = spawn(command, args, {
     cwd,
     env: childEnv(env),
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   return new McpClient(proc, label);
+}
+
+function startServer(serverPath, options) {
+  // process.execPath + a resolved module path: the spawn form consumers are told to use, and the
+  // only one that behaves the same on Windows as elsewhere (a bin name is a .cmd shim there).
+  return startServerProcess(process.execPath, [serverPath], options);
 }
 
 // ── publish the package into a throwaway install ────────
@@ -205,6 +212,7 @@ function installPublishedPackage(tempRoot) {
   // The tarball must actually carry the runtime files; `files` whitelists are easy to get wrong.
   const packedPaths = (packed.files || []).map((file) => file.path.replace(/\\/g, '/'));
   for (const required of [
+    'LICENSE',
     'dist/mcp-server.js',
     'dist/index.js',
     'dist/index.d.ts',
@@ -439,21 +447,48 @@ function checkLibraryEntry(installDir, scratch) {
   log('library entry OK (require, no server started, same parser, types present).');
 }
 
+const BIN_NAME = 'taskplanner-mcp';
+
 /**
- * The bin exists for `npx` and shell use. Spawn the launcher *script* (not the .cmd shim the bin
- * name resolves to on Windows) to confirm the relative require inside it still points at the
- * bundle, without endorsing the spawn form consumers are told to avoid.
+ * The bin exists for `npx` and shell use. Check the mapping the package actually declares — not a
+ * hardcoded path — and then drive it the way an npx user does, through `npm exec`. Hardcoding the
+ * launcher path would keep passing if `bin` were deleted or pointed at the wrong file.
  */
 async function checkBinLauncher(installDir, scratch) {
-  const binPath = require.resolve(`${packageName}/package.json`, { paths: [installDir] });
-  const launcher = path.join(path.dirname(binPath), 'bin', 'taskplanner-mcp.js');
-  if (!fs.existsSync(launcher)) fail(`Published package has no bin launcher at ${launcher}.`);
+  const manifestPath = require.resolve(`${packageName}/package.json`, { paths: [installDir] });
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
-  const client = startServer(launcher, { cwd: installDir, env: {}, label: 'bin' });
+  const declared =
+    typeof manifest.bin === 'string' ? { [manifest.name]: manifest.bin } : manifest.bin || {};
+  const target = declared[BIN_NAME];
+  if (!target) {
+    fail(`Published package declares no "${BIN_NAME}" bin (bin: ${JSON.stringify(manifest.bin)}).`);
+  }
+  const targetPath = path.resolve(path.dirname(manifestPath), target);
+  if (!fs.existsSync(targetPath)) {
+    fail(`bin "${BIN_NAME}" points at ${target}, which is not present in the published package.`);
+  }
+
+  // npm must have installed the shim; that is what makes npx/npm exec resolve the name at all.
+  const shimDir = path.join(installDir, 'node_modules', '.bin');
+  const shims = fs.existsSync(shimDir) ? fs.readdirSync(shimDir) : [];
+  if (!shims.some((entry) => entry === BIN_NAME || entry.startsWith(`${BIN_NAME}.`))) {
+    fail(
+      `npm installed no ${BIN_NAME} shim in node_modules/.bin (found: ${shims.join(', ') || 'nothing'}).`,
+    );
+  }
+
+  // Run the documented npx path for real. npm's JS entry is invoked directly, so no shell is
+  // involved on our side, while npm itself resolves the platform shim exactly as npx would.
+  const client = startServerProcess(process.execPath, [npmCli, 'exec', '--', BIN_NAME], {
+    cwd: installDir,
+    env: {},
+    label: 'npm exec',
+  });
   try {
     await client.initialize();
     await client.callTool('taskplanner_board', { workspace_root: scratch.root });
-    log('bin launcher OK (npx entry point boots the same server).');
+    log(`bin OK (package.json bin → ${target}, launched via npm exec).`);
   } finally {
     await client.close();
   }
