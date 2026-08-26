@@ -30,6 +30,11 @@ const mcpPackageRoot = path.join(__dirname, 'packages', 'mcp-server');
 const mcpPackageServerOut = path.join(mcpPackageRoot, 'dist', 'mcp-server.js');
 const mcpPackageBoardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
 
+// The package's `.` entry: the core library, for consumers calling from their own code rather than
+// through an agent. Built from the same src/core/* the server uses, so the two cannot drift.
+// Types for it are emitted separately by `npm run build:types` (tsconfig.types.json).
+const mcpPackageLibraryOut = path.join(mcpPackageRoot, 'dist', 'index.js');
+
 // The bundle resolves its board HTML through __dirname, which only exists because the output
 // format is CJS. Keep it that way — `shared.format` is load-bearing for the published package,
 // which is spawned by plain `node` (see scripts/smoke-test-mcp-server.js).
@@ -133,15 +138,37 @@ async function main() {
     ],
   });
 
+  const libraryCtx = await esbuild.context({
+    ...shared,
+    entryPoints: ['src/core/index.ts'],
+    outfile: mcpPackageLibraryOut,
+    plugins: [
+      {
+        name: 'watch-plugin',
+        setup(build) {
+          build.onEnd((result) => {
+            if (result.errors.length === 0) {
+              console.log('[watch] core library build succeeded');
+            }
+          });
+        },
+      },
+    ],
+  });
+
   if (watch) {
     await extensionCtx.watch();
     await mcpCtx.watch();
+    await libraryCtx.watch();
     console.log('[watch] watching for changes...');
+    console.log('[watch] note: .d.ts output is not rebuilt here — run "npm run build:types".');
   } else {
     await extensionCtx.rebuild();
     await mcpCtx.rebuild();
+    await libraryCtx.rebuild();
     await extensionCtx.dispose();
     await mcpCtx.dispose();
+    await libraryCtx.dispose();
   }
 }
 

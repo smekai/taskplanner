@@ -2,7 +2,7 @@
   "name": "taskplanner",
   "displayName": "Task → Plan → AI",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
-  "version": "2.1.6",
+  "version": "2.1.7",
   "publisher": "refined",
   "license": "MIT",
   "icon": "resources/icons/taskplanner-color.png",
@@ -228,7 +228,8 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "vscode:prepublish": "npm run build",
-    "build": "node esbuild.js --production",
+    "build": "node esbuild.js --production && npm run build:types",
+    "build:types": "tsc -p tsconfig.types.json",
     "watch": "node esbuild.js --watch",
     "validate:cursor-plugin": "node scripts/validate-cursor-plugin.js",
     "validate:codex-plugin": "node scripts/validate-codex-plugin.js",

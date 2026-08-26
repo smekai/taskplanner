@@ -204,7 +204,13 @@ function installPublishedPackage(tempRoot) {
 
   // The tarball must actually carry the runtime files; `files` whitelists are easy to get wrong.
   const packedPaths = (packed.files || []).map((file) => file.path.replace(/\\/g, '/'));
-  for (const required of ['dist/mcp-server.js', 'ui/board/index.html', 'package.json']) {
+  for (const required of [
+    'dist/mcp-server.js',
+    'dist/index.js',
+    'dist/index.d.ts',
+    'ui/board/index.html',
+    'package.json',
+  ]) {
     if (!packedPaths.includes(required)) {
       fail(`Published tarball is missing ${required}. Run "npm run build" first.`);
     }
@@ -219,7 +225,9 @@ function installPublishedPackage(tempRoot) {
     cwd: installDir,
   });
 
-  const serverPath = require.resolve(packageName, { paths: [installDir] });
+  // The server lives on the ./mcp-server subpath; `.` is the library. Resolving through the
+  // package's exports map is exactly what a consumer does, so a broken map fails here.
+  const serverPath = require.resolve(`${packageName}/mcp-server`, { paths: [installDir] });
   if (!serverPath.startsWith(fs.realpathSync(installDir))) {
     fail(`Resolved ${serverPath}, which is outside the fresh install at ${installDir}.`);
   }
@@ -400,6 +408,38 @@ async function checkEnvVarRoot(serverPath, installDir) {
 }
 
 /**
+ * The `.` entry: the core library, for a consumer reading the board from its own code with no model
+ * in the loop. Requiring it must NOT start a server — that is the whole reason the server moved to
+ * its own subpath — so this also asserts the process stays alive and stdio stays untouched.
+ */
+function checkLibraryEntry(installDir, scratch) {
+  const libraryPath = require.resolve(packageName, { paths: [installDir] });
+  if (!/[\\/]dist[\\/]index\.js$/.test(libraryPath)) {
+    fail(`"." resolved to ${libraryPath}; expected the library at dist/index.js.`);
+  }
+
+  const taskplanner = require(libraryPath);
+  for (const name of ['parseTasks', 'serializeTask', 'TaskStore', 'FileStore', 'ConfigManager']) {
+    if (!taskplanner[name]) fail(`Library entry does not export ${name}.`);
+  }
+
+  // Parse the same board the MCP tools just edited, through the same parser.
+  const markdown = fs.readFileSync(path.join(scratch.tasksDir, 'IN_PROGRESS.md'), 'utf8');
+  const result = taskplanner.parseTasks(markdown);
+  const task = result.tasks.find((candidate) => candidate.id === SCRATCH_TASK_ID);
+  if (!task) fail(`Library parseTasks did not find ${SCRATCH_TASK_ID} in IN_PROGRESS.md.`);
+  if (task.assignee !== 'owner') {
+    fail(`Library read assignee as ${JSON.stringify(task.assignee)}; expected "owner".`);
+  }
+
+  // Types are what make the entry usable from TypeScript; a missing .d.ts is a silent downgrade.
+  const types = path.join(path.dirname(libraryPath), 'index.d.ts');
+  if (!fs.existsSync(types)) fail(`Library entry has no type declarations at ${types}.`);
+
+  log('library entry OK (require, no server started, same parser, types present).');
+}
+
+/**
  * The bin exists for `npx` and shell use. Spawn the launcher *script* (not the .cmd shim the bin
  * name resolves to on Windows) to confirm the relative require inside it still points at the
  * bundle, without endorsing the spawn form consumers are told to avoid.
@@ -508,7 +548,10 @@ async function main() {
 
     await checkEnvVarRoot(serverPath, installDir);
     await checkToolInputRootAndAssignee(serverPath, installDir, scratch);
-    if (!process.env.TASKPLANNER_MCP_SERVER_PATH) await checkBinLauncher(installDir, scratch);
+    if (!process.env.TASKPLANNER_MCP_SERVER_PATH) {
+      await checkBinLauncher(installDir, scratch);
+      checkLibraryEntry(installDir, scratch);
+    }
 
     log('Smoke test passed.');
   } finally {

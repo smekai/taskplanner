@@ -1,10 +1,12 @@
 # @refined/taskplanner
 
-The [TaskPlanner](https://github.com/smekai/taskplanner) MCP server as a standalone npm package.
+[TaskPlanner](https://github.com/smekai/taskplanner)'s task board as a standalone npm package — as a
+library you call, and as an MCP server you spawn.
 
-TaskPlanner stores tasks as markdown in a repository's `.tasks/` directory. This package exposes
-that board to any MCP client over stdio — the same server the VS Code extension and the
-Cursor/Codex plugin run, built from the same sources. There is one board parser, not a fork.
+TaskPlanner stores tasks as markdown in a repository's `.tasks/` directory. This package reads and
+writes that board: directly from your code, or over stdio for an MCP client. It is the same server
+the VS Code extension and the Cursor/Codex plugin run, built from the same sources. There is one
+board parser, not a fork.
 
 ```bash
 npm install @refined/taskplanner
@@ -13,6 +15,43 @@ npm install @refined/taskplanner
 The published bundle is self-contained (the MCP SDK and Zod are bundled in), so the package has no
 runtime dependencies. It is CommonJS and requires Node >= 20.
 
+## Two entry points
+
+Pick by who is calling:
+
+| Entry | Import | Use when |
+| --- | --- | --- |
+| Library | `@refined/taskplanner` | **Your own code** reads or edits the board. Direct calls, typed, no subprocess. |
+| MCP server | `@refined/taskplanner/mcp-server` | **A model** picks the tools. Spawned over stdio; ships tool schemas, descriptions, and safety annotations. |
+
+Both are built from the same `src/core/`, so they cannot disagree about what a board says. Use both
+in one host if it suits — the agent gets MCP tools, your own code calls the library.
+
+## Using it as a library
+
+```js
+const { parseTasks, TaskStore, FileStore, ConfigManager } = require('@refined/taskplanner');
+
+// Parse a single state file
+const { tasks, warnings } = parseTasks(fs.readFileSync('.tasks/BACKLOG.md', 'utf8'));
+
+// Or drive the whole board
+const configManager = new ConfigManager('/path/to/repo/.tasks');
+configManager.load();
+const store = new TaskStore(configManager, new FileStore('/path/to/repo/.tasks'));
+store.reload();
+store.moveTask('TASK-001', 'In Progress');
+```
+
+TypeScript declarations ship with the package. ESM named imports work too:
+
+```js
+import { parseTasks } from '@refined/taskplanner';
+```
+
+Requiring the library does **not** start a server — that lives on its own subpath precisely so this
+import stays inert.
+
 ## Spawning the server
 
 **Spawn `process.execPath` with a resolved module path. Never spawn a bare bin name.**
@@ -20,7 +59,7 @@ runtime dependencies. It is CommonJS and requires Node >= 20.
 ```js
 const { spawn } = require('node:child_process');
 
-const serverPath = require.resolve('@refined/taskplanner');
+const serverPath = require.resolve('@refined/taskplanner/mcp-server');
 
 const child = spawn(process.execPath, [serverPath], {
   env: { ...process.env, TASKPLANNER_WORKSPACE_ROOT: '/path/to/the/repo' },
@@ -32,7 +71,7 @@ From ESM:
 
 ```js
 import { createRequire } from 'node:module';
-const serverPath = createRequire(import.meta.url).resolve('@refined/taskplanner');
+const serverPath = createRequire(import.meta.url).resolve('@refined/taskplanner/mcp-server');
 ```
 
 Why not the bin name? `taskplanner-mcp` resolves to a `.cmd` shim on Windows, and spawning a `.cmd`

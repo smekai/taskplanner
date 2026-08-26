@@ -86,6 +86,17 @@ The MCP server is published from `packages/mcp-server/`. It ships the **same bun
 `npm run validate:versions` fails if the two ever diverge. There is one MCP server in this repo, in
 two install locations; do not build a second one.
 
+The package has two entry points, both built from `src/core/`:
+
+| Specifier | Output | For |
+| --- | --- | --- |
+| `@refined/taskplanner` | `dist/index.js` + `dist/*.d.ts` | The library, from `src/core/index.ts`. Callers using their own code. |
+| `@refined/taskplanner/mcp-server` | `dist/mcp-server.js` | The stdio server, from `src/mcp/server.ts`. Callers exposing tools to a model. |
+
+Types come from `npm run build:types` (`tsconfig.types.json`, declaration-only), which `npm run build`
+chains after esbuild. `npm run watch` does **not** rebuild them — run `build:types` if you are
+changing the library's public shape. Anything added to `src/core/index.ts` becomes public API.
+
 `packages/mcp-server/dist/` and `packages/mcp-server/ui/` are generated and gitignored, so the build
 must run before the pack:
 
@@ -156,7 +167,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 2,
-  "taskplannerVersion": "2.1.6",
+  "taskplannerVersion": "2.1.7",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [

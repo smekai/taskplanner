@@ -1,5 +1,39 @@
 # Done
 
+## TASK-047: Expose the core library as a package entry point, not only the MCP server
+**Priority:** P1 | **Tags:** core, refactor
+**Updated:** 2026-08-26 14:30
+
+`@refined/taskplanner` exposed only `dist/mcp-server.js`. A consumer wanting to read the board from
+its own code — no model in the loop — had to spawn a Node subprocess and speak JSON-RPC over stdio
+to parse a few markdown files. `src/core/` was already VS Code-free and imports nothing but `fs`
+and `path`, so a clean library API sat behind a door with no handle.
+
+### Plan
+
+- Added a second esbuild output: `src/core/index.ts` → `packages/mcp-server/dist/index.js` (CJS).
+- Added `tsconfig.types.json` (declaration-only) emitting the core `.d.ts` tree next to it, chained
+  into `npm run build` as `build:types`. `npm run watch` does not rebuild types; noted in the docs.
+- Re-pointed `exports` while nothing was published: `.` → the library (with a `types` condition),
+  `./mcp-server` → the server. This was the last free moment — `.` previously resolved to a bundle
+  that self-starts a stdio server on import, which is backwards for a package entry point.
+- Smoke test resolves the server through the new subpath and gained a library check: requires `.`
+  from the fresh install, asserts the expected exports, parses the same board the MCP tools just
+  edited, and confirms `index.d.ts` ships. That the test completes at all proves requiring the
+  library does not start a server.
+- Documented both entry points in the package README, CONTRIBUTING, and the root README.
+
+Verified: `npm run release:check` passes end to end. ESM named imports were checked explicitly
+(`import { parseTasks } from '@refined/taskplanner'`) rather than assumed — cjs-module-lexer does
+detect esbuild's `__export` pattern, so the CJS bundle works from ESM. The tarball grew from 5 to
+27 files, the added ones being the declaration tree.
+
+The two bundles each embed a copy of `src/core/*`. They are built from one source in one build, so
+they cannot drift, and the byte-identity check in `validate-versions.js` stays scoped to
+`mcp-server.js`.
+
+---
+
 ## TASK-046: The MCP server ships as its own package, not only inside the extension
 **Priority:** P1 | **Tags:** core, refactor, ci
 **Updated:** 2026-08-26 12:00
