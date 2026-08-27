@@ -15,6 +15,17 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-055 — 2026-08-27
+**What:** Removed a tracked 814 kB sourcemap that was four months stale and referenced by nothing,
+and stopped production builds from leaving orphaned maps behind.
+**Decisions:** Only the maps are ignored — the bundle beside them stays tracked, because the repo
+tree is how Codex and the Cursor Marketplace install the plugin. Fixed the mechanism (dev builds
+emit maps, production builds did not clean them) rather than only deleting the file.
+**Outcome:** The packaged VSIX went from one .map file to zero; dist/extension.js.map was leaking
+the same way and is fixed too. Filed retroactively, after the work.
+
+---
+
 ## TASK-048 — 2026-08-27
 **What:** Generated agent instructions now name the six TaskPlanner MCP tools and prefer them over
 editing the task markdown by hand, which they previously prescribed.

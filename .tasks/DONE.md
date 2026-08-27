@@ -1,5 +1,46 @@
 # Done
 
+## TASK-055: Stop committing and shipping stale build sourcemaps
+**Priority:** P2 | **Tags:** setup, ci | **Epic:** 2.2.x
+**Updated:** 2026-08-27 13:20
+
+Filed retroactively — the work was done first, in the same PR as TASK-048, after the question came
+up of whether `plugins/taskplanner/dist/mcp-server.js` belonged in git at all.
+
+**Observed:** `plugins/taskplanner/dist/mcp-server.js.map` was tracked in git at 814 kB, generated
+on 24 April against a bundle rebuilt on 27 August, and referenced by nothing — the production bundle
+carries no `sourceMappingURL`, because it is built with `sourcemap: false`. It rode into the VSIX as
+well, since `.vscodeignore` deliberately includes the whole plugin dist. `dist/extension.js.map`
+(81 kB) was leaking into the VSIX by the same route.
+
+**Root cause, which is why deleting the file was not enough:** dev builds emit sourcemaps
+(`sourcemap: !production`) and production builds did not remove them. Any release packaged after a
+`npm run watch` session inherited whatever orphans that session left behind. That is how a map from
+April survived four months of rebuilds.
+
+**Not changed, deliberately:** the bundle beside it stays tracked. `.agents/plugins/marketplace.json`
+installs the plugin from `./plugins/taskplanner`, `plugins/taskplanner/mcp.json` resolves the server
+at `${CURSOR_PLUGIN_ROOT}/dist/mcp-server.js`, and the Cursor Marketplace submission is the
+repository URL — the repo tree is a distribution channel, so removing the bundle from git would ship
+a plugin with no server. Storage was never the argument either way: the entire history of that
+directory packs to 2.67 KiB.
+
+### Plan
+
+- Removed the tracked sourcemap and added `plugins/taskplanner/dist/*.map` to `.gitignore`,
+  positioned **after** the existing `!plugins/taskplanner/dist/**` negation so it does not swallow
+  the bundle. Verified both paths with `git check-ignore`.
+- Production builds now delete both `plugins/taskplanner/dist/mcp-server.js.map` and
+  `dist/extension.js.map` in `esbuild.js`, so the orphan cannot recur. Dev builds keep their maps.
+- Reproduced the mechanism end to end before and after: run a watch build, then a production build,
+  and confirm the map is gone and the bundle still matches HEAD.
+- The packaged VSIX now contains zero `.map` files, down from one.
+
+**Key files:** `.gitignore`, `esbuild.js`.
+
+---
+
+
 ## TASK-048: Generated instructions prescribe hand-editing and never mention the MCP tools
 **Priority:** P1 | **Tags:** core, docs | **Epic:** 2.2.x
 **Updated:** 2026-08-27 12:40
