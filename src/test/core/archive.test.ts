@@ -5,13 +5,25 @@ import * as os from 'os';
 import { ConfigManager } from '../../core/config/configManager.js';
 import { FileStore } from '../../core/store/fileStore.js';
 import { TaskStore } from '../../core/store/taskStore.js';
-import { archiveFileFor, isArchivable } from '../../core/store/archive.js';
+import {
+  archiveFileFor,
+  isArchivable,
+  splitWorkLog,
+  workLogArchiveFileFor,
+} from '../../core/store/archive.js';
 import { Priority, Task } from '../../core/model/task.js';
 
 const NOW = new Date('2026-08-27T12:00:00Z');
 
 function task(id: string, updatedAt?: string): Task {
-  return { id, title: `Task ${id}`, description: 'body', priority: Priority.P2, tags: [], updatedAt };
+  return {
+    id,
+    title: `Task ${id}`,
+    description: 'body',
+    priority: Priority.P2,
+    tags: [],
+    updatedAt,
+  };
 }
 
 describe('archiveFileFor', () => {
@@ -178,6 +190,73 @@ describe('archiveDoneAfterDays validation', () => {
 
     expect(cm.load().archiveDoneAfterDays).toBeUndefined();
     expect(cm.getDiagnostics().length).toBeGreaterThan(0);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('work log archiving', () => {
+  const HEADER = [
+    '# Work Log',
+    '',
+    '**Entry template** (insert after this header, before existing entries):',
+    '',
+    '```markdown',
+    '## TASK-### — YYYY-MM-DD',
+    '**What:** One-line summary.',
+    '',
+    '---',
+    '```',
+    '',
+    '---',
+  ].join('\n');
+
+  const entry = (id: string, date: string) =>
+    `## ${id} — ${date}\n**What:** did ${id}.\n**Outcome:** fine.\n\n---`;
+
+  it('does not mistake the template in the header for an entry', () => {
+    // `## TASK-### — YYYY-MM-DD` sits inside the file's own fenced template block.
+    const { header, entries } = splitWorkLog(`${HEADER}\n\n${entry('TASK-001', '2026-01-15')}\n`);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe('TASK-001');
+    expect(header).toContain('TASK-### — YYYY-MM-DD');
+  });
+
+  it('buckets entries by half-year like tasks', () => {
+    expect(workLogArchiveFileFor({ id: 'T-1', date: '2026-03-01', text: '' })).toBe(
+      'WORK_LOG-2026-H1.md',
+    );
+    expect(workLogArchiveFileFor({ id: 'T-2', date: '2026-09-01', text: '' })).toBe(
+      'WORK_LOG-2026-H2.md',
+    );
+  });
+
+  it('moves old entries out and leaves the header and recent ones', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wl-'));
+    fs.writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({ version: 3, idPrefix: 'T', nextId: 1, archiveDoneAfterDays: 90 }),
+    );
+    fs.writeFileSync(
+      path.join(dir, 'WORK_LOG.md'),
+      `${HEADER}\n\n${entry('T-002', '2026-08-20')}\n\n${entry('T-001', '2026-01-15')}\n`,
+    );
+    const cm = new ConfigManager(dir);
+    cm.load();
+    const store = new TaskStore(cm, new FileStore(dir));
+    (store as unknown as { fileStore: FileStore }).fileStore.initializeStateFiles(cm.get());
+    store.reload();
+
+    const result = store.archiveCompleted(NOW);
+
+    expect(result.files).toContain('WORK_LOG-2026-H1.md');
+    const remaining = fs.readFileSync(path.join(dir, 'WORK_LOG.md'), 'utf-8');
+    expect(remaining).toContain('# Work Log');
+    expect(remaining).toContain('T-002');
+    expect(remaining).not.toContain('did T-001');
+
+    const archived = fs.readFileSync(path.join(dir, 'archive', 'WORK_LOG-2026-H1.md'), 'utf-8');
+    expect(archived).toContain('**What:** did T-001.');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

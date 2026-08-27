@@ -102,7 +102,7 @@ export class FileStore {
     }
     return fs.readFileSync(filePath, 'utf-8');
   }
-/** Directory holding archived Done sections. Not a board state — nothing lists it in views. */
+  /** Directory holding archived Done sections. Not a board state — nothing lists it in views. */
   archiveDir(): string {
     return path.join(this.tasksDir, 'archive');
   }
@@ -120,6 +120,21 @@ export class FileStore {
   readArchiveRaw(fileName: string): string {
     const filePath = path.join(this.archiveDir(), fileName);
     return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  }
+
+  readWorkLog(): string {
+    const filePath = path.join(this.tasksDir, 'WORK_LOG.md');
+    return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  }
+
+  writeWorkLog(content: string): void {
+    fs.writeFileSync(path.join(this.tasksDir, 'WORK_LOG.md'), content, 'utf-8');
+  }
+
+  writeArchiveRaw(fileName: string, content: string): void {
+    const dir = this.archiveDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, fileName), content, 'utf-8');
   }
 
   writeArchive(fileName: string, header: string, tasks: Task[]): void {

@@ -8,7 +8,15 @@ import { IdGenerator } from '../id/idGenerator.js';
 import { DuplicateResolution } from '../validation/duplicateDetector.js';
 import { countTaskHeadings, maxTaskIdNumber, parseTasks } from '../parser/taskParser.js';
 import { currentTimestamp } from '../util/time.js';
-import { ArchiveResult, archiveHeadingFor, planArchive } from './archive.js';
+import {
+  ArchiveResult,
+  archiveHeadingFor,
+  isDateArchivable,
+  joinWorkLog,
+  planArchive,
+  splitWorkLog,
+  workLogArchiveFileFor,
+} from './archive.js';
 
 export type TaskStoreListener = () => void;
 
@@ -62,7 +70,10 @@ export class TaskStore {
   }
 
   /** Record a fully-parsed state's tasks and warnings. */
-  private applyParsedState(state: TaskState, pr: { tasks: Task[]; warnings: ParseWarning[] }): void {
+  private applyParsedState(
+    state: TaskState,
+    pr: { tasks: Task[]; warnings: ParseWarning[] },
+  ): void {
     this.tasksByState.set(state.name, pr.tasks);
     if (pr.warnings.length > 0) {
       this.parseWarningsByFile.set(state.fileName, pr.warnings);
@@ -219,7 +230,6 @@ export class TaskStore {
 
     this.ensureStateLoaded(doneState.name);
     const { keep, byFile } = planArchive(this.getTasksByState(doneState.name), afterDays, now);
-    if (byFile.size === 0) return { archived: 0, files: [] };
 
     let archived = 0;
     for (const [fileName, moving] of byFile) {
@@ -233,10 +243,55 @@ export class TaskStore {
       archived += moving.length;
     }
 
-    this.tasksByState.set(doneState.name, keep);
-    this.fileStore.writeState(doneState, keep);
-    this.notifyListeners();
-    return { archived, files: [...byFile.keys()].sort() };
+    if (byFile.size > 0) {
+      this.tasksByState.set(doneState.name, keep);
+      this.fileStore.writeState(doneState, keep);
+      this.notifyListeners();
+    }
+
+    // Independent of whether any task moved: the log grows on its own schedule, and a board with
+    // nothing old enough to archive can still have a log that does.
+    const log = this.archiveWorkLog(afterDays, now);
+    return { archived, files: [...byFile.keys(), ...log].sort() };
+  }
+
+  /**
+   * Move work-log entries past the threshold into .tasks/archive/, on the same schedule as tasks.
+   * WORK_LOG.md grows one entry per completed task forever, so archiving Done alone would leave
+   * half the problem. Entries are moved as raw text: the log is prose a human wrote, and nothing
+   * here should reformat it.
+   */
+  private archiveWorkLog(afterDays: number, now: Date): string[] {
+    const content = this.fileStore.readWorkLog();
+    if (!content.trim()) return [];
+
+    const { header, entries } = splitWorkLog(content);
+    const keep: typeof entries = [];
+    const byFile = new Map<string, typeof entries>();
+
+    for (const entry of entries) {
+      if (!isDateArchivable(entry.date, afterDays, now)) {
+        keep.push(entry);
+        continue;
+      }
+      const fileName = workLogArchiveFileFor(entry);
+      byFile.set(fileName, [...(byFile.get(fileName) ?? []), entry]);
+    }
+
+    if (byFile.size === 0) return [];
+
+    for (const [fileName, moving] of byFile) {
+      const existing = this.fileStore.readArchiveRaw(fileName);
+      const prior = existing ? splitWorkLog(existing) : { header: '', entries: [] };
+      const heading = `# ${archiveHeadingFor(fileName.replace('WORK_LOG', 'DONE'))} — work log`;
+      this.fileStore.writeArchiveRaw(
+        fileName,
+        joinWorkLog(prior.header || heading, [...prior.entries, ...moving]),
+      );
+    }
+
+    this.fileStore.writeWorkLog(joinWorkLog(header, keep));
+    return [...byFile.keys()];
   }
 
   private findInMemory(taskId: string): { task: Task; stateName: string } | null {
@@ -373,7 +428,12 @@ export class TaskStore {
       return found.task;
     }
 
-    const updatedTask: Task = { ...found.task, ...updates, id: taskId, updatedAt: currentTimestamp() };
+    const updatedTask: Task = {
+      ...found.task,
+      ...updates,
+      id: taskId,
+      updatedAt: currentTimestamp(),
+    };
     const tasks = this.getTasksByState(found.stateName).map((t) =>
       t.id === taskId ? updatedTask : t,
     );

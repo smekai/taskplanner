@@ -37,10 +37,14 @@ export function archiveHeadingFor(fileName: string): string {
  * still history. `afterDays` of 0 or less disables archiving entirely, which is what an unset
  * config means — upgrading TaskPlanner must not reshuffle a board nobody asked it to touch.
  */
-export function isArchivable(task: Task, afterDays: number, now = new Date()): boolean {
+export function isDateArchivable(
+  value: string | undefined,
+  afterDays: number,
+  now = new Date(),
+): boolean {
   if (!Number.isFinite(afterDays) || afterDays <= 0) return false;
 
-  const date = task.updatedAt?.trim().slice(0, 10) ?? '';
+  const date = value?.trim().slice(0, 10) ?? '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return true;
 
   const completed = Date.parse(`${date}T00:00:00Z`);
@@ -48,6 +52,10 @@ export function isArchivable(task: Task, afterDays: number, now = new Date()): b
 
   const ageDays = (now.getTime() - completed) / 86_400_000;
   return ageDays >= afterDays;
+}
+
+export function isArchivable(task: Task, afterDays: number, now = new Date()): boolean {
+  return isDateArchivable(task.updatedAt, afterDays, now);
 }
 
 /** Split completed tasks into those staying in DONE.md and those moving out, grouped by file. */
@@ -71,4 +79,58 @@ export function planArchive(
   }
 
   return { keep, byFile };
+}
+
+/**
+ * One `## <ID> — <date>` entry in WORK_LOG.md, kept as raw text. The log is prose, not tasks, so it
+ * is split rather than parsed — nothing here should reformat what a human wrote.
+ */
+export interface WorkLogEntry {
+  id: string;
+  date: string;
+  text: string;
+}
+
+/**
+ * Split WORK_LOG.md into its header and its entries.
+ *
+ * The heading pattern demands a real ID and a real date, which is what keeps the `## TASK-### —
+ * YYYY-MM-DD` line inside the file's own template block from being mistaken for an entry.
+ */
+export function splitWorkLog(content: string): { header: string; entries: WorkLogEntry[] } {
+  const lines = content.split('\n');
+  const heading = /^## ([A-Z]+-\d+) — (\d{4}-\d{2}-\d{2})\s*$/;
+
+  const starts: number[] = [];
+  lines.forEach((line, index) => {
+    if (heading.test(line)) starts.push(index);
+  });
+
+  if (starts.length === 0) return { header: content, entries: [] };
+
+  const entries: WorkLogEntry[] = [];
+  for (let i = 0; i < starts.length; i += 1) {
+    const from = starts[i];
+    const to = i + 1 < starts.length ? starts[i + 1] : lines.length;
+    const match = heading.exec(lines[from]);
+    entries.push({
+      id: match![1],
+      date: match![2],
+      text: lines.slice(from, to).join('\n').replace(/\s+$/, ''),
+    });
+  }
+
+  return { header: lines.slice(0, starts[0]).join('\n').replace(/\s+$/, ''), entries };
+}
+
+/** Archive file a work-log entry belongs in, bucketed the same way completed tasks are. */
+export function workLogArchiveFileFor(entry: WorkLogEntry): string {
+  const [year, month] = entry.date.split('-');
+  return `WORK_LOG-${year}-H${Number(month) <= 6 ? 1 : 2}.md`;
+}
+
+/** Reassemble a work-log file from its header and entries, preserving each entry verbatim. */
+export function joinWorkLog(header: string, entries: WorkLogEntry[]): string {
+  const body = entries.map((entry) => entry.text).join('\n\n');
+  return `${header}\n\n${body}\n`.replace(/\n{4,}/g, '\n\n\n');
 }
