@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "taskplannerVersion": "2.1.15",
+  "taskplannerVersion": "2.1.16",
   "idPrefix": "TASK",
-  "nextId": 54,
+  "nextId": 55,
   "states": [
     {
       "name": "Backlog",

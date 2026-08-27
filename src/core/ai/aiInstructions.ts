@@ -89,6 +89,7 @@ When moving a completed task to DONE.md, **keep the \`### Plan\` section** with 
     : '';
 
   const workLogSection = `
+
 ### Work Log
 
 When moving a task to DONE.md, if \`.tasks/WORK_LOG.md\` exists, append **one short entry at the top** (after the header, before older entries):
@@ -133,12 +134,34 @@ Description text in markdown.
 - **ID prefix:** \`${config.idPrefix}\`
 - **Priorities:** ${config.priorities.join(', ')}
 
+## Tools
+
+TaskPlanner ships an MCP server. If your host exposes these tools, **use them instead of editing the
+task files by hand** — they allocate IDs, keep \`nextId\` and timestamps correct, and rewrite the
+markdown without touching its encoding:
+
+| Tool | Use for |
+| --- | --- |
+| \`taskplanner_list\` / \`taskplanner_board\` | Find work and see the current state. |
+| \`taskplanner_get\` | Read one task in full. |
+| \`taskplanner_create\` | Create a task; the ID is allocated for you. |
+| \`taskplanner_move\` | Move a task between states. |
+| \`taskplanner_update\` | Change title, description, priority, tags, assignee, or plan. |
+
+Check once at the start of a session whether the tools are available, and say which way you are
+working. **If they are available, do not hand-edit these files.** Every instruction below that
+describes editing markdown directly is the fallback for when they are not.
+
+The files stay plain markdown on purpose, and a human is free to edit them in any editor at any
+time. That freedom is not an invitation for an agent with working tools to do the same: hand-edits
+are what desynchronise \`nextId\` and corrupt encodings.
+
 ## Workflow for Implementing a Task
 
 When asked to implement a task:
 
 1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user).
-2. **Move the task** to IN_PROGRESS.md by cutting it from the source file and pasting it into IN_PROGRESS.md.${config.aiPlanRequired ? '\n3. **Write a plan** — add a `### Plan` subsection under the task heading (see below).' : ''}
+2. **Move the task** to IN_PROGRESS.md — \`taskplanner_move\` if it is available, otherwise cut the section from the source file and paste it into IN_PROGRESS.md.${config.aiPlanRequired ? '\n3. **Write a plan** — add a `### Plan` subsection under the task heading (see below).' : ''}
 ${config.aiPlanRequired ? '4' : '3'}. **Implement** the task.
 ${config.aiPlanRequired ? '5' : '4'}. **Move the task** to DONE.md when complete — trim \`### Plan\` to a done-summary, append a short entry to \`.tasks/WORK_LOG.md\` if that file exists, and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
 ${planSection}${workLogSection}
@@ -147,14 +170,17 @@ ${planSection}${workLogSection}
 
 These steps are **part of the work**, not optional housekeeping:
 
-- **In Progress:** You must **physically move** the task markdown (the whole \`##\` section and its \`---\`) from BACKLOG/NEXT into **IN_PROGRESS.md** before substantive implementation — not only describe that you will.
+- **In Progress:** The task must actually **move** out of BACKLOG/NEXT into **IN_PROGRESS.md** before substantive implementation — not only be described as moving. Use \`taskplanner_move\`; without it, cut the whole \`##\` section and its \`---\` across by hand.
 - **Done:** When the implementation is finished, **move** the same task section from IN_PROGRESS.md into **DONE.md** and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
 - **Plan:** If this project requires a plan (${config.aiPlanRequired ? '**yes for this project** — see above' : 'check the **aiPlanRequired** field in .tasks/config.json'}), the \`### Plan\` block must exist in IN_PROGRESS **before** coding, and should be **trimmed to a short done-summary** when you move the task to DONE.
 - **Work log:** If \`.tasks/WORK_LOG.md\` exists, append one short entry at the top when moving a task to Done (see **Work Log** above).
 
 ## Creating a New Task
 
-When the user asks you to create a task:
+When the user asks you to create a task, call \`taskplanner_create\` if it is available. It allocates
+the ID and advances \`nextId\` itself, so neither is yours to manage.
+
+Without the tools, do it by hand:
 
 1. **Read** \`.tasks/config.json\` to get the current \`nextId\` and \`idPrefix\`.
 2. **Generate the ID** — format: \`{idPrefix}-{nextId padded to 3 digits}\` (e.g. \`${config.idPrefix}-015\`).
@@ -182,10 +208,11 @@ Rules for new tasks:
 
 ## Important Rules
 
+- Prefer the TaskPlanner tools over editing these files by hand whenever they are available.
 - Do NOT change task IDs.
 - Do NOT modify tasks you are not working on.
 - Keep the \`---\` separator between tasks.
-- When moving a task, remove it entirely from the source file (including the trailing \`---\`).
+- When moving a task by hand, remove it entirely from the source file (including the trailing \`---\`), and read and write the file as UTF-8 so dashes and quotes survive the round-trip.
 `;
 }
 

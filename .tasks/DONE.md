@@ -1,5 +1,53 @@
 # Done
 
+## TASK-048: Generated instructions prescribe hand-editing and never mention the MCP tools
+**Priority:** P1 | **Tags:** core, docs | **Epic:** 2.2.x
+**Updated:** 2026-08-27 12:40
+
+`src/mcp/server.ts` exposes `taskplanner_create`, `taskplanner_move`, `taskplanner_update`,
+`taskplanner_get`, `taskplanner_list` and `taskplanner_board`, and `ConfigManager.getNextId()`
+allocates IDs and bumps `nextId` without anyone touching `config.json`. The instructions TaskPlanner
+generated for agents said none of that, and instead told them to edit the markdown by hand:
+
+> 2. **Move the task** to IN_PROGRESS.md by cutting it from the source file and pasting it into
+>    IN_PROGRESS.md.
+
+**Observed (isotopy, 2026-08-17, taskplannerVersion 2.1.4):** the agent hand-edited markdown for a
+whole session — cutting and pasting sections between NEXT/IN_PROGRESS/DONE, bumping `nextId` by hand
+twice (144 → 148 → 151), and corrupting every em-dash in `BACKLOG.md` through a PowerShell
+round-trip. It was following these instructions exactly.
+
+The rendered output had zero occurrences of `mcp` or `taskplanner_`, and this was host-independent:
+a Cursor user whose tools *are* registered (`src/extension/extension.ts:151` calls
+`cursor.plugins.registerPath`) still got instructions prescribing cut-and-paste. The wiring half —
+that nothing writes an `.mcp.json` for hosts outside Cursor — was split out as TASK-054.
+
+### Plan
+
+- Added a **Tools** section to the generated instructions listing the six task tools with what each
+  is for, stating they are preferred, and telling the agent to check availability once per session
+  and say which way it is working.
+- Reframed the two hand-editing instructions: workflow step 2 and the mandatory-checklist bullet now
+  make the tool call the method and cut-and-paste the fallback, without weakening the requirement
+  that the task actually moves.
+- **Creating a New Task** now leads with `taskplanner_create` — which allocates the ID and advances
+  `nextId` itself — and keeps the four manual steps below it as the fallback.
+- Recorded the decision in the generated text: the files stay plain markdown and a human may edit
+  them freely; an agent that has working tools does not, because hand-edits are what desynchronise
+  `nextId` and corrupt encodings. Added a UTF-8 note to the hand-editing rule for the same reason.
+- Two unit tests: one asserts the six tools are named and the preference is stated, one asserts the
+  move requirement survives and the old cut-and-paste wording is gone. 131 → 133 tests.
+- Fixed a pre-existing template bug found while regenerating: `planSection` and `workLogSection`
+  concatenated without a blank line, so `### Work Log` lost its separator.
+- Regenerated this repository's own `CLAUDE.md`, `AGENTS.md` and `.cursorrules` from the new
+  template, so the fix is dogfooded rather than only shipped.
+
+**Key file:** `src/core/ai/aiInstructions.ts`. This text is embedded in every consumer repo, so the
+wording propagates on their next Initialize or update.
+
+---
+
+
 ## TASK-047: Expose the core library as a package entry point, not only the MCP server
 **Priority:** P1 | **Tags:** core, refactor
 **Updated:** 2026-08-26 14:30

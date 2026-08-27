@@ -57,6 +57,29 @@ describe('generateAiInstructions', () => {
     expect(instructions.agentsMd).toBe(instructions.claudeMd);
     expect(instructions.agentsMd).toBe(instructions.cursorRules);
   });
+
+  it('names the MCP tools and prefers them over hand-editing', () => {
+    const { claudeMd } = generateAiInstructions(createDefaultConfig());
+    for (const tool of [
+      'taskplanner_list',
+      'taskplanner_board',
+      'taskplanner_get',
+      'taskplanner_create',
+      'taskplanner_move',
+      'taskplanner_update',
+    ]) {
+      expect(claudeMd).toContain(tool);
+    }
+    expect(claudeMd).toContain('do not hand-edit these files');
+  });
+
+  it('still requires the task to move, with hand-editing as the fallback', () => {
+    const { claudeMd } = generateAiInstructions(createDefaultConfig());
+    expect(claudeMd).toContain('must actually **move**');
+    expect(claudeMd).toContain('otherwise cut the section');
+    // The old wording made cut-and-paste the method rather than the fallback.
+    expect(claudeMd).not.toContain('by cutting it from the source file and pasting it');
+  });
 });
 
 describe('upsertMarkedSection', () => {

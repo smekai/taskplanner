@@ -1,38 +1,41 @@
 # Backlog
 
-## TASK-048: Make the MCP server discoverable to a project that just ran init
-**Priority:** P1 | **Tags:** core, setup, docs | **Epic:** 2.2.x
-**Updated:** 2026-08-27 11:12
+## TASK-054: initialize writes no MCP config, so hosts outside Cursor never reach the tools
+**Priority:** P1 | **Tags:** core, setup | **Epic:** 2.2.x
+**Updated:** 2026-08-27 12:05
 
-`src/mcp/server.ts` exposes `taskplanner_create`, `taskplanner_move`, `taskplanner_update`,
-`taskplanner_get`, `taskplanner_list` and `taskplanner_board`, and `ConfigManager.getNextId()`
-allocates IDs and bumps `nextId` without anyone touching `config.json`. A project that runs
-**Initialize** learns none of this.
+Split out of TASK-048, which covers the guidance half. This is the wiring half.
 
-**Observed (isotopy, 2026-08-17, taskplannerVersion 2.1.4):** the repo had no `.mcp.json`, so no
-tool was reachable. The agent hand-edited markdown for a whole session — cutting and pasting task
-sections between NEXT/IN_PROGRESS/DONE, bumping `nextId` by hand twice (144 → 148 → 151), and
-corrupting every em-dash in `BACKLOG.md` through a PowerShell round-trip that a tool call would
-never have performed.
+**Verified against current code (2.1.14).** `src/core/project/projectSync.ts` writes exactly three
+files — `AGENTS.md`, `CLAUDE.md`, `.cursorrules` — plus optional README attribution. Searching
+`src/core/` and `src/extension/` for `.mcp.json` or `mcpServers` returns nothing.
 
-**Verified against current code (2.1.14):** still open, and wider than "docs missing". Searching
-`src/core/` and `src/extension/` for `.mcp.json` or `mcpServers` returns nothing, so `initialize`
-does not write an MCP config. `src/core/ai/aiInstructions.ts` contains zero occurrences of `mcp` or
-`taskplanner_`, so the generated CLAUDE.md/AGENTS.md/.cursorrules never mention that the tools
-exist. **This repository has no `.mcp.json` either** — these six tasks were filed by hand-editing
-`BACKLOG.md`, which is the defect reproducing on its own maintainer.
+**Not universally broken, which is why the original framing was wrong:**
 
-**Why it matters now:** the npm package ships shortly. Every new user points an agent at a fresh
-repo, and that agent will do what isotopy's did — hand-edit, because nothing told it otherwise.
-A first-impression defect, not an annoyance.
+- **Cursor** — works. `src/extension/extension.ts:151` calls `cursor.plugins.registerPath(pluginDir)`,
+  and `plugins/taskplanner/mcp.json` points at the bundled server. Tools are reachable.
+- **Codex** — works via the repository marketplace at `.agents/plugins/marketplace.json`, though in
+  this repo that file is committed by hand, not produced by `initialize`.
+- **Claude Code and other hosts that read `.mcp.json`** — no path at all.
+- **npm consumers** — install `@smekai/taskplanner` and get nothing wired up; they must hand-write
+  the config from `packages/mcp-server/README.md`.
 
-**Done looks like:** `initialize` writes an MCP config alongside `AGENTS.md`/`CLAUDE.md`/
-`.cursorrules`, resolving the server the way `packages/mcp-server/README.md` documents
-(`node <require.resolve('@smekai/taskplanner/mcp-server')>`, never a bare bin name). Generated
-instructions name the tools and state they are preferred over editing markdown. A decision is
-recorded on whether hand-editing is ever sanctioned — the files are meant to stay human-editable,
-so the answer is probably "yes for humans, no for agents when tools are reachable", but it should
-be written down rather than implied.
+**Observed (isotopy, 2026-08-17, 2.1.4):** the repo had no `.mcp.json`, so no tool was reachable and
+the agent hand-edited markdown all session. **This repository has no `.mcp.json` either** — tasks
+TASK-048..053 were filed by hand-editing `BACKLOG.md`, the defect reproducing on its own maintainer.
+
+**The open design question, which is why this is not a one-liner:** what command should a generated
+`.mcp.json` contain? The extension's own copy of the server sits at an OS- and install-dependent
+path, which is exactly what TASK-046 existed to stop consumers depending on. `npx -y
+@smekai/taskplanner` is portable and resolves the published package, but adds a first-run download
+and assumes npm is present. Writing an `.mcp.json` into a user's repository also means writing a
+file that tells their agent to execute something — that should be opt-in, or at least announced,
+not a silent side effect of Initialize.
+
+**Done looks like:** a decision recorded on the command form and on consent, then `initialize`
+offers or writes the config for hosts that need it, resolving the server the way
+`packages/mcp-server/README.md` documents rather than by a path that depends on which editor is
+installed.
 
 ---
 
