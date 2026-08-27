@@ -166,3 +166,18 @@ describe('TaskStore.archiveCompleted', () => {
     );
   });
 });
+
+describe('archiveDoneAfterDays validation', () => {
+  it('refuses a nonsensical threshold rather than archiving on it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'archive-cfg-'));
+    fs.writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({ version: 3, archiveDoneAfterDays: -1 }),
+    );
+    const cm = new ConfigManager(dir);
+
+    expect(cm.load().archiveDoneAfterDays).toBeUndefined();
+    expect(cm.getDiagnostics().length).toBeGreaterThan(0);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

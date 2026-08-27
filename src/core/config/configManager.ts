@@ -43,6 +43,14 @@ const DECODERS: {
   readmeAttribution: (v, d, r) => expectBoolean(v, d, r, 'readmeAttribution'),
   mcpConfig: (v, d, r) =>
     v === undefined ? undefined : expectEnum(v, d, r, 'mcpConfig', ['written', 'declined']),
+  archiveDoneAfterDays: (v, _d, r) => {
+    if (v === undefined) return undefined;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+      r(`"archiveDoneAfterDays" must be a non-negative number; archiving stays off.`);
+      return undefined;
+    }
+    return v;
+  },
 };
 
 function expectNumber(value: unknown, fallback: unknown, report: Report, key: string): unknown {
