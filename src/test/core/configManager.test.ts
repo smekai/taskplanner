@@ -72,6 +72,66 @@ describe('ConfigManager', () => {
     expect(configManager.load().version).toBe(99);
   });
 
+  describe('malformed config.json', () => {
+    // The failure mode: a bad `states` entry reaches path.join(tasksDir, state.fileName) in
+    // FileStore and throws on undefined. Loading must degrade to a usable board instead.
+    const write = (content: string) =>
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), content);
+
+    it('repairs states given as bare strings', () => {
+      write(JSON.stringify({ states: ['Backlog', 'Next', 'Done'] }));
+      const config = configManager.load();
+
+      expect(config.states.every((s) => typeof s.fileName === 'string')).toBe(true);
+      expect(config.states.map((s) => s.name)).toContain('Backlog');
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    it('repairs a known state that is missing a field', () => {
+      write(JSON.stringify({ states: [{ name: 'Backlog', order: 0 }] }));
+      const config = configManager.load();
+
+      expect(config.states.find((s) => s.name === 'Backlog')?.fileName).toBe('BACKLOG.md');
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    it('falls back to the default board for an unrecognisable entry', () => {
+      write(JSON.stringify({ states: [{ nonsense: true }] }));
+      const config = configManager.load();
+
+      expect(config.states).toHaveLength(5);
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    for (const [label, content] of [
+      ['truncated JSON', '{ "idPrefix": "X", '],
+      ['an empty file', ''],
+      ['a JSON array', '[1,2,3]'],
+      ['a non-array states', JSON.stringify({ states: 'nope' })],
+    ] as Array<[string, string]>) {
+      it(`does not throw on ${label}`, () => {
+        write(content);
+        expect(() => configManager.load()).not.toThrow();
+        expect(configManager.load().states).toHaveLength(5);
+      });
+    }
+
+    it('reports the real problem once, without a spurious states complaint', () => {
+      write('{ broken');
+      configManager.load();
+      const messages = configManager.getDiagnostics().map((d) => d.message);
+
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toContain('could not be parsed');
+    });
+
+    it('reports nothing for a clean config', () => {
+      write(JSON.stringify({ version: 3, idPrefix: 'OK' }));
+      configManager.load();
+      expect(configManager.getDiagnostics()).toEqual([]);
+    });
+  });
+
   it('saves and loads config', () => {
     configManager.load();
     configManager.update({ idPrefix: 'BUG' });

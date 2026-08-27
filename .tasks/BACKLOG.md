@@ -54,20 +54,6 @@ behaviour, plus a decision on whether archived tasks remain visible in any view.
 
 ---
 
-## TASK-036: Harden config.json loading — validate states, log failures to output channel
-**Priority:** P1 | **Tags:** core, setup
-**Updated:** 2026-07-27 13:35
-
-**Validation (2026-07-27):** Still needed. `ConfigManager.load()` merges parsed JSON with defaults but does not validate `states` entries. Malformed `states` (e.g. plain strings instead of `{name, fileName, order}`) still break `path.join(tasksDir, state.fileName)` in `fileStore.ts`. `migrateConfig()` can still append a `Rejected` object onto a string-array `states` list. A `TaskPlanner` output channel exists in `extension.ts` but is not used for config load failures; no user warning on bad config. No tests for malformed `states`.
-
-**Scope:**
-- Validate/normalize `states` on load (map known names to `DEFAULT_STATES` objects; otherwise fall back to `DEFAULT_STATES`).
-- Log problems to the `TaskPlanner` output channel and show a warning notification.
-- Fix `migrateConfig()` so it does not corrupt string-array configs.
-- Add unit tests for malformed `states`.
-
----
-
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup, ci
 **Updated:** 2026-07-27 13:35

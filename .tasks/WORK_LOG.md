@@ -15,6 +15,17 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-036 — 2026-08-27
+**What:** `config.json` is validated on load — malformed `states` are repaired or replaced, bad
+JSON falls back to defaults, and nothing throws.
+**Decisions:** Core reports diagnostics rather than logging them, so it stays VS Code-free; the
+extension uses the output channel and the MCP server stderr. Degrading loudly beats degrading
+silently, so a warning is shown rather than only logged.
+**Outcome:** 157 tests. Fixes MCP tool calls too, not just the UI — freshStore calls load(), so a
+broken config used to fail every call opaquely.
+
+---
+
 ## TASK-054 — 2026-08-27
 **What:** Initialize can now write a repository `.mcp.json` so hosts outside Cursor reach the
 TaskPlanner tools, after asking once and remembering the answer.

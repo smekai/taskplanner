@@ -87,6 +87,11 @@ async function freshStore(explicitRoot?: string): Promise<{
   const tasksDir = await findTasksDir(explicitRoot);
   const configManager = new ConfigManager(tasksDir);
   configManager.load();
+  // A broken config no longer throws, so an agent would otherwise work against silently defaulted
+  // settings with no way to know. stderr is the one channel a stdio server can use freely.
+  for (const diagnostic of configManager.getDiagnostics()) {
+    console.error(`TaskPlanner config: ${diagnostic.message}`);
+  }
   const fileStore = new FileStore(tasksDir);
   const taskStore = new TaskStore(configManager, fileStore);
   taskStore.reload();
@@ -146,7 +151,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-    version: '2.2.0',
+    version: '2.2.1',
 });
 
 // ── taskplanner_board ───────────────────────────────────

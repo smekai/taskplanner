@@ -47,6 +47,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (isInitialized) {
     configManager.load();
+    reportConfigDiagnostics(configManager, taskPlannerLog);
     try {
       const sync = synchronizeTaskPlannerProject(
         workspaceFolder.uri.fsPath,
@@ -157,4 +158,29 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   // Cleanup handled by disposables
+}
+
+/**
+ * Surface config.json problems. Loading degrades to a usable board rather than throwing, so without
+ * this the user would silently run on defaults and never learn their settings were ignored.
+ */
+function reportConfigDiagnostics(
+  configManager: ConfigManager,
+  log: vscode.OutputChannel,
+): void {
+  const diagnostics = configManager.getDiagnostics();
+  if (diagnostics.length === 0) return;
+
+  for (const diagnostic of diagnostics) {
+    log.appendLine(`[config] ${diagnostic.message}`);
+  }
+  const summary =
+    diagnostics.length === 1
+      ? diagnostics[0].message
+      : `${diagnostics.length} problems in .tasks/config.json; defaults were used where needed.`;
+  void vscode.window
+    .showWarningMessage(`TaskPlanner: ${summary}`, 'Show details')
+    .then((choice) => {
+      if (choice === 'Show details') log.show(true);
+    });
 }

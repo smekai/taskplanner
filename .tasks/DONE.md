@@ -1,5 +1,44 @@
 # Done
 
+## TASK-036: Harden config.json loading — validate states, log failures to output channel
+**Priority:** P1 | **Tags:** core, setup
+**Updated:** 2026-07-27 13:35
+
+**Validation (2026-07-27):** Still needed. `ConfigManager.load()` merges parsed JSON with defaults but does not validate `states` entries. Malformed `states` (e.g. plain strings instead of `{name, fileName, order}`) still break `path.join(tasksDir, state.fileName)` in `fileStore.ts`. `migrateConfig()` can still append a `Rejected` object onto a string-array `states` list. A `TaskPlanner` output channel exists in `extension.ts` but is not used for config load failures; no user warning on bad config. No tests for malformed `states`.
+
+**Scope:**
+- Validate/normalize `states` on load (map known names to `DEFAULT_STATES` objects; otherwise fall back to `DEFAULT_STATES`).
+- Log problems to the `TaskPlanner` output channel and show a warning notification.
+- Fix `migrateConfig()` so it does not corrupt string-array configs.
+- Add unit tests for malformed `states`.
+
+### Plan
+
+- Confirmed the failure before fixing it: with `states: ["Backlog","Next","Done"]`,
+  `migrateConfig` finds no `s.name === "Rejected"` on a string and appends an object to a string
+  array, then `path.join(tasksDir, state.fileName)` throws
+  `TypeError: The "path" argument must be of type string`.
+- `load()` no longer throws. Parsing is wrapped, a non-object or empty file falls back to defaults,
+  and everything is recorded as a diagnostic instead.
+- `normalizeStates()` repairs entries naming a known state from `DEFAULT_STATES` and falls back to
+  the whole default board when an entry is unrecognisable — a partial board is worse than the
+  default one. `migrateConfig()` now only ever sees a normalized list.
+- Diagnostics are returned, not logged, so core stays VS Code-free — same split as
+  `mcpConfigPrompt.ts`. `ConfigManager.getDiagnostics()` exposes them.
+- The extension writes them to the existing `TaskPlanner` output channel and shows a warning with
+  a **Show details** action. The MCP server prints them to stderr, which matters more than it
+  looks: `load()` is called from `freshStore`, so a broken config used to fail every tool call
+  with an opaque error. Verified end to end — the same config that threw now answers
+  `taskplanner_board` correctly and reports three diagnostics.
+- Diagnostics stay honest: a file that could not be parsed reports that once, without a second,
+  false complaint about `states` the user never wrote.
+- Nine tests covering bare-string states, a known state missing a field, an unrecognisable entry,
+  truncated JSON, an empty file, a JSON array, a non-array `states`, single-message reporting and
+  silence on a clean config. 148 -> 157 tests.
+- Key files: `src/core/config/configManager.ts`, `src/extension/extension.ts`, `src/mcp/server.ts`.
+
+---
+
 ## TASK-054: initialize writes no MCP config, so hosts outside Cursor never reach the tools
 **Priority:** P1 | **Tags:** core, setup | **Epic:** 2.2.x
 **Updated:** 2026-08-27 12:05

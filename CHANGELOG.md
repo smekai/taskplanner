@@ -4,6 +4,12 @@ All notable changes to the **Task → Plan → AI** extension will be documented
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- A malformed `.tasks/config.json` no longer breaks TaskPlanner. States given in the wrong shape are repaired from the defaults where the name is recognised, unparseable JSON falls back to defaults, and loading reports what it had to ignore instead of throwing — previously a `states` list of plain strings crashed on `path.join`, which took down MCP tool calls as well as the views. Problems are written to the **TaskPlanner** output channel with a warning, so defaults are never applied silently (TASK-036).
+
 ## [2.2.0] - 2026-08-27
 
 ### Added
