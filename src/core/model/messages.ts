@@ -24,12 +24,20 @@ export interface TaskViewData {
   filter?: TaskFilter;
 }
 
+/**
+ * Groupings the task list offers. Single source of truth: the type derives from this list, and
+ * the VS Code setting enum in package.json is asserted against it by a unit test.
+ */
+export const GROUP_BY_VALUES = ['status', 'assignee', 'epic', 'date', 'none'] as const;
+
+export type GroupBy = (typeof GROUP_BY_VALUES)[number];
+
 /** Filter criteria for the task list */
 export interface TaskFilter {
   status?: string;
   query?: string;
   tag?: string;
-  groupBy?: 'status' | 'assignee' | 'epic' | 'date' | 'none';
+  groupBy?: GroupBy;
 }
 
 /** Grouped task view for the task list panel */

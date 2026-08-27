@@ -46,6 +46,32 @@ describe('ConfigManager', () => {
     expect('sortBy' in onDisk).toBe(false);
   });
 
+  it('records the v3 schema even when there was nothing to change', () => {
+    // A v2 file that already lacks sortBy and already has Rejected: the migration finds nothing to
+    // do, but the file must still be marked as having reached v3.
+    const states = [
+      { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
+      { name: 'Next', fileName: 'NEXT.md', order: 1 },
+      { name: 'In Progress', fileName: 'IN_PROGRESS.md', order: 2 },
+      { name: 'Done', fileName: 'DONE.md', order: 3 },
+      { name: 'Rejected', fileName: 'REJECTED.md', order: 4 },
+    ];
+    fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify({ version: 2, states }));
+
+    expect(configManager.load().version).toBe(3);
+    const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+    expect(onDisk.version).toBe(3);
+  });
+
+  it('never downgrades a config written by a newer TaskPlanner', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 99, idPrefix: 'FUTURE' }),
+    );
+
+    expect(configManager.load().version).toBe(99);
+  });
+
   it('saves and loads config', () => {
     configManager.load();
     configManager.update({ idPrefix: 'BUG' });
