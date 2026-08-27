@@ -7,6 +7,7 @@ const TAGS_RE = /^\*\*Tags?:\*\*\s*(.+)/;
 const EPIC_RE = /^\*\*Epic:\*\*\s*(.+)/;
 const ASSIGNEE_RE = /^\*\*Assignee:\*\*\s*(.+)/;
 const UPDATED_RE = /^\*\*Updated:\*\*\s*(.+)/;
+const WAITING_UNTIL_RE = /^\*\*Waiting until:\*\*\s*(.+)/;
 const SEPARATOR_RE = /^---\s*$/;
 const PLAN_HEADING_RE = /^### Plan\s*$/;
 
@@ -39,6 +40,7 @@ export function parseTasks(rawContent: string): ParseResult {
         epic: current.epic,
         assignee: current.assignee,
         updatedAt: current.updatedAt,
+        waitingUntil: current.waitingUntil,
         ...(plan ? { plan } : {}),
       });
     } else if (current) {
@@ -145,6 +147,13 @@ export function parseTasks(rawContent: string): ParseResult {
         const updatedMatch = segment.match(UPDATED_RE);
         if (updatedMatch) {
           current.updatedAt = updatedMatch[1].trim();
+          matchedAny = true;
+          continue;
+        }
+
+        const waitingMatch = segment.match(WAITING_UNTIL_RE);
+        if (waitingMatch) {
+          current.waitingUntil = waitingMatch[1].trim();
           matchedAny = true;
           continue;
         }

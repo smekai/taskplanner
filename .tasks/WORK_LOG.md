@@ -15,6 +15,38 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-052 — 2026-08-27
+**What:** Tasks can carry `**Waiting until:** YYYY-MM-DD`, and the tools mark work that cannot start
+yet so an agent following the workflow does not pick it.
+**Decisions:** A field, not a `Blocked` state — a state would reshape every existing board. Derived
+a `waiting` boolean in the MCP output rather than leaving clients to compare dates, so the field
+means something instead of only being stored, which is where `epic` went wrong.
+**Outcome:** 162 tests. `flushTask()` builds tasks field by field, so the parser branch alone
+silently dropped the value — the round-trip test caught it.
+
+---
+
+## TASK-056 — 2026-08-27
+**What:** This repository now has a `.mcp.json`, so its own agents can use the TaskPlanner tools
+instead of hand-editing the board.
+**Decisions:** Written by the shipped `writeMcpServerConfig()` rather than by hand — the file
+doubles as proof that 2.2.0 works against the published package.
+**Outcome:** Launching what the file specifies pulls 2.2.0 from npm and answers taskplanner_board
+against the real board. Confirmed npx resolves the bin despite the name mismatch.
+
+---
+
+## TASK-036 — 2026-08-27
+**What:** `config.json` is validated on load — malformed `states` are repaired or replaced, bad
+JSON falls back to defaults, and nothing throws.
+**Decisions:** Core reports diagnostics rather than logging them, so it stays VS Code-free; the
+extension uses the output channel and the MCP server stderr. Degrading loudly beats degrading
+silently, so a warning is shown rather than only logged.
+**Outcome:** 157 tests. Fixes MCP tool calls too, not just the UI — freshStore calls load(), so a
+broken config used to fail every call opaquely.
+
+---
+
 ## TASK-054 — 2026-08-27
 **What:** Initialize can now write a repository `.mcp.json` so hosts outside Cursor reach the
 TaskPlanner tools, after asking once and remembering the answer.

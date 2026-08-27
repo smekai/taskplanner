@@ -110,7 +110,7 @@ markdown without touching its encoding:
 | `taskplanner_get` | Read one task in full. |
 | `taskplanner_create` | Create a task; the ID is allocated for you. |
 | `taskplanner_move` | Move a task between states. |
-| `taskplanner_update` | Change title, description, priority, tags, epic, assignee, or plan. |
+| `taskplanner_update` | Change title, description, priority, tags, epic, assignee, waiting-until, or plan. |
 
 Check once at the start of a session whether the tools are available, and say which way you are
 working. **If they are available, do not hand-edit these files.** Every instruction below that
@@ -128,7 +128,7 @@ are what desynchronise `nextId` and corrupt encodings.
 
 When asked to implement a task:
 
-1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user).
+1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user). Skip any task carrying a `**Waiting until:**` date that has not arrived — it is blocked on something outside the repository and cannot be started, whatever its priority. The tools mark these for you.
 2. **Move the task** to IN_PROGRESS.md — `taskplanner_move` if it is available, otherwise cut the section from the source file and paste it into IN_PROGRESS.md.
 3. **Write a plan** — add a `### Plan` subsection under the task heading (see below).
 4. **Implement** the task.
@@ -209,6 +209,7 @@ Description of the task in markdown.
 
 Rules for new tasks:
 - **Priority** is required. If not specified by the user, default to `P2`.
+- **Waiting until** is optional — `**Waiting until:** YYYY-MM-DD` on its own line marks a task that cannot start before that date. Use it when work is blocked on something outside the repository, rather than lowering its priority.
 - **Tags** are optional. Pick from the project's tag list if relevant: core, ui, feature, docs, setup, refactor, testing, ci.
 - **Updated** — set to the current date/time.
 - Add the task at the **top** of the file (after the `# Heading` line). Beyond that, the order of tasks within a file carries no meaning — never reorder a file to match priority.

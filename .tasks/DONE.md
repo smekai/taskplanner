@@ -1,5 +1,139 @@
 # Done
 
+## TASK-052: No way to express "blocked until", so agents pick undoable work
+**Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
+**Updated:** 2026-08-27 11:12
+
+The generated workflow tells agents to pick the highest-priority task from NEXT. There is nothing a
+task can carry to say "not yet".
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** TASK-142 sits in NEXT at P0, hard-blocked on an external
+quota reset until 2026-09-03. A compliant agent picks it and cannot do it.
+
+**Related, same root:** priority is global while relevance is per-milestone. After four defects
+moved into a not-yet-started milestone at P0, the board interleaves "critical path this month" with
+"important, but months away" under one label. Overlaps with TASK-051 — an `epic` that groups would
+already separate the two visually.
+
+**Verified against current code (2.1.14):** no `waitingUntil`, `blocked` or equivalent anywhere in
+`src/core/` or `src/mcp/`. Default states are Backlog, Next, In Progress, Done, Rejected.
+
+**Deliberately not over-built:** there is exactly one blocked task today, across both repos. The
+cheapest sufficient answer wins. Options, roughly ascending in cost: a documented convention (a
+`blocked` tag plus a date in the description) that the generated instructions teach agents to
+respect; a `waitingUntil` field parsed like `Updated`; a `Blocked` entry in `states[]`. A convention
+plus one line in the generated workflow may be the whole task.
+
+**Done looks like:** an agent following the generated instructions does not select a task that
+cannot start, and whatever mechanism is chosen is written into those instructions rather than left
+as tribal knowledge.
+
+### Plan
+
+**Decision taken:** a `waitingUntil` field rather than a `Blocked` state or a bare convention. A
+field is machine-readable so the tools can act on it; a state would have changed the board shape for
+every existing project and needed a `states` migration.
+
+- `Task.waitingUntil?: string`, parsed and serialized like `updatedAt` — `WAITING_UNTIL_RE` beside
+  `UPDATED_RE`, a branch in the metadata loop, a `**Waiting until:**` line in the serializer.
+- `isWaiting(waitingUntil, today)` in `src/core/util/time.ts`, exported from the library entry.
+  Date-only string comparison, which avoids timezone drift from parsing into a `Date`. A task
+  waiting until today counts as available, and an unparseable value counts as *not* waiting — a typo
+  must not hide work forever.
+- MCP: `waiting_until` on the `taskplanner_create` / `taskplanner_update` inputs, shown by
+  `formatTask` with an explicit "(not startable yet)" when the date is still ahead.
+- **Made it mean something rather than only storing it**, which is the mistake `epic` made:
+  `structuredTask()` derives a `waiting` boolean for every tool, so no client redoes the date
+  comparison, and `taskplanner_board` marks such tasks in its listing.
+- Generated instructions tell agents at the pick-a-task step to skip a task whose date has not
+  arrived whatever its priority, and document the field when creating tasks.
+
+**Caught while testing:** the parser branch alone was not enough — `flushTask()` builds each `Task`
+field by field, so `waitingUntil` was collected and then dropped. The round-trip test is what
+surfaced it.
+
+Verified end to end against a real server: create with a future date reports `waiting=true` and a
+past date `false`; the value survives a move; `taskplanner_update` changes it and recomputes
+`waiting`; the board marks it; the markdown carries `**Waiting until:**`. 157 → 162 tests.
+
+**Key files:** `src/core/model/task.ts`, `src/core/parser/taskParser.ts`,
+`src/core/parser/taskSerializer.ts`, `src/core/util/time.ts`, `src/mcp/server.ts`,
+`src/core/ai/aiInstructions.ts`.
+
+---
+
+## TASK-056: This repository has no .mcp.json, so its own agents cannot use the tools
+**Priority:** P2 | **Tags:** setup, docs | **Epic:** 2.2.x
+**Updated:** 2026-08-27 15:10
+
+TASK-054 shipped the ability to write a repository `.mcp.json`, and its done-summary recorded that
+this repository did not get one because `npx -y @smekai/taskplanner` could not resolve until the
+package was published. It is published now — `@smekai/taskplanner@2.2.0` is in the registry.
+
+Until this lands, TaskPlanner's own maintainers edit the task board by hand — allocating IDs,
+moving markdown sections between files — which is exactly the defect TASK-048 and TASK-054 were
+filed about. Every task in this backlog, including this one, was created that way.
+
+**Done looks like:** `.mcp.json` exists in the repository root with the `taskplanner` server,
+written by the same `upsertMcpServerConfig` shipped in 2.2.0 rather than by hand, the tools resolve
+in a fresh session, and further board changes go through them.
+
+### Plan
+
+- Written by `writeMcpServerConfig()` — the helper shipped in 2.2.0 — rather than by hand, so the
+  file is proof the feature works and not just a hand-made lookalike.
+- Verified end to end by launching exactly what the file specifies: `npx -y @smekai/taskplanner`
+  pulls 2.2.0 from the registry, reports 8 tools, and reads this repository's real board
+  (Backlog 5, In Progress 1, Done 50).
+- That also settles the question left open in TASK-054's plan: `npx @smekai/taskplanner` does
+  resolve the `taskplanner-mcp` bin even though its name differs from the package name, so the
+  `-p` form is not needed.
+
+**Still hand-editing in this session:** the file is on disk, but an MCP client only reads it at
+startup, so the tools are not registered in the session that wrote it. The loop closes for the
+next session, not this one.
+
+---
+
+## TASK-036: Harden config.json loading — validate states, log failures to output channel
+**Priority:** P1 | **Tags:** core, setup
+**Updated:** 2026-07-27 13:35
+
+**Validation (2026-07-27):** Still needed. `ConfigManager.load()` merges parsed JSON with defaults but does not validate `states` entries. Malformed `states` (e.g. plain strings instead of `{name, fileName, order}`) still break `path.join(tasksDir, state.fileName)` in `fileStore.ts`. `migrateConfig()` can still append a `Rejected` object onto a string-array `states` list. A `TaskPlanner` output channel exists in `extension.ts` but is not used for config load failures; no user warning on bad config. No tests for malformed `states`.
+
+**Scope:**
+- Validate/normalize `states` on load (map known names to `DEFAULT_STATES` objects; otherwise fall back to `DEFAULT_STATES`).
+- Log problems to the `TaskPlanner` output channel and show a warning notification.
+- Fix `migrateConfig()` so it does not corrupt string-array configs.
+- Add unit tests for malformed `states`.
+
+### Plan
+
+- Confirmed the failure before fixing it: with `states: ["Backlog","Next","Done"]`,
+  `migrateConfig` finds no `s.name === "Rejected"` on a string and appends an object to a string
+  array, then `path.join(tasksDir, state.fileName)` throws
+  `TypeError: The "path" argument must be of type string`.
+- `load()` no longer throws. Parsing is wrapped, a non-object or empty file falls back to defaults,
+  and everything is recorded as a diagnostic instead.
+- `normalizeStates()` repairs entries naming a known state from `DEFAULT_STATES` and falls back to
+  the whole default board when an entry is unrecognisable — a partial board is worse than the
+  default one. `migrateConfig()` now only ever sees a normalized list.
+- Diagnostics are returned, not logged, so core stays VS Code-free — same split as
+  `mcpConfigPrompt.ts`. `ConfigManager.getDiagnostics()` exposes them.
+- The extension writes them to the existing `TaskPlanner` output channel and shows a warning with
+  a **Show details** action. The MCP server prints them to stderr, which matters more than it
+  looks: `load()` is called from `freshStore`, so a broken config used to fail every tool call
+  with an opaque error. Verified end to end — the same config that threw now answers
+  `taskplanner_board` correctly and reports three diagnostics.
+- Diagnostics stay honest: a file that could not be parsed reports that once, without a second,
+  false complaint about `states` the user never wrote.
+- Nine tests covering bare-string states, a known state missing a field, an unrecognisable entry,
+  truncated JSON, an empty file, a JSON array, a non-array `states`, single-message reporting and
+  silence on a clean config. 148 -> 157 tests.
+- Key files: `src/core/config/configManager.ts`, `src/extension/extension.ts`, `src/mcp/server.ts`.
+
+---
+
 ## TASK-054: initialize writes no MCP config, so hosts outside Cursor never reach the tools
 **Priority:** P1 | **Tags:** core, setup | **Epic:** 2.2.x
 **Updated:** 2026-08-27 12:05

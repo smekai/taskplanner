@@ -1,35 +1,5 @@
 # Backlog
 
-## TASK-052: No way to express "blocked until", so agents pick undoable work
-**Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
-**Updated:** 2026-08-27 11:12
-
-The generated workflow tells agents to pick the highest-priority task from NEXT. There is nothing a
-task can carry to say "not yet".
-
-**Observed (isotopy, 2026-08-17, 2.1.4):** TASK-142 sits in NEXT at P0, hard-blocked on an external
-quota reset until 2026-09-03. A compliant agent picks it and cannot do it.
-
-**Related, same root:** priority is global while relevance is per-milestone. After four defects
-moved into a not-yet-started milestone at P0, the board interleaves "critical path this month" with
-"important, but months away" under one label. Overlaps with TASK-051 — an `epic` that groups would
-already separate the two visually.
-
-**Verified against current code (2.1.14):** no `waitingUntil`, `blocked` or equivalent anywhere in
-`src/core/` or `src/mcp/`. Default states are Backlog, Next, In Progress, Done, Rejected.
-
-**Deliberately not over-built:** there is exactly one blocked task today, across both repos. The
-cheapest sufficient answer wins. Options, roughly ascending in cost: a documented convention (a
-`blocked` tag plus a date in the description) that the generated instructions teach agents to
-respect; a `waitingUntil` field parsed like `Updated`; a `Blocked` entry in `states[]`. A convention
-plus one line in the generated workflow may be the whole task.
-
-**Done looks like:** an agent following the generated instructions does not select a task that
-cannot start, and whatever mechanism is chosen is written into those instructions rather than left
-as tribal knowledge.
-
----
-
 ## TASK-053: No archiving story for DONE.md
 **Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
 **Updated:** 2026-08-27 11:12
@@ -51,20 +21,6 @@ scratch later.
 **Done looks like:** completed tasks can move out of `DONE.md` into a dated or milestone-scoped
 archive that stays greppable and parseable, without breaking ID uniqueness or the deferred-load
 behaviour, plus a decision on whether archived tasks remain visible in any view.
-
----
-
-## TASK-036: Harden config.json loading — validate states, log failures to output channel
-**Priority:** P1 | **Tags:** core, setup
-**Updated:** 2026-07-27 13:35
-
-**Validation (2026-07-27):** Still needed. `ConfigManager.load()` merges parsed JSON with defaults but does not validate `states` entries. Malformed `states` (e.g. plain strings instead of `{name, fileName, order}`) still break `path.join(tasksDir, state.fileName)` in `fileStore.ts`. `migrateConfig()` can still append a `Rejected` object onto a string-array `states` list. A `TaskPlanner` output channel exists in `extension.ts` but is not used for config load failures; no user warning on bad config. No tests for malformed `states`.
-
-**Scope:**
-- Validate/normalize `states` on load (map known names to `DEFAULT_STATES` objects; otherwise fall back to `DEFAULT_STATES`).
-- Log problems to the `TaskPlanner` output channel and show a warning notification.
-- Fix `migrateConfig()` so it does not corrupt string-array configs.
-- Add unit tests for malformed `states`.
 
 ---
 

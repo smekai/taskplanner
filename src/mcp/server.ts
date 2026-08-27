@@ -9,6 +9,7 @@ import { FileStore } from '../core/store/fileStore.js';
 import { TaskStore } from '../core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../core/model/task.js';
 import { buildBoardViewModel } from '../core/view/boardViewModel.js';
+import { isWaiting } from '../core/util/time.js';
 
 function findExistingTasksDir(rootDir: string): string | null {
   let current = path.resolve(rootDir);
@@ -87,6 +88,11 @@ async function freshStore(explicitRoot?: string): Promise<{
   const tasksDir = await findTasksDir(explicitRoot);
   const configManager = new ConfigManager(tasksDir);
   configManager.load();
+  // A broken config no longer throws, so an agent would otherwise work against silently defaulted
+  // settings with no way to know. stderr is the one channel a stdio server can use freely.
+  for (const diagnostic of configManager.getDiagnostics()) {
+    console.error(`TaskPlanner config: ${diagnostic.message}`);
+  }
   const fileStore = new FileStore(tasksDir);
   const taskStore = new TaskStore(configManager, fileStore);
   taskStore.reload();
@@ -100,6 +106,9 @@ function formatTask(task: Task, stateName: string): string {
   if (task.tags.length > 0) meta.push(`Tags: ${task.tags.join(', ')}`);
   if (task.epic) meta.push(`Epic: ${task.epic}`);
   if (task.assignee) meta.push(`Assignee: ${task.assignee}`);
+  if (task.waitingUntil) {
+    meta.push(`Waiting until: ${task.waitingUntil}${isWaiting(task.waitingUntil) ? ' (not startable yet)' : ''}`);
+  }
   if (task.updatedAt) meta.push(`Updated: ${task.updatedAt}`);
   lines.push(meta.join(' | '));
   if (task.description.trim()) {
@@ -112,7 +121,9 @@ function formatTask(task: Task, stateName: string): string {
 }
 
 function structuredTask(task: Task, stateName: string): Record<string, unknown> {
-  return { ...task, state: stateName };
+  // `waiting` is derived here so every tool reports it the same way and no client has to redo the
+  // date comparison to find out whether a task can be started.
+  return { ...task, state: stateName, waiting: isWaiting(task.waitingUntil) };
 }
 
 const READ_ONLY_ANNOTATIONS = {
@@ -146,7 +157,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-    version: '2.2.0',
+    version: '2.2.5',
 });
 
 // ── taskplanner_board ───────────────────────────────────
@@ -182,7 +193,7 @@ server.registerTool(
       if (include_tasks && tasks.length > 0) {
         for (const task of tasks) {
           lines.push(
-            `- **${task.id}**: ${task.title} [${task.priority}]${task.assignee ? ` @${task.assignee}` : ''}`,
+            `- **${task.id}**: ${task.title} [${task.priority}]${task.assignee ? ` @${task.assignee}` : ''}${isWaiting(task.waitingUntil) ? ` ⏳ waiting until ${task.waitingUntil}` : ''}`,
           );
         }
       }
@@ -320,11 +331,25 @@ server.registerTool(
       tags: z.array(z.string()).optional().describe('Tags for the task'),
       assignee: z.string().optional().describe('Assignee name'),
       epic: z.string().optional().describe('Epic or milestone this task belongs to'),
+      waiting_until: z
+        .string()
+        .optional()
+        .describe('ISO date (YYYY-MM-DD) before which this task cannot be started'),
       state: z.string().optional().describe('Target state (default: "Backlog")'),
     },
     annotations: CREATE_ANNOTATIONS,
   },
-  async ({ workspace_root, title, description, priority, tags, assignee, epic, state: targetState }) => {
+  async ({
+    workspace_root,
+    title,
+    description,
+    priority,
+    tags,
+    assignee,
+    epic,
+    waiting_until,
+    state: targetState,
+  }) => {
     const { taskStore, configManager } = await freshStore(workspace_root);
     const stateName = targetState || 'Backlog';
     const validState = configManager
@@ -346,6 +371,7 @@ server.registerTool(
         tags: tags || [],
         assignee,
         epic,
+        waitingUntil: waiting_until,
       },
       validState.name,
     );
@@ -422,11 +448,26 @@ server.registerTool(
       tags: z.array(z.string()).optional().describe('New tags (replaces existing)'),
       assignee: z.string().optional().describe('New assignee'),
       epic: z.string().optional().describe('New epic or milestone'),
+      waiting_until: z
+        .string()
+        .optional()
+        .describe('New ISO date (YYYY-MM-DD) before which this task cannot be started'),
       plan: z.string().optional().describe('New or updated plan text'),
     },
     annotations: MODIFY_ANNOTATIONS,
   },
-  async ({ workspace_root, task_id, title, description, priority, tags, assignee, epic, plan }) => {
+  async ({
+    workspace_root,
+    task_id,
+    title,
+    description,
+    priority,
+    tags,
+    assignee,
+    epic,
+    waiting_until,
+    plan,
+  }) => {
     const { taskStore } = await freshStore(workspace_root);
     const existing = taskStore.findTask(task_id);
     const updates: Partial<Omit<Task, 'id'>> = {};
@@ -436,6 +477,7 @@ server.registerTool(
     if (tags !== undefined) updates.tags = tags;
     if (assignee !== undefined) updates.assignee = assignee;
     if (epic !== undefined) updates.epic = epic;
+    if (waiting_until !== undefined) updates.waitingUntil = waiting_until;
     if (plan !== undefined) updates.plan = plan;
 
     const result = taskStore.updateTask(task_id, updates);

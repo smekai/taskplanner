@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "taskplanner": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smekai/taskplanner"
+      ]
+    }
+  }
+}

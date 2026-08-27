@@ -21,6 +21,10 @@ export function serializeTask(task: Task): string {
     lines.push(`**Updated:** ${task.updatedAt}`);
   }
 
+  if (task.waitingUntil) {
+    lines.push(`**Waiting until:** ${task.waitingUntil}`);
+  }
+
   if (task.description.trim()) {
     lines.push('');
     lines.push(task.description.trim());

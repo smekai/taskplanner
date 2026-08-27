@@ -5,7 +5,8 @@ import {
   countTaskHeadings,
   maxTaskIdNumber,
 } from '../../core/parser/taskParser.js';
-import { serializeStateFile } from '../../core/parser/taskSerializer.js';
+import { serializeStateFile, serializeTask } from '../../core/parser/taskSerializer.js';
+import { isWaiting, currentDate } from '../../core/util/time.js';
 import { Priority } from '../../core/model/task.js';
 import type { Task } from '../../core/model/task.js';
 
@@ -525,5 +526,73 @@ describe('findTaskLineNumber', () => {
 
   it('returns 1 for not found', () => {
     expect(findTaskLineNumber('# Empty\n', 'TASK-999')).toBe(1);
+  });
+});
+
+describe('Waiting until', () => {
+  it('parses the field and survives a round-trip through the serializer', () => {
+    const markdown = [
+      '# Next',
+      '',
+      '## TASK-001: Blocked on an external quota',
+      '**Priority:** P0',
+      '**Waiting until:** 2026-09-03',
+      '',
+      'Cannot start before the quota resets.',
+      '',
+      '---',
+      '',
+    ].join('\n');
+
+    const task = parseTasks(markdown).tasks[0];
+    expect(task.waitingUntil).toBe('2026-09-03');
+
+    const reparsed = parseTasks(`# Next\n\n${serializeTask(task)}\n\n---\n`).tasks[0];
+    expect(reparsed.waitingUntil).toBe('2026-09-03');
+    expect(reparsed.priority).toBe(task.priority);
+  });
+
+  it('leaves the field undefined when absent', () => {
+    const markdown = '# Next\n\n## TASK-002: Ordinary\n**Priority:** P2\n\nx\n\n---\n';
+    expect(parseTasks(markdown).tasks[0].waitingUntil).toBeUndefined();
+  });
+});
+
+describe('isWaiting', () => {
+  it('is true only before the date arrives', () => {
+    expect(isWaiting('2026-09-03', '2026-08-27')).toBe(true);
+    expect(isWaiting('2026-09-03', '2026-09-03')).toBe(false);
+    expect(isWaiting('2026-09-03', '2026-09-04')).toBe(false);
+  });
+
+  it('treats absent or unparseable values as not waiting', () => {
+    // A typo must not hide work forever.
+    expect(isWaiting(undefined, '2026-08-27')).toBe(false);
+    expect(isWaiting('next tuesday', '2026-08-27')).toBe(false);
+    expect(isWaiting('', '2026-08-27')).toBe(false);
+  });
+
+  it('ignores a time suffix', () => {
+    expect(isWaiting('2026-09-03 10:00', '2026-08-27')).toBe(true);
+  });
+});
+
+describe('isWaiting date validation', () => {
+  it('rejects impossible calendar dates', () => {
+    // A regexp alone accepts these, and a task would then be suppressed forever — the exact
+    // failure this function promises not to cause.
+    expect(isWaiting('2026-99-99', '2026-08-27')).toBe(false);
+    expect(isWaiting('2026-02-31', '2026-08-27')).toBe(false);
+    expect(isWaiting('2026-13-01', '2026-08-27')).toBe(false);
+  });
+
+  it('accepts a trailing time but not text glued to the date', () => {
+    expect(isWaiting('2026-09-03 10:00', '2026-08-27')).toBe(true);
+    expect(isWaiting('2026-09-03xyz', '2026-08-27')).toBe(false);
+  });
+
+  it('uses the local calendar day rather than UTC', () => {
+    const local = new Date(2026, 7, 27, 23, 30);
+    expect(currentDate(local)).toBe('2026-08-27');
   });
 });
