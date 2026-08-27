@@ -6,7 +6,7 @@ import {
   maxTaskIdNumber,
 } from '../../core/parser/taskParser.js';
 import { serializeStateFile, serializeTask } from '../../core/parser/taskSerializer.js';
-import { isWaiting } from '../../core/util/time.js';
+import { isWaiting, currentDate } from '../../core/util/time.js';
 import { Priority } from '../../core/model/task.js';
 import type { Task } from '../../core/model/task.js';
 
@@ -574,5 +574,25 @@ describe('isWaiting', () => {
 
   it('ignores a time suffix', () => {
     expect(isWaiting('2026-09-03 10:00', '2026-08-27')).toBe(true);
+  });
+});
+
+describe('isWaiting date validation', () => {
+  it('rejects impossible calendar dates', () => {
+    // A regexp alone accepts these, and a task would then be suppressed forever — the exact
+    // failure this function promises not to cause.
+    expect(isWaiting('2026-99-99', '2026-08-27')).toBe(false);
+    expect(isWaiting('2026-02-31', '2026-08-27')).toBe(false);
+    expect(isWaiting('2026-13-01', '2026-08-27')).toBe(false);
+  });
+
+  it('accepts a trailing time but not text glued to the date', () => {
+    expect(isWaiting('2026-09-03 10:00', '2026-08-27')).toBe(true);
+    expect(isWaiting('2026-09-03xyz', '2026-08-27')).toBe(false);
+  });
+
+  it('uses the local calendar day rather than UTC', () => {
+    const local = new Date(2026, 7, 27, 23, 30);
+    expect(currentDate(local)).toBe('2026-08-27');
   });
 });

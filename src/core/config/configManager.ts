@@ -13,6 +13,90 @@ export interface ConfigDiagnostic {
   message: string;
 }
 
+type Report = (message: string) => void;
+
+/**
+ * Per-field decoders. Every field of TaskPlannerConfig goes through one, so the object handed to
+ * consumers matches its declared type at runtime rather than only at compile time — a spread of
+ * parsed JSON guarantees nothing. Each returns the default and reports when the stored value is
+ * unusable; unknown keys pass through untouched so a newer TaskPlanner's settings survive a
+ * round-trip through an older one.
+ */
+const DECODERS: {
+  [K in keyof TaskPlannerConfig]?: (value: unknown, fallback: unknown, report: Report) => unknown;
+} = {
+  version: (v, d, r) => expectNumber(v, d, r, 'version'),
+  taskplannerVersion: (v, d, r) => expectString(v, d, r, 'taskplannerVersion', true),
+  idPrefix: (v, d, r) => expectString(v, d, r, 'idPrefix'),
+  nextId: (v, d, r) => {
+    const n = expectNumber(v, d, r, 'nextId');
+    if (typeof n === 'number' && (n < 1 || !Number.isInteger(n))) {
+      r(`"nextId" must be a positive whole number; using ${String(d)}.`);
+      return d;
+    }
+    return n;
+  },
+  priorities: (v, d, r) => expectStringArray(v, d, r, 'priorities', true),
+  tags: (v, d, r) => expectStringArray(v, d, r, 'tags', false),
+  insertPosition: (v, d, r) => expectEnum(v, d, r, 'insertPosition', ['top', 'bottom']),
+  aiPlanRequired: (v, d, r) => expectBoolean(v, d, r, 'aiPlanRequired'),
+  readmeAttribution: (v, d, r) => expectBoolean(v, d, r, 'readmeAttribution'),
+  mcpConfig: (v, d, r) =>
+    v === undefined ? undefined : expectEnum(v, d, r, 'mcpConfig', ['written', 'declined']),
+};
+
+function expectNumber(value: unknown, fallback: unknown, report: Report, key: string): unknown {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  report(`"${key}" must be a number; using ${String(fallback)}.`);
+  return fallback;
+}
+
+function expectString(
+  value: unknown,
+  fallback: unknown,
+  report: Report,
+  key: string,
+  allowEmpty = false,
+): unknown {
+  if (typeof value === 'string' && (allowEmpty || value.length > 0)) return value;
+  report(`"${key}" must be a non-empty string; using the default.`);
+  return fallback;
+}
+
+function expectBoolean(value: unknown, fallback: unknown, report: Report, key: string): unknown {
+  if (typeof value === 'boolean') return value;
+  report(`"${key}" must be true or false; using ${String(fallback)}.`);
+  return fallback;
+}
+
+function expectEnum(
+  value: unknown,
+  fallback: unknown,
+  report: Report,
+  key: string,
+  allowed: readonly string[],
+): unknown {
+  if (typeof value === 'string' && allowed.includes(value)) return value;
+  report(`"${key}" must be one of ${allowed.join(', ')}; using ${String(fallback)}.`);
+  return fallback;
+}
+
+function expectStringArray(
+  value: unknown,
+  fallback: unknown,
+  report: Report,
+  key: string,
+  requireNonEmpty: boolean,
+): unknown {
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+    if (!requireNonEmpty || value.length > 0) return value;
+  }
+  report(
+    `"${key}" must be an array of strings${requireNonEmpty ? ' with at least one entry' : ''}; using the default.`,
+  );
+  return fallback;
+}
+
 function isUsableState(value: unknown): value is TaskState {
   if (!value || typeof value !== 'object') return false;
   const state = value as Partial<TaskState>;
@@ -71,6 +155,8 @@ export class ConfigManager {
   private config: TaskPlannerConfig;
   private configPath: string;
   private diagnostics: ConfigDiagnostic[] = [];
+  /** Raw bytes of a config.json we could not parse, held until a write preserves them. */
+  private unreadableRaw: string | null = null;
 
   constructor(private tasksDir: string) {
     this.configPath = path.join(tasksDir, 'config.json');
@@ -100,29 +186,66 @@ export class ConfigManager {
 
   /** Parse and normalize config.json, recording problems instead of throwing. */
   private readFromDisk(): TaskPlannerConfig {
+    this.unreadableRaw = null;
     if (!fs.existsSync(this.configPath)) return createDefaultConfig();
 
-    const report = (message: string) => this.diagnostics.push({ message });
-    let parsed: Partial<TaskPlannerConfig> = {};
+    const report: Report = (message) => this.diagnostics.push({ message });
+    let parsed: Record<string, unknown> = {};
     try {
       const raw = fs.readFileSync(this.configPath, 'utf-8');
       const value: unknown = raw.trim().length > 0 ? JSON.parse(raw) : {};
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        this.unreadableRaw = raw;
         report('config.json is not a JSON object; using defaults.');
       } else {
-        parsed = value as Partial<TaskPlannerConfig>;
+        parsed = value as Record<string, unknown>;
       }
     } catch (error) {
+      // Keep the bytes so save() can preserve them instead of overwriting a file the user may
+      // still be able to repair by hand.
+      this.unreadableRaw = fs.readFileSync(this.configPath, 'utf-8');
       report(`config.json could not be parsed (${(error as Error).message}); using defaults.`);
     }
 
-    const merged = { ...createDefaultConfig(), ...parsed };
-    // Only judge `states` when the file actually supplied one. Otherwise the default is simply the
-    // default, and complaining about it would bury the real problem under a second, false message.
-    if (parsed.states !== undefined) {
-      merged.states = normalizeStates(parsed.states, report);
+    const defaults = createDefaultConfig() as unknown as Record<string, unknown>;
+    // Unknown keys pass through, so settings written by a newer TaskPlanner survive a round-trip.
+    const merged: Record<string, unknown> = { ...parsed };
+
+    for (const [key, decode] of Object.entries(DECODERS)) {
+      // Absent means "use the default" and is not worth a diagnostic.
+      merged[key] = key in parsed ? decode(parsed[key], defaults[key], report) : defaults[key];
     }
-    return merged;
+    merged.states =
+      parsed.states !== undefined ? normalizeStates(parsed.states, report) : defaults.states;
+
+    return merged as unknown as TaskPlannerConfig;
+  }
+
+  /**
+   * Preserve a config we could not parse before replacing it. Loading is fail-open so the board
+   * stays usable, but the first write would otherwise erase settings the user could have repaired —
+   * and writes are not rare: allocating a task ID saves the config.
+   */
+  private quarantineUnreadable(): void {
+    const raw = this.unreadableRaw;
+    this.unreadableRaw = null;
+    if (raw === null) return;
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(this.tasksDir, `config.invalid-${stamp}.json`);
+    try {
+      fs.writeFileSync(backupPath, raw, 'utf-8');
+      this.diagnostics.push({
+        message: `The unreadable config.json was preserved as ${path.basename(backupPath)} before defaults were written.`,
+      });
+    } catch {
+      // If the backup cannot be written, keep the original rather than losing it silently.
+      this.diagnostics.push({
+        message:
+          'config.json could not be parsed and no backup could be written; it was left as is.',
+      });
+      this.unreadableRaw = raw;
+    }
   }
 
   private migrateConfig(): void {
@@ -159,6 +282,7 @@ export class ConfigManager {
     if (!fs.existsSync(this.tasksDir)) {
       fs.mkdirSync(this.tasksDir, { recursive: true });
     }
+    this.quarantineUnreadable();
     fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2) + '\n', 'utf-8');
   }
 

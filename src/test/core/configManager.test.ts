@@ -75,8 +75,7 @@ describe('ConfigManager', () => {
   describe('malformed config.json', () => {
     // The failure mode: a bad `states` entry reaches path.join(tasksDir, state.fileName) in
     // FileStore and throws on undefined. Loading must degrade to a usable board instead.
-    const write = (content: string) =>
-      fs.writeFileSync(path.join(tmpDir, 'config.json'), content);
+    const write = (content: string) => fs.writeFileSync(path.join(tmpDir, 'config.json'), content);
 
     it('repairs states given as bare strings', () => {
       write(JSON.stringify({ states: ['Backlog', 'Next', 'Done'] }));
@@ -203,5 +202,71 @@ describe('ConfigManager', () => {
     expect(config.nextId).toBe(50);
     // Default fields should fill in (5 states including Rejected)
     expect(config.states).toHaveLength(5);
+  });
+
+  describe('config field validation', () => {
+    const write = (value: unknown) =>
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify(value));
+
+    it('rejects a non-array priorities instead of handing consumers something that throws', () => {
+      // createTask does config.priorities.map(...); an object here used to crash at use.
+      write({ version: 3, priorities: {} });
+      const config = configManager.load();
+
+      expect(Array.isArray(config.priorities)).toBe(true);
+      expect(config.priorities.length).toBeGreaterThan(0);
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    it('repairs every scalar field independently', () => {
+      write({
+        version: 'three',
+        idPrefix: 42,
+        nextId: -5,
+        tags: [1, 2],
+        insertPosition: 'sideways',
+        aiPlanRequired: 'yes',
+      });
+      const config = configManager.load();
+
+      expect(typeof config.idPrefix).toBe('string');
+      expect(config.nextId).toBeGreaterThan(0);
+      expect(config.tags).toEqual([]);
+      expect(config.insertPosition).toBe('top');
+      expect(config.aiPlanRequired).toBe(true);
+      expect(configManager.getDiagnostics().length).toBeGreaterThanOrEqual(6);
+    });
+
+    it('passes unknown keys through so a newer version does not lose settings', () => {
+      write({ version: 3, somethingNew: { nested: true } });
+      configManager.load();
+      configManager.save();
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.somethingNew).toEqual({ nested: true });
+    });
+
+    it('preserves an unreadable config before defaults overwrite it', () => {
+      // Fail-open loading must not become silent data loss: allocating a task ID saves the config,
+      // so the first create used to erase a file the user could still have repaired.
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), '{ broken but precious');
+      configManager.load();
+      configManager.save();
+
+      const backups = fs.readdirSync(tmpDir).filter((f) => f.startsWith('config.invalid-'));
+      expect(backups).toHaveLength(1);
+      expect(fs.readFileSync(path.join(tmpDir, backups[0]), 'utf-8')).toBe('{ broken but precious');
+      expect(configManager.getDiagnostics().some((d) => d.message.includes('preserved'))).toBe(
+        true,
+      );
+    });
+
+    it('does not leave a backup for a config it could read', () => {
+      write({ version: 3, idPrefix: 'OK' });
+      configManager.load();
+      configManager.save();
+
+      expect(fs.readdirSync(tmpDir).filter((f) => f.startsWith('config.invalid-'))).toHaveLength(0);
+    });
   });
 });
