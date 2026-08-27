@@ -146,7 +146,7 @@ markdown without touching its encoding:
 | \`taskplanner_get\` | Read one task in full. |
 | \`taskplanner_create\` | Create a task; the ID is allocated for you. |
 | \`taskplanner_move\` | Move a task between states. |
-| \`taskplanner_update\` | Change title, description, priority, tags, epic, assignee, or plan. |
+| \`taskplanner_update\` | Change title, description, priority, tags, epic, assignee, waiting-until, or plan. |
 
 Check once at the start of a session whether the tools are available, and say which way you are
 working. **If they are available, do not hand-edit these files.** Every instruction below that
