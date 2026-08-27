@@ -15,6 +15,28 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-055 — 2026-08-27
+**What:** Removed a tracked 814 kB sourcemap that was four months stale and referenced by nothing,
+and stopped production builds from leaving orphaned maps behind.
+**Decisions:** Only the maps are ignored — the bundle beside them stays tracked, because the repo
+tree is how Codex and the Cursor Marketplace install the plugin. Fixed the mechanism (dev builds
+emit maps, production builds did not clean them) rather than only deleting the file.
+**Outcome:** The packaged VSIX went from one .map file to zero; dist/extension.js.map was leaking
+the same way and is fixed too. Filed retroactively, after the work.
+
+---
+
+## TASK-048 — 2026-08-27
+**What:** Generated agent instructions now name the six TaskPlanner MCP tools and prefer them over
+editing the task markdown by hand, which they previously prescribed.
+**Decisions:** Hand-editing stays documented as the fallback rather than removed — the files are
+human-editable by design, and not every host exposes the tools. Split the wiring half (nothing
+writes an .mcp.json outside Cursor) into TASK-054 rather than widening this one.
+**Outcome:** 133 tests; regenerated this repo's own CLAUDE.md/AGENTS.md/.cursorrules from the new
+template. Fixed a pre-existing missing blank line before ### Work Log found while regenerating.
+
+---
+
 ## TASK-047 — 2026-08-26
 **What:** Added a library entry point to `@smekai/taskplanner`, so consumers can call `parseTasks`/`TaskStore` directly instead of spawning the MCP server to read markdown.
 **Decisions:** Re-pointed `.` from the server to the library while nothing is published — the server bundle self-starts on import, which is backwards for a package entry, and the specifier could not be changed after the first publish. Server moved to `./mcp-server`. Shipped `.d.ts` via a declaration-only tsconfig, since an untyped library entry is half a deliverable.

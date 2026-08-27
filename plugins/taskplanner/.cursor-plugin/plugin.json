@@ -1,7 +1,7 @@
 {
   "name": "taskplanner",
   "description": "Task-first AI workflows: manage, prioritize, and execute work stored as markdown tasks in your repo.",
-  "version": "2.1.14",
+  "version": "2.1.18",
   "author": { "name": "refined" },
   "repository": "https://github.com/smekai/taskplanner",
   "license": "MIT",

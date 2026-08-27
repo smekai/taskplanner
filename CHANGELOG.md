@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The packaged extension no longer ships build sourcemaps. A stale 814 kB map from an earlier dev build had been committed alongside the bundled MCP server and rode into every VSIX, as did the extension's own map; production builds now clear both, so a release packaged after a `npm run watch` session cannot inherit them (TASK-055).
+
+### Changed
+
+- Generated agent instructions (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`) now name TaskPlanner's MCP tools and tell agents to prefer them over editing the task markdown by hand — which the instructions previously prescribed, leaving agents to cut-and-paste task sections and hand-maintain `nextId`. Hand-editing remains documented as the fallback for hosts that do not expose the tools (TASK-048).
+
 ### Added
 
 - The MCP server is now published to npm as `@smekai/taskplanner`, so agent hosts outside a VS Code or Cursor install can depend on it instead of pointing at an extension path. Same server as the editor plugin, built from the same sources; spawn it as `node <require.resolve('@smekai/taskplanner/mcp-server')>` and point it at a repository with `TASKPLANNER_WORKSPACE_ROOT` or the `workspace_root` tool input (TASK-046).

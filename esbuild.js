@@ -46,6 +46,7 @@ function syncMcpPackage() {
   }
 
   fs.rmSync(`${mcpPackageServerOut}.map`, { force: true });
+  if (production) fs.rmSync(`${mcpServerOut}.map`, { force: true });
 
   console.log(`[mcp-package] synced ${path.relative(__dirname, mcpPackageRoot)}`);
 }
@@ -99,6 +100,8 @@ async function main() {
         setup(build) {
           build.onEnd((result) => {
             if (result.errors.length === 0) {
+              if (production)
+                fs.rmSync(path.join(__dirname, 'dist', 'extension.js.map'), { force: true });
               console.log('[watch] extension build succeeded');
             }
           });
