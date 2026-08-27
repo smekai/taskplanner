@@ -102,4 +102,29 @@ export class FileStore {
     }
     return fs.readFileSync(filePath, 'utf-8');
   }
+/** Directory holding archived Done sections. Not a board state — nothing lists it in views. */
+  archiveDir(): string {
+    return path.join(this.tasksDir, 'archive');
+  }
+
+  /** Archive file names, newest-sorting last. Empty when nothing has been archived yet. */
+  listArchiveFiles(): string[] {
+    const dir = this.archiveDir();
+    if (!fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith('.md'))
+      .sort();
+  }
+
+  readArchiveRaw(fileName: string): string {
+    const filePath = path.join(this.archiveDir(), fileName);
+    return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  }
+
+  writeArchive(fileName: string, header: string, tasks: Task[]): void {
+    const dir = this.archiveDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, fileName), serializeStateFile(header, tasks), 'utf-8');
+  }
 }

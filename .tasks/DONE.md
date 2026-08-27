@@ -1,5 +1,61 @@
 # Done
 
+## TASK-053: No archiving story for DONE.md
+**Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
+**Updated:** 2026-08-27 15:59
+
+`DONE.md` is the historical record, so agents grep it and load parts of it constantly, and it only
+grows. There is no supported way to archive completed work — per milestone, per release, or by age
+— while keeping it findable.
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** `.tasks/DONE.md` is 3,831 lines. For scale, this
+repository's own `DONE.md` is 629 lines, so the pain arrives well before a project feels large.
+
+**Verified against current code (2.1.14):** no archive command, tool, or setting.
+`src/core/store/taskStore.ts:14` already defers full parsing of large states, with a comment
+referring to "large archives" — the read path anticipates this, the write path has no answer.
+
+**Lowest priority of the six.** Annoying, not yet painful; filed so it is not rediscovered from
+scratch later.
+
+**Done looks like:** completed tasks can move out of `DONE.md` into a dated or milestone-scoped
+archive that stays greppable and parseable, without breaking ID uniqueness or the deferred-load
+behaviour, plus a decision on whether archived tasks remain visible in any view.
+
+### Plan
+
+**Decisions taken:** age-based `archiveDoneAfterDays`, archiving runs automatically. **Default off** —
+an upgrade must not reshuffle an existing `DONE.md`; automatic means automatic once a threshold has
+been chosen.
+
+- `archive.ts` holds the policy: `isArchivable`, `archiveFileFor`, `planArchive`. Files are
+  `.tasks/archive/DONE-<YYYY>-H<1|2>.md`, bucketed by the task's own date.
+- Tasks with no `**Updated:**` are archived too, per the owner's call, but land in
+  `DONE-undated.md` rather than being given an invented date.
+- `TaskStore.archiveCompleted()` moves sections out of Done and appends to whatever the archive
+  already holds. Idempotent — a second run moves nothing.
+- **The hazard, fixed and regression-tested:** `getMaxTaskIdNumber()` walked only configured states,
+  so archived IDs would have been forgotten and `nextId` would have reissued them. It now scans
+  `.tasks/archive/*.md` with `maxTaskIdNumber(raw, prefix)` — raw reads, no full parse, the same
+  pair already used for deferred states. Removing that scan makes the test fail with
+  `expected 'T-001' to be 'T-003'`, so the guard is real rather than decorative.
+- Triggered after a move into Done, so Done stays trimmed as work completes. **Not** on activation:
+  merely opening a project should not rewrite task files. A Setup entry runs it explicitly for the
+  bulk case, gated on `isInitialized` per the PR #6 review lesson.
+- Generated instructions tell agents to grep `.tasks/archive/` before concluding a task never
+  existed.
+
+**Verified on this repository's real board** (copied to a temp dir, threshold 90 days): 1055 lines
+of `DONE.md` became 629, 32 of 52 tasks moved into `DONE-2026-H1.md` at 426 lines, the next
+allocated ID was `TASK-057` with no reuse, and a second run archived nothing.
+
+12 tests. 162 → 174 overall.
+
+**Key files:** `src/core/store/archive.ts`, `src/core/store/taskStore.ts`,
+`src/core/store/fileStore.ts`, `src/core/model/config.ts`, `src/extension/commands/setup.ts`.
+
+---
+
 ## TASK-052: No way to express "blocked until", so agents pick undoable work
 **Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
 **Updated:** 2026-08-27 11:12
@@ -376,7 +432,6 @@ directory packs to 2.67 KiB.
 
 ---
 
-
 ## TASK-048: Generated instructions prescribe hand-editing and never mention the MCP tools
 **Priority:** P1 | **Tags:** core, docs | **Epic:** 2.2.x
 **Updated:** 2026-08-27 12:40
@@ -423,7 +478,6 @@ that nothing writes an `.mcp.json` for hosts outside Cursor — was split out as
 wording propagates on their next Initialize or update.
 
 ---
-
 
 ## TASK-047: Expose the core library as a package entry point, not only the MCP server
 **Priority:** P1 | **Tags:** core, refactor

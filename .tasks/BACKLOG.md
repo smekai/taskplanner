@@ -1,29 +1,5 @@
 # Backlog
 
-## TASK-053: No archiving story for DONE.md
-**Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
-**Updated:** 2026-08-27 11:12
-
-`DONE.md` is the historical record, so agents grep it and load parts of it constantly, and it only
-grows. There is no supported way to archive completed work — per milestone, per release, or by age
-— while keeping it findable.
-
-**Observed (isotopy, 2026-08-17, 2.1.4):** `.tasks/DONE.md` is 3,831 lines. For scale, this
-repository's own `DONE.md` is 629 lines, so the pain arrives well before a project feels large.
-
-**Verified against current code (2.1.14):** no archive command, tool, or setting.
-`src/core/store/taskStore.ts:14` already defers full parsing of large states, with a comment
-referring to "large archives" — the read path anticipates this, the write path has no answer.
-
-**Lowest priority of the six.** Annoying, not yet painful; filed so it is not rediscovered from
-scratch later.
-
-**Done looks like:** completed tasks can move out of `DONE.md` into a dated or milestone-scoped
-archive that stays greppable and parseable, without breaking ID uniqueness or the deferred-load
-behaviour, plus a decision on whether archived tasks remain visible in any view.
-
----
-
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup, ci
 **Updated:** 2026-07-27 13:35

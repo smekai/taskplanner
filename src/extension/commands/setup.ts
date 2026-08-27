@@ -5,6 +5,7 @@ import { getSortBy, setSortBy } from '../config/extensionConfig.js';
 import { synchronizeTaskPlannerProject } from '../../core/project/projectSync.js';
 import { MCP_CONFIG_FILE } from '../../core/ai/aiInstructions.js';
 import { writeMcpConfigNow } from './mcpConfigPrompt.js';
+import { TaskStore } from '../../core/store/taskStore.js';
 
 export function registerSetupCommand(
   context: vscode.ExtensionContext,
@@ -12,6 +13,7 @@ export function registerSetupCommand(
   configManager: ConfigManager,
   workspaceRoot: string,
   installedVersion: string,
+  taskStore: TaskStore,
 ) {
   context.subscriptions.push(
     vscode.commands.registerCommand('taskplanner.setup', async () => {
@@ -47,6 +49,14 @@ export function registerSetupCommand(
       // Only once the board exists: writing the config saves .tasks/config.json, and a .tasks/
       // holding nothing else would make every existsSync check treat the project as initialized.
       if (isInitialized) {
+        items.push({
+          label: '$(archive) Archive completed tasks',
+          description: config.archiveDoneAfterDays
+            ? `Move Done tasks older than ${config.archiveDoneAfterDays} days into .tasks/archive/`
+            : 'Set archiveDoneAfterDays in .tasks/config.json first',
+          action: 'archiveDone',
+        });
+
         items.push({
           label: `$(plug) Write ${MCP_CONFIG_FILE}`,
           description: 'Let hosts that read this file reach the TaskPlanner MCP tools',
@@ -139,6 +149,21 @@ export function registerSetupCommand(
               ? 'Voluntary README attribution enabled.'
               : 'README attribution disabled. Existing attribution text was left unchanged.',
           );
+          break;
+        }
+        case 'archiveDone': {
+          const result = taskStore.archiveCompleted();
+          if (result.archived === 0) {
+            vscode.window.showInformationMessage(
+              config.archiveDoneAfterDays
+                ? 'Nothing old enough to archive yet.'
+                : 'Archiving is off. Set "archiveDoneAfterDays" in .tasks/config.json to enable it.',
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              `Archived ${result.archived} task(s) into ${result.files.join(', ')}.`,
+            );
+          }
           break;
         }
         case 'writeMcpConfig':

@@ -118,6 +118,10 @@ ${stateList}
 Auxiliary file (optional rolling log, not a task state):
 - **Work Log** → \`WORK_LOG.md\`
 
+Completed work may be archived out of \`DONE.md\` into \`.tasks/archive/\` once a project sets
+\`archiveDoneAfterDays\`. Those files are plain markdown in the same format but are not board states —
+if a task is not in \`DONE.md\`, grep the archive before concluding it never existed.
+
 ## Task Format
 
 Each task is a \`## \` heading section separated by \`---\`:

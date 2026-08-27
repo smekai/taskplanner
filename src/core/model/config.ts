@@ -16,6 +16,12 @@ export interface TaskPlannerConfig {
    * yet", so Initialize prompts once and never again.
    */
   mcpConfig?: 'written' | 'declined';
+  /**
+   * Move completed tasks older than this many days out of DONE.md into .tasks/archive/.
+   * Absent or 0 disables archiving: upgrading TaskPlanner must never reshuffle an existing board
+   * on its own, so this only runs once a threshold has been chosen.
+   */
+  archiveDoneAfterDays?: number;
 }
 
 export function createDefaultConfig(): TaskPlannerConfig {

@@ -104,6 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
     configManager,
     workspaceFolder.uri.fsPath,
     installedVersion,
+    taskStore,
   );
   registerCreateTaskCommand(context, taskStore, configManager);
   registerMoveTaskCommand(context, taskStore, configManager);

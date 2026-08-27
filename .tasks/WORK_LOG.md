@@ -15,6 +15,18 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-053 — 2026-08-27
+**What:** Completed tasks older than `archiveDoneAfterDays` move out of `DONE.md` into dated files
+under `.tasks/archive/`, keeping the board file bounded.
+**Decisions:** Off by default — an upgrade must not reshuffle a board nobody asked it to touch.
+Undated tasks are archived into their own bucket rather than given an invented date. Runs after a
+move into Done, not on activation: opening a project should not rewrite task files.
+**Outcome:** 174 tests. The real hazard was ID reuse — `getMaxTaskIdNumber` walked configured states
+only; it now scans the archive raw, and removing that scan fails the regression test. On this
+repository's real board: 1055 lines to 629, no ID reuse, second run a no-op.
+
+---
+
 ## TASK-052 — 2026-08-27
 **What:** Tasks can carry `**Waiting until:** YYYY-MM-DD`, and the tools mark work that cannot start
 yet so an agent following the workflow does not pick it.

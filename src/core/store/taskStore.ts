@@ -6,8 +6,9 @@ import { ConfigManager } from '../config/configManager.js';
 import { FileStore } from './fileStore.js';
 import { IdGenerator } from '../id/idGenerator.js';
 import { DuplicateResolution } from '../validation/duplicateDetector.js';
-import { countTaskHeadings, maxTaskIdNumber } from '../parser/taskParser.js';
+import { countTaskHeadings, maxTaskIdNumber, parseTasks } from '../parser/taskParser.js';
 import { currentTimestamp } from '../util/time.js';
+import { ArchiveResult, archiveHeadingFor, planArchive } from './archive.js';
 
 export type TaskStoreListener = () => void;
 
@@ -196,7 +197,46 @@ export class TaskStore {
         }
       }
     }
+
+    // Archived tasks are not in any state, so without this nextId would forget them and reissue
+    // their IDs. Scanned raw, like deferred states, rather than parsed.
+    for (const fileName of this.fileStore.listArchiveFiles()) {
+      const n = maxTaskIdNumber(this.fileStore.readArchiveRaw(fileName), prefix);
+      if (n > max) max = n;
+    }
+
     return max;
+  }
+
+  /**
+   * Move completed tasks older than `archiveDoneAfterDays` out of Done into .tasks/archive/.
+   * A no-op when the setting is absent, and idempotent: a second run finds nothing left to move.
+   */
+  archiveCompleted(now = new Date()): ArchiveResult {
+    const afterDays = this.config.archiveDoneAfterDays ?? 0;
+    const doneState = this.config.states.find((state) => state.name === 'Done');
+    if (afterDays <= 0 || !doneState) return { archived: 0, files: [] };
+
+    this.ensureStateLoaded(doneState.name);
+    const { keep, byFile } = planArchive(this.getTasksByState(doneState.name), afterDays, now);
+    if (byFile.size === 0) return { archived: 0, files: [] };
+
+    let archived = 0;
+    for (const [fileName, moving] of byFile) {
+      // Append to whatever the file already holds so earlier runs are preserved.
+      const existing = this.fileStore.readArchiveRaw(fileName);
+      const existingTasks = existing ? parseTasks(existing).tasks : [];
+      this.fileStore.writeArchive(fileName, archiveHeadingFor(fileName), [
+        ...existingTasks,
+        ...moving,
+      ]);
+      archived += moving.length;
+    }
+
+    this.tasksByState.set(doneState.name, keep);
+    this.fileStore.writeState(doneState, keep);
+    this.notifyListeners();
+    return { archived, files: [...byFile.keys()].sort() };
   }
 
   private findInMemory(taskId: string): { task: Task; stateName: string } | null {
@@ -290,6 +330,10 @@ export class TaskStore {
     }
     this.tasksByState.set(targetStateName, targetTasks);
     this.fileStore.writeState(targetState, targetTasks);
+
+    // Keep Done trimmed as work completes rather than letting it grow until someone notices.
+    // Inert unless archiveDoneAfterDays is configured.
+    if (targetStateName === 'Done') this.archiveCompleted();
 
     this.notifyListeners();
     return found.task;
