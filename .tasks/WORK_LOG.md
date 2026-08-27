@@ -15,6 +15,16 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-056 — 2026-08-27
+**What:** This repository now has a `.mcp.json`, so its own agents can use the TaskPlanner tools
+instead of hand-editing the board.
+**Decisions:** Written by the shipped `writeMcpServerConfig()` rather than by hand — the file
+doubles as proof that 2.2.0 works against the published package.
+**Outcome:** Launching what the file specifies pulls 2.2.0 from npm and answers taskplanner_board
+against the real board. Confirmed npx resolves the bin despite the name mismatch.
+
+---
+
 ## TASK-036 — 2026-08-27
 **What:** `config.json` is validated on load — malformed `states` are repaired or replaced, bad
 JSON falls back to defaults, and nothing throws.

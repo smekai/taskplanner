@@ -1,5 +1,38 @@
 # Done
 
+## TASK-056: This repository has no .mcp.json, so its own agents cannot use the tools
+**Priority:** P2 | **Tags:** setup, docs | **Epic:** 2.2.x
+**Updated:** 2026-08-27 15:10
+
+TASK-054 shipped the ability to write a repository `.mcp.json`, and its done-summary recorded that
+this repository did not get one because `npx -y @smekai/taskplanner` could not resolve until the
+package was published. It is published now — `@smekai/taskplanner@2.2.0` is in the registry.
+
+Until this lands, TaskPlanner's own maintainers edit the task board by hand — allocating IDs,
+moving markdown sections between files — which is exactly the defect TASK-048 and TASK-054 were
+filed about. Every task in this backlog, including this one, was created that way.
+
+**Done looks like:** `.mcp.json` exists in the repository root with the `taskplanner` server,
+written by the same `upsertMcpServerConfig` shipped in 2.2.0 rather than by hand, the tools resolve
+in a fresh session, and further board changes go through them.
+
+### Plan
+
+- Written by `writeMcpServerConfig()` — the helper shipped in 2.2.0 — rather than by hand, so the
+  file is proof the feature works and not just a hand-made lookalike.
+- Verified end to end by launching exactly what the file specifies: `npx -y @smekai/taskplanner`
+  pulls 2.2.0 from the registry, reports 8 tools, and reads this repository's real board
+  (Backlog 5, In Progress 1, Done 50).
+- That also settles the question left open in TASK-054's plan: `npx @smekai/taskplanner` does
+  resolve the `taskplanner-mcp` bin even though its name differs from the package name, so the
+  `-p` form is not needed.
+
+**Still hand-editing in this session:** the file is on disk, but an MCP client only reads it at
+startup, so the tools are not registered in the session that wrote it. The loop closes for the
+next session, not this one.
+
+---
+
 ## TASK-036: Harden config.json loading — validate states, log failures to output channel
 **Priority:** P1 | **Tags:** core, setup
 **Updated:** 2026-07-27 13:35
