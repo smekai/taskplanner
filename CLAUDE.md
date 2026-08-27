@@ -21,7 +21,7 @@ TaskPlanner is a VS Code extension that provides markdown-based task tracking di
 - `src/test/extension/` — VS Code integration tests.
 - `resources/` — SVG icons and templates.
 - `plugins/taskplanner/` — Shared Cursor/Codex plugin source, manifests, skills, and runtime.
-- `packages/mcp-server/` — npm package `@refined/taskplanner`. Manifest, bin launcher, and README only; the bundle and board UI are copied in by `esbuild.js` from the same build as the plugin.
+- `packages/mcp-server/` — npm package `@smekai/taskplanner`. Manifest, bin launcher, and README only; the bundle and board UI are copied in by `esbuild.js` from the same build as the plugin.
 - `dist/` — Generated extension output and channel-specific release packages.
 
 ## Key Commands

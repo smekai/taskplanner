@@ -4,7 +4,7 @@
 **Priority:** P1 | **Tags:** core, refactor
 **Updated:** 2026-08-26 14:30
 
-`@refined/taskplanner` exposed only `dist/mcp-server.js`. A consumer wanting to read the board from
+`@smekai/taskplanner` exposed only `dist/mcp-server.js`. A consumer wanting to read the board from
 its own code — no model in the loop — had to spawn a Node subprocess and speak JSON-RPC over stdio
 to parse a few markdown files. `src/core/` was already VS Code-free and imports nothing but `fs`
 and `path`, so a clean library API sat behind a door with no handle.
@@ -24,7 +24,7 @@ and `path`, so a clean library API sat behind a door with no handle.
 - Documented both entry points in the package README, CONTRIBUTING, and the root README.
 
 Verified: `npm run release:check` passes end to end. ESM named imports were checked explicitly
-(`import { parseTasks } from '@refined/taskplanner'`) rather than assumed — cjs-module-lexer does
+(`import { parseTasks } from '@smekai/taskplanner'`) rather than assumed — cjs-module-lexer does
 detect esbuild's `__export` pattern, so the CJS bundle works from ESM. The tarball grew from 5 to
 27 files, the added ones being the declaration tree.
 
@@ -45,7 +45,7 @@ needs the board as MCP tools resolvable as a dependency, not as an editor- and O
 
 ### Plan
 
-Shipped as `@refined/taskplanner` (npm `taskplanner` is taken — mcollina's, 2014).
+Shipped as `@smekai/taskplanner` (npm `taskplanner` is taken — mcollina's, 2014).
 
 - **One implementation, not a fork.** `esbuild.js` builds `src/mcp/server.ts` once to
   `plugins/taskplanner/dist/mcp-server.js` (unchanged) and *copies* it plus the board UI into
@@ -55,7 +55,7 @@ Shipped as `@refined/taskplanner` (npm `taskplanner` is taken — mcollina's, 20
   the package declares `"type": "commonjs"` and the smoke test runs it under plain `node`.
 - **Package layout:** `packages/mcp-server/` holds only the manifest, `bin/taskplanner-mcp.js`, and
   the README; `dist/` and `ui/` are generated and gitignored. `exports` resolves both
-  `require.resolve('@refined/taskplanner')` and the explicit `dist/mcp-server.js` subpath.
+  `require.resolve('@smekai/taskplanner')` and the explicit `dist/mcp-server.js` subpath.
 - **Both workspace-root paths kept:** `TASKPLANNER_WORKSPACE_ROOT` and the `workspace_root` tool
   input, each walking up from the given directory to `.tasks/`.
 - **Smoke test rewritten to run against the published artifact:** packs the package, installs the
@@ -428,7 +428,7 @@ The VS Code marketplace page shows an empty Changelog tab. Create and maintain a
 ---
 
 ## TASK-028: search on Kanban board
-**Priority:** P3 | **Tags:** UI, search | **Assignee:** Fedor
+**Priority:** P3 | **Tags:** UI, search | **Assignee:** smekai
 **Updated:** 2026-03-22 14:09
 
 I want to have same search abilities as on a List Board. Search field only, we already have sorting, and other "query" functionalities is not applicable to Kanban Board.
@@ -500,7 +500,7 @@ After clicking the Save button on the task edit form, the form should close and 
 ---
 
 ## TASK-001: Project scaffolding and initial setup
-**Priority:** P1 | **Tags:** core, setup | **Assignee:** Fedor
+**Priority:** P1 | **Tags:** core, setup | **Assignee:** smekai
 **Updated:** 2026-03-16 00:00
 
 Set up TypeScript project with esbuild bundler, VS Code extension shell, core library structure (models, parser, serializer, store), and Vitest test framework.
@@ -596,7 +596,7 @@ Add Rejected state support, config migration (v1→v2), insert position setting,
 ---
 
 ## TASK-013: MVP launch preparation
-**Priority:** P1 | **Tags:** feature, ui | **Assignee:** Fedor
+**Priority:** P1 | **Tags:** feature, ui | **Assignee:** smekai
 **Updated:** 2026-03-19 00:00
 
 Replace main screen with filtered task list (grouped by status, hiding Backlog/Done/Rejected by default). Add Assignee and Updated datetime fields to tasks. Add grouping controls (by status, assignee, date, or none). Add search across all fields. Update README.

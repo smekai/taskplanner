@@ -16,14 +16,14 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 ---
 
 ## TASK-047 — 2026-08-26
-**What:** Added a library entry point to `@refined/taskplanner`, so consumers can call `parseTasks`/`TaskStore` directly instead of spawning the MCP server to read markdown.
+**What:** Added a library entry point to `@smekai/taskplanner`, so consumers can call `parseTasks`/`TaskStore` directly instead of spawning the MCP server to read markdown.
 **Decisions:** Re-pointed `.` from the server to the library while nothing is published — the server bundle self-starts on import, which is backwards for a package entry, and the specifier could not be changed after the first publish. Server moved to `./mcp-server`. Shipped `.d.ts` via a declaration-only tsconfig, since an untyped library entry is half a deliverable.
 **Outcome:** `release:check` passes; the smoke test now also requires the library from a fresh install and parses the board the MCP tools just edited. ESM named imports verified explicitly.
 
 ---
 
 ## TASK-046 — 2026-08-26
-**What:** Published the MCP server as its own npm package, `@refined/taskplanner` (`packages/mcp-server/`), so hosts outside an editor install can resolve it as a dependency.
+**What:** Published the MCP server as its own npm package, `@smekai/taskplanner` (`packages/mcp-server/`), so hosts outside an editor install can resolve it as a dependency.
 **Decisions:** Build once and copy — esbuild still writes `plugins/taskplanner/dist/mcp-server.js` and the package ships those exact bytes, with `validate-versions` failing on any divergence, so there is still one board parser. Output stays CJS because the bundle reads its board HTML through `__dirname`. Kept a `bin` for `npx` but documented that programmatic consumers must spawn `process.execPath` + `require.resolve`, since a bin name is a `.cmd` shim on Windows.
 **Outcome:** `npm run release:check` passes on Windows; the smoke test now packs, installs into an empty temp dir, and exercises both workspace-root paths plus the `**Assignee:**` round-trip. macOS/Linux untested. npm name `taskplanner` was taken, and the `@refined` npm org must be created before the first publish.
 
