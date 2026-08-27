@@ -15,6 +15,19 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-057 — 2026-08-27
+**What:** Cut the config decoder scaffolding and collapsed date handling to one parser and two
+formatters; wrote the "comments are a smell" rule into this repo's agent instructions.
+**Decisions:** Plain type guards over zod — 11 flat fields do not need a schema library, and it keeps
+zod out of the extension bundle. Native `Date` over moment (maintenance mode) or Day.js: standardizing
+on UTC removed the timezone arithmetic a date library exists to solve, leaving strict parsing as the
+only real win, which is six lines. The rule stays out of `aiInstructions.ts` so TaskPlanner does not
+impose a code style on its users.
+**Outcome:** Three files 509 → 380 lines, 90 → 14 comment lines, no dependency added, both bundles
+slightly smaller. `isWaiting` now takes a `Date` — a public API change, noted in the changelog.
+
+---
+
 ## TASK-053 — 2026-08-27
 **What:** Completed tasks older than `archiveDoneAfterDays` move out of `DONE.md` into dated files
 under `.tasks/archive/`, keeping the board file bounded.

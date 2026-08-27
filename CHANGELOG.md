@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tasks can declare **Waiting until: YYYY-MM-DD** for work blocked on something outside the repository — an external quota, a third-party release. The MCP tools mark such tasks and the generated instructions tell agents to skip them whatever their priority, so a compliant agent no longer picks up a P0 it cannot start. Set it through `taskplanner_create` or `taskplanner_update` (TASK-052).
 - This repository now ships a `.mcp.json`, so agents working on TaskPlanner itself use the TaskPlanner tools rather than hand-editing the task board (TASK-056).
 
+### Changed
+
+- **Waiting until** dates are now compared in UTC, matching the **Updated** stamps written into the same files. Previously the two used different calendars, so near midnight a task could be judged startable on one day and not the other depending on the contributor's timezone (TASK-057).
+- A **Waiting until** value with text after the date, such as `2026-09-03 soon`, is no longer accepted. Only `YYYY-MM-DD` and `YYYY-MM-DD HH:MM` parse; anything else leaves the task visible rather than hiding it on a value nobody can read (TASK-057).
+- Work-log entries whose heading carries an impossible date archive into `WORK_LOG-undated.md`, the same way undated tasks go to `DONE-undated.md` (TASK-057).
+- **Library API:** `isWaiting`'s second argument is now a `Date` rather than a `YYYY-MM-DD` string, and `parseTimestamp` and `daysSince` are exported from `@smekai/taskplanner`. Date handling is one parser and two formatters; every function takes a `Date` and strings appear only at the boundaries (TASK-057).
+
 ### Fixed
 
 - A malformed `.tasks/config.json` no longer breaks TaskPlanner. States given in the wrong shape are repaired from the defaults where the name is recognised, unparseable JSON falls back to defaults, and loading reports what it had to ignore instead of throwing — previously a `states` list of plain strings crashed on `path.join`, which took down MCP tool calls as well as the views. Problems are written to the **TaskPlanner** output channel with a warning, so defaults are never applied silently (TASK-036).

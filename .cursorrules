@@ -1,3 +1,28 @@
+## Code Style
+
+ESLint and Prettier cover the mechanical part — run `npm run lint` and `npm run format` before a PR.
+
+Beyond that: **a comment is a signal that the code is not clear enough yet.** Before writing one,
+try to make it unnecessary — name the function after the comment, extract the condition into a named
+predicate, split the branch out. Names and types stay true as the code changes; comments drift.
+
+Do not write:
+
+- Comments that restate the code (`// increment nextId`).
+- Doc blocks on every exported symbol. A precise name and type already say it.
+- Section banners, decorative dividers, or step-by-step narration of a function body.
+- Rationale that belongs in the commit message, `CHANGELOG.md`, or a task's `### Plan`.
+
+Do write, sparingly:
+
+- A one-line note where the code must stay non-obvious: a workaround for an external bug, a
+  deliberate deviation from an API contract, or an output format that must match byte-for-byte.
+
+Comments belong in tests. A test name plus a short note explains the failure a case guards against
+far better than a comment sitting beside the code it guards.
+
+If you find yourself explaining a function in prose, that is the signal to rewrite the function.
+
 <!-- TASKPLANNER:START -->
 # TaskPlanner — AI Agent Instructions
 

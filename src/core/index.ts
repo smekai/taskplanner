@@ -8,4 +8,10 @@ export { serializeTask, serializeStateFile } from './parser/taskSerializer.js';
 export { IdGenerator } from './id/idGenerator.js';
 export { FileStore } from './store/fileStore.js';
 export { TaskStore, isDeferredStateName } from './store/taskStore.js';
-export { currentTimestamp, currentDate, isWaiting } from './util/time.js';
+export {
+  currentTimestamp,
+  currentDate,
+  isWaiting,
+  parseTimestamp,
+  daysSince,
+} from './util/time.js';

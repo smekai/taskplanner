@@ -1,5 +1,29 @@
 # Done
 
+## TASK-057: Simplify config validation and date handling
+**Priority:** P2 | **Tags:** core, refactor
+**Updated:** 2026-08-27 18:32
+
+PR #7 left two files harder to read than the problems they solve.
+
+`configManager.ts` validates 11 flat fields through a `DECODERS` table plus five `expectX` helpers — ~100 lines of scaffolding threading the same `(value, fallback, report, key)` tuple, for what is a list of one-line predicates.
+
+`time.ts` is 21 comment lines out of 48, and the comments are load-bearing because the code is inconsistent: `currentTimestamp()` formats in UTC while `currentDate()` hand-rolls a local calendar date, so the two disagree about what day it is near midnight. The same `YYYY-MM-DD` shape check is written three times across `time.ts`, `archive.ts`, and `configManager.ts`, each with a different idea of what a valid date is.
+
+Replace the decoders with plain type-guard predicates (no schema library), collapse date handling to one parser and two formatters on UTC native `Date`, and route `archive.ts` through them. Then write the comment rule into this repo's own agent instructions so prose does not creep back in where a name would do.
+
+### Plan
+
+Done. `time.ts` is now one parser (`parseTimestamp`, UTC, round-trip check rejecting `2026-02-31`) and two formatters, with every function taking an optional `now: Date` — strings only at the boundaries. `archive.ts` and `isWaiting` route through it, and `halfYearSuffix` is shared by the `DONE-` and `WORK_LOG-` buckets. `configManager.ts` lost `DECODERS` and all five `expectX` helpers for a `FIELDS` table of one-line predicates plus one loop; `migrateConfig`'s `// v2:`/`// v3:` narration became named methods.
+
+The three files went 509 → 380 lines and 90 → 14 comment lines. No dependency added — plain type guards, not zod; native `Date`, not moment (maintenance mode) or Day.js, because choosing UTC with two fixed formats removed the problem a date library solves.
+
+The comment rule is written into CLAUDE.md, AGENTS.md, .cursorrules (all above the TASKPLANNER marker, so a sync preserves them) and CONTRIBUTING.md. `aiInstructions.ts` was deliberately left alone — the rule governs this repo, not TaskPlanner's users.
+
+Verified: 190 tests pass, lint clean, build succeeds with both bundles slightly smaller, and 9 date behaviours checked directly against the built library bundle.
+
+---
+
 ## TASK-053: No archiving story for DONE.md
 **Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
 **Updated:** 2026-08-27 15:59
