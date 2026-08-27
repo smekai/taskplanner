@@ -2,6 +2,8 @@ node_modules/
 dist/
 !plugins/taskplanner/dist/
 !plugins/taskplanner/dist/**
+# ...but never the sourcemaps a dev build drops there; the shipped bundle has none.
+plugins/taskplanner/dist/*.map
 out/
 *.vsix
 .vscode-test/

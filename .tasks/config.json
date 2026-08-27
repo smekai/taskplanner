@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "taskplannerVersion": "2.1.16",
+  "taskplannerVersion": "2.1.17",
   "idPrefix": "TASK",
   "nextId": 55,
   "states": [
