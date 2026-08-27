@@ -340,6 +340,12 @@ function checkBinLauncher(installDir, scratch) {
 
   const targetPath = path.resolve(path.dirname(manifestPath), target);
   expect(fs.existsSync(targetPath), `bin "${BIN_NAME}" points at ${target}, which is not shipped.`);
+  // npm publish drops a bin whose path starts with "./", while npm pack keeps it — so the tarball
+  // this test installs would still work while the published package silently lost its bin.
+  expect(
+    !target.startsWith('./'),
+    `bin "${BIN_NAME}" starts with "./"; npm publish would drop it.`,
+  );
   const shimDir = path.join(installDir, 'node_modules', '.bin');
   const shims = fs.existsSync(shimDir) ? fs.readdirSync(shimDir) : [];
   const installed = shims.some((e) => e === BIN_NAME || e.startsWith(`${BIN_NAME}.`));
