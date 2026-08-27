@@ -1,5 +1,67 @@
 # Done
 
+## TASK-052: No way to express "blocked until", so agents pick undoable work
+**Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
+**Updated:** 2026-08-27 11:12
+
+The generated workflow tells agents to pick the highest-priority task from NEXT. There is nothing a
+task can carry to say "not yet".
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** TASK-142 sits in NEXT at P0, hard-blocked on an external
+quota reset until 2026-09-03. A compliant agent picks it and cannot do it.
+
+**Related, same root:** priority is global while relevance is per-milestone. After four defects
+moved into a not-yet-started milestone at P0, the board interleaves "critical path this month" with
+"important, but months away" under one label. Overlaps with TASK-051 — an `epic` that groups would
+already separate the two visually.
+
+**Verified against current code (2.1.14):** no `waitingUntil`, `blocked` or equivalent anywhere in
+`src/core/` or `src/mcp/`. Default states are Backlog, Next, In Progress, Done, Rejected.
+
+**Deliberately not over-built:** there is exactly one blocked task today, across both repos. The
+cheapest sufficient answer wins. Options, roughly ascending in cost: a documented convention (a
+`blocked` tag plus a date in the description) that the generated instructions teach agents to
+respect; a `waitingUntil` field parsed like `Updated`; a `Blocked` entry in `states[]`. A convention
+plus one line in the generated workflow may be the whole task.
+
+**Done looks like:** an agent following the generated instructions does not select a task that
+cannot start, and whatever mechanism is chosen is written into those instructions rather than left
+as tribal knowledge.
+
+### Plan
+
+**Decision taken:** a `waitingUntil` field rather than a `Blocked` state or a bare convention. A
+field is machine-readable so the tools can act on it; a state would have changed the board shape for
+every existing project and needed a `states` migration.
+
+- `Task.waitingUntil?: string`, parsed and serialized like `updatedAt` — `WAITING_UNTIL_RE` beside
+  `UPDATED_RE`, a branch in the metadata loop, a `**Waiting until:**` line in the serializer.
+- `isWaiting(waitingUntil, today)` in `src/core/util/time.ts`, exported from the library entry.
+  Date-only string comparison, which avoids timezone drift from parsing into a `Date`. A task
+  waiting until today counts as available, and an unparseable value counts as *not* waiting — a typo
+  must not hide work forever.
+- MCP: `waiting_until` on the `taskplanner_create` / `taskplanner_update` inputs, shown by
+  `formatTask` with an explicit "(not startable yet)" when the date is still ahead.
+- **Made it mean something rather than only storing it**, which is the mistake `epic` made:
+  `structuredTask()` derives a `waiting` boolean for every tool, so no client redoes the date
+  comparison, and `taskplanner_board` marks such tasks in its listing.
+- Generated instructions tell agents at the pick-a-task step to skip a task whose date has not
+  arrived whatever its priority, and document the field when creating tasks.
+
+**Caught while testing:** the parser branch alone was not enough — `flushTask()` builds each `Task`
+field by field, so `waitingUntil` was collected and then dropped. The round-trip test is what
+surfaced it.
+
+Verified end to end against a real server: create with a future date reports `waiting=true` and a
+past date `false`; the value survives a move; `taskplanner_update` changes it and recomputes
+`waiting`; the board marks it; the markdown carries `**Waiting until:**`. 157 → 162 tests.
+
+**Key files:** `src/core/model/task.ts`, `src/core/parser/taskParser.ts`,
+`src/core/parser/taskSerializer.ts`, `src/core/util/time.ts`, `src/mcp/server.ts`,
+`src/core/ai/aiInstructions.ts`.
+
+---
+
 ## TASK-056: This repository has no .mcp.json, so its own agents cannot use the tools
 **Priority:** P2 | **Tags:** setup, docs | **Epic:** 2.2.x
 **Updated:** 2026-08-27 15:10

@@ -15,6 +15,17 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-052 — 2026-08-27
+**What:** Tasks can carry `**Waiting until:** YYYY-MM-DD`, and the tools mark work that cannot start
+yet so an agent following the workflow does not pick it.
+**Decisions:** A field, not a `Blocked` state — a state would reshape every existing board. Derived
+a `waiting` boolean in the MCP output rather than leaving clients to compare dates, so the field
+means something instead of only being stored, which is where `epic` went wrong.
+**Outcome:** 162 tests. `flushTask()` builds tasks field by field, so the parser branch alone
+silently dropped the value — the round-trip test caught it.
+
+---
+
 ## TASK-056 — 2026-08-27
 **What:** This repository now has a `.mcp.json`, so its own agents can use the TaskPlanner tools
 instead of hand-editing the board.

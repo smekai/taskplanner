@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Tasks can declare **Waiting until: YYYY-MM-DD** for work blocked on something outside the repository — an external quota, a third-party release. The MCP tools mark such tasks and the generated instructions tell agents to skip them whatever their priority, so a compliant agent no longer picks up a P0 it cannot start. Set it through `taskplanner_create` or `taskplanner_update` (TASK-052).
 - This repository now ships a `.mcp.json`, so agents working on TaskPlanner itself use the TaskPlanner tools rather than hand-editing the task board (TASK-056).
 
 ### Fixed

@@ -164,7 +164,7 @@ are what desynchronise \`nextId\` and corrupt encodings.
 
 When asked to implement a task:
 
-1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user).
+1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user). Skip any task carrying a \`**Waiting until:**\` date that has not arrived — it is blocked on something outside the repository and cannot be started, whatever its priority. The tools mark these for you.
 2. **Move the task** to IN_PROGRESS.md — \`taskplanner_move\` if it is available, otherwise cut the section from the source file and paste it into IN_PROGRESS.md.${config.aiPlanRequired ? '\n3. **Write a plan** — add a `### Plan` subsection under the task heading (see below).' : ''}
 ${config.aiPlanRequired ? '4' : '3'}. **Implement** the task.
 ${config.aiPlanRequired ? '5' : '4'}. **Move the task** to DONE.md when complete — ${config.aiPlanRequired ? 'trim `### Plan` to a done-summary, append' : 'append'} a short entry to \`.tasks/WORK_LOG.md\` if that file exists, and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
@@ -204,6 +204,7 @@ Description of the task in markdown.
 
 Rules for new tasks:
 - **Priority** is required. If not specified by the user, default to \`P2\`.
+- **Waiting until** is optional — \`**Waiting until:** YYYY-MM-DD\` on its own line marks a task that cannot start before that date. Use it when work is blocked on something outside the repository, rather than lowering its priority.
 - **Tags** are optional. Pick from the project's tag list if relevant: ${config.tags.length > 0 ? config.tags.join(', ') : '(none configured)'}.
 - **Updated** — set to the current date/time.
 - Add the task at the **${config.insertPosition}** of the file (after the \`# Heading\` line). Beyond that, the order of tasks within a file carries no meaning — never reorder a file to match priority.
