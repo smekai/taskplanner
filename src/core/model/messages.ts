@@ -29,7 +29,7 @@ export interface TaskFilter {
   status?: string;
   query?: string;
   tag?: string;
-  groupBy?: 'status' | 'assignee' | 'date' | 'none';
+  groupBy?: 'status' | 'assignee' | 'epic' | 'date' | 'none';
 }
 
 /** Grouped task view for the task list panel */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterAndPaginate, sortTasks } from '../../core/filter/taskFilter.js';
+import { filterAndPaginate, groupTasks, sortTasks } from '../../core/filter/taskFilter.js';
 import { Task, Priority } from '../../core/model/task.js';
 import { TaskState } from '../../core/model/state.js';
 
@@ -202,5 +202,34 @@ describe('sortTasks', () => {
       'TASK-002',
       'TASK-003',
     ]);
+  });
+});
+
+describe('groupTasks by epic', () => {
+  const byState = () =>
+    new Map<string, Task[]>([
+      [
+        'Backlog',
+        [
+          { ...makeTask('TASK-001', 'Milestone work'), epic: '2.2.x' },
+          { ...makeTask('TASK-002', 'Other milestone'), epic: '2.3.x' },
+          makeTask('TASK-003', 'Unassigned to any epic'),
+        ],
+      ],
+    ]);
+
+  it('buckets tasks by their epic', () => {
+    const groups = groupTasks(byState(), states, 'epic');
+    const names = groups.map((g) => g.label).sort();
+    expect(names).toContain('2.2.x');
+    expect(names).toContain('2.3.x');
+    expect(groups.find((g) => g.label === '2.2.x')?.tasks).toHaveLength(1);
+  });
+
+  it('collects tasks without an epic under a visible bucket', () => {
+    const groups = groupTasks(byState(), states, 'epic');
+    const none = groups.find((g) => g.label === 'No epic');
+    expect(none).toBeDefined();
+    expect(none?.tasks.map((t) => t.id)).toEqual(['TASK-003']);
   });
 });

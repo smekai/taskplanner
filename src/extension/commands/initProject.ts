@@ -4,6 +4,7 @@ import { FileStore } from '../../core/store/fileStore.js';
 import { TaskStore } from '../../core/store/taskStore.js';
 import { getAutoInitAiFiles } from '../config/extensionConfig.js';
 import { synchronizeTaskPlannerProject } from '../../core/project/projectSync.js';
+import { promptForMcpConfig } from './mcpConfigPrompt.js';
 
 export function registerInitCommand(
   context: vscode.ExtensionContext,
@@ -42,6 +43,8 @@ export function registerInitCommand(
             { syncInstructions: false },
           );
         }
+
+        await promptForMcpConfig(workspaceFolder.uri.fsPath, configManager);
 
         vscode.commands.executeCommand('setContext', 'taskplanner:initialized', true);
         vscode.window.showInformationMessage('TaskPlanner initialized! Check .tasks/ directory.');

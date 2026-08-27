@@ -42,8 +42,16 @@ export class ConfigManager {
       changed = true;
     }
 
+    // v3: Drop "sortBy". It was never read — sort order is a view setting, not project layout —
+    // and sitting beside insertPosition it read as a file-ordering contract.
+    const legacy = this.config as TaskPlannerConfig & { sortBy?: unknown };
+    if (legacy.sortBy !== undefined) {
+      delete legacy.sortBy;
+      changed = true;
+    }
+
     if (changed) {
-      this.config.version = 2;
+      this.config.version = 3;
       this.save();
     }
   }

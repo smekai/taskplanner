@@ -11,12 +11,16 @@ export interface TaskPlannerConfig {
   insertPosition: 'top' | 'bottom';
   aiPlanRequired: boolean;
   readmeAttribution: boolean;
-  sortBy: 'priority' | 'name' | 'id' | 'file';
+  /**
+   * Whether the user has been asked about a repository-level MCP config. Undefined means "not asked
+   * yet", so Initialize prompts once and never again.
+   */
+  mcpConfig?: 'written' | 'declined';
 }
 
 export function createDefaultConfig(): TaskPlannerConfig {
   return {
-    version: 2,
+    version: 3,
     taskplannerVersion: '',
     idPrefix: 'TASK',
     nextId: 1,
@@ -26,6 +30,5 @@ export function createDefaultConfig(): TaskPlannerConfig {
     insertPosition: 'top',
     aiPlanRequired: true,
     readmeAttribution: true,
-    sortBy: 'priority',
   };
 }

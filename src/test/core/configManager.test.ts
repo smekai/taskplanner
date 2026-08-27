@@ -19,13 +19,31 @@ describe('ConfigManager', () => {
 
   it('returns default config when no file exists', () => {
     const config = configManager.load();
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
     expect(config.idPrefix).toBe('TASK');
     expect(config.nextId).toBe(1);
     expect(config.states).toHaveLength(5);
     expect(config.taskplannerVersion).toBe('');
     expect(config.aiPlanRequired).toBe(true);
     expect(config.readmeAttribution).toBe(true);
+  });
+
+  it('strips the legacy sortBy field and bumps to version 3', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 2, idPrefix: 'ACME', nextId: 42, sortBy: 'priority' }),
+    );
+
+    const config: Record<string, unknown> = configManager.load();
+    expect(config.sortBy).toBeUndefined();
+    expect(config.version).toBe(3);
+    // Unrelated keys survive the migration.
+    expect(config.idPrefix).toBe('ACME');
+    expect(config.nextId).toBe(42);
+
+    // The key is gone from disk, not just from the in-memory object.
+    const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+    expect('sortBy' in onDisk).toBe(false);
   });
 
   it('saves and loads config', () => {

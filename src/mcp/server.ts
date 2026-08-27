@@ -98,6 +98,7 @@ function formatTask(task: Task, stateName: string): string {
   lines.push(`## ${task.id}: ${task.title}`);
   const meta: string[] = [`Priority: ${task.priority}`, `Status: ${stateName}`];
   if (task.tags.length > 0) meta.push(`Tags: ${task.tags.join(', ')}`);
+  if (task.epic) meta.push(`Epic: ${task.epic}`);
   if (task.assignee) meta.push(`Assignee: ${task.assignee}`);
   if (task.updatedAt) meta.push(`Updated: ${task.updatedAt}`);
   lines.push(meta.join(' | '));
@@ -145,7 +146,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-    version: '2.1.18',
+    version: '2.2.0',
 });
 
 // ── taskplanner_board ───────────────────────────────────
@@ -318,11 +319,12 @@ server.registerTool(
         .describe('Priority level (default: P2)'),
       tags: z.array(z.string()).optional().describe('Tags for the task'),
       assignee: z.string().optional().describe('Assignee name'),
+      epic: z.string().optional().describe('Epic or milestone this task belongs to'),
       state: z.string().optional().describe('Target state (default: "Backlog")'),
     },
     annotations: CREATE_ANNOTATIONS,
   },
-  async ({ workspace_root, title, description, priority, tags, assignee, state: targetState }) => {
+  async ({ workspace_root, title, description, priority, tags, assignee, epic, state: targetState }) => {
     const { taskStore, configManager } = await freshStore(workspace_root);
     const stateName = targetState || 'Backlog';
     const validState = configManager
@@ -343,6 +345,7 @@ server.registerTool(
         priority: p,
         tags: tags || [],
         assignee,
+        epic,
       },
       validState.name,
     );
@@ -418,11 +421,12 @@ server.registerTool(
       priority: z.enum(['P0', 'P1', 'P2', 'P3', 'P4']).optional().describe('New priority'),
       tags: z.array(z.string()).optional().describe('New tags (replaces existing)'),
       assignee: z.string().optional().describe('New assignee'),
+      epic: z.string().optional().describe('New epic or milestone'),
       plan: z.string().optional().describe('New or updated plan text'),
     },
     annotations: MODIFY_ANNOTATIONS,
   },
-  async ({ workspace_root, task_id, title, description, priority, tags, assignee, plan }) => {
+  async ({ workspace_root, task_id, title, description, priority, tags, assignee, epic, plan }) => {
     const { taskStore } = await freshStore(workspace_root);
     const existing = taskStore.findTask(task_id);
     const updates: Partial<Omit<Task, 'id'>> = {};
@@ -431,6 +435,7 @@ server.registerTool(
     if (priority !== undefined && isPriority(priority)) updates.priority = priority as Priority;
     if (tags !== undefined) updates.tags = tags;
     if (assignee !== undefined) updates.assignee = assignee;
+    if (epic !== undefined) updates.epic = epic;
     if (plan !== undefined) updates.plan = plan;
 
     const result = taskStore.updateTask(task_id, updates);

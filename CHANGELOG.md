@@ -4,26 +4,30 @@ All notable changes to the **Task → Plan → AI** extension will be documented
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
-
-### Fixed
-
-- The packaged extension no longer ships build sourcemaps. A stale 814 kB map from an earlier dev build had been committed alongside the bundled MCP server and rode into every VSIX, as did the extension's own map; production builds now clear both, so a release packaged after a `npm run watch` session cannot inherit them (TASK-055).
-
-### Changed
-
-- Generated agent instructions (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`) now name TaskPlanner's MCP tools and tell agents to prefer them over editing the task markdown by hand — which the instructions previously prescribed, leaving agents to cut-and-paste task sections and hand-maintain `nextId`. Hand-editing remains documented as the fallback for hosts that do not expose the tools (TASK-048).
+## [2.2.0] - 2026-08-27
 
 ### Added
 
 - The MCP server is now published to npm as `@smekai/taskplanner`, so agent hosts outside a VS Code or Cursor install can depend on it instead of pointing at an extension path. Same server as the editor plugin, built from the same sources; spawn it as `node <require.resolve('@smekai/taskplanner/mcp-server')>` and point it at a repository with `TASKPLANNER_WORKSPACE_ROOT` or the `workspace_root` tool input (TASK-046).
-
 - `@smekai/taskplanner` also ships the task board as a library, with TypeScript declarations: `import { parseTasks, TaskStore } from '@smekai/taskplanner'` reads and edits a board directly, with no subprocess and no MCP round-trip. Use it when your own code is the caller; use the MCP server when a model is (TASK-047).
+- **Initialize** can now write a repository-level `.mcp.json`, so agents in hosts that read it — Claude Code among them — reach the TaskPlanner tools instead of editing the task markdown by hand. It asks first and remembers the answer, since the file tells an agent what to execute; the Setup menu writes it later if you decline. An existing `.mcp.json` is merged, not replaced, and one that cannot be parsed is left alone (TASK-054).
+- Tasks can be grouped by **epic** in the sidebar task list, and `epic` can now be set through `taskplanner_create` and `taskplanner_update`. The field parsed and serialized before but no agent could write it and nothing could group by it, so projects encoded milestones in tags and prose instead. Tasks without an epic collect under a visible "No epic" group (TASK-051).
 
 ### Changed
 
+- Generated agent instructions (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`) now name TaskPlanner's MCP tools and tell agents to prefer them over editing the task markdown by hand — which the instructions previously prescribed, leaving agents to cut-and-paste task sections and hand-maintain `nextId`. Hand-editing remains documented as the fallback for hosts that do not expose the tools (TASK-048).
+- Generated instructions now say that task order within a file carries no meaning and must never be rewritten to match priority (TASK-050).
 - `npm run smoke:mcp-server` now packs and installs the published npm package before exercising it, instead of testing the extension's own bundle (TASK-046).
 - The MCP server moved from the package root to the `@smekai/taskplanner/mcp-server` subpath, so the package's main entry is the library and importing it no longer starts a server. Spawn it as `node <require.resolve('@smekai/taskplanner/mcp-server')>` (TASK-047).
+
+### Fixed
+
+- Setting `"aiPlanRequired": false` now genuinely turns planning off. The generated instructions kept a bullet under "Mandatory checklist (do not skip)" that still required a `### Plan` before coding and pointed the reader back at the config file, so agents wrote plans in projects that had switched them off (TASK-049).
+- The packaged extension no longer ships build sourcemaps. A stale 814 kB map from an earlier dev build had been committed alongside the bundled MCP server and rode into every VSIX, as did the extension's own map; production builds now clear both, so a release packaged after a `npm run watch` session cannot inherit them (TASK-055).
+
+### Removed
+
+- `sortBy` is gone from `.tasks/config.json`. It was never read — sort order is a view setting and lives in `taskplanner.sortBy` — but sitting beside `insertPosition` it read as a promise about file layout, and agents reordered task files to satisfy it. Existing configs are migrated to schema version 3 on load, which strips the key and leaves everything else alone (TASK-050).
 
 ## [2.1.4] - 2026-08-03
 

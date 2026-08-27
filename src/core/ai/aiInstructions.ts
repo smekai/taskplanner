@@ -103,7 +103,7 @@ When moving a task to DONE.md, if \`.tasks/WORK_LOG.md\` exists, append **one sh
 ---
 \`\`\`
 
-Keep it to 3–5 lines total. Skip empty fields rather than writing "N/A". Detailed steps belong in the task's \`### Plan\`, not here.`;
+Keep it to 3–5 lines total. Skip empty fields rather than writing "N/A".${config.aiPlanRequired ? " Detailed steps belong in the task's `### Plan`, not here." : ''}`;
 
   return `# TaskPlanner — AI Agent Instructions
 
@@ -146,11 +146,15 @@ markdown without touching its encoding:
 | \`taskplanner_get\` | Read one task in full. |
 | \`taskplanner_create\` | Create a task; the ID is allocated for you. |
 | \`taskplanner_move\` | Move a task between states. |
-| \`taskplanner_update\` | Change title, description, priority, tags, assignee, or plan. |
+| \`taskplanner_update\` | Change title, description, priority, tags, epic, assignee, or plan. |
 
 Check once at the start of a session whether the tools are available, and say which way you are
 working. **If they are available, do not hand-edit these files.** Every instruction below that
 describes editing markdown directly is the fallback for when they are not.
+
+If your host reads \`${MCP_CONFIG_FILE}\` and this repository has none, the tools can be wired up by
+adding a \`taskplanner\` server that runs \`npx -y ${MCP_SERVER_PACKAGE}\`. Ask the user before
+creating that file — it tells an agent what to execute. TaskPlanner's **Setup** menu writes it too.
 
 The files stay plain markdown on purpose, and a human is free to edit them in any editor at any
 time. That freedom is not an invitation for an agent with working tools to do the same: hand-edits
@@ -163,7 +167,7 @@ When asked to implement a task:
 1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user).
 2. **Move the task** to IN_PROGRESS.md — \`taskplanner_move\` if it is available, otherwise cut the section from the source file and paste it into IN_PROGRESS.md.${config.aiPlanRequired ? '\n3. **Write a plan** — add a `### Plan` subsection under the task heading (see below).' : ''}
 ${config.aiPlanRequired ? '4' : '3'}. **Implement** the task.
-${config.aiPlanRequired ? '5' : '4'}. **Move the task** to DONE.md when complete — trim \`### Plan\` to a done-summary, append a short entry to \`.tasks/WORK_LOG.md\` if that file exists, and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
+${config.aiPlanRequired ? '5' : '4'}. **Move the task** to DONE.md when complete — ${config.aiPlanRequired ? 'trim `### Plan` to a done-summary, append' : 'append'} a short entry to \`.tasks/WORK_LOG.md\` if that file exists, and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
 ${planSection}${workLogSection}
 
 ## Mandatory checklist (do not skip)
@@ -172,7 +176,7 @@ These steps are **part of the work**, not optional housekeeping:
 
 - **In Progress:** The task must actually **move** out of BACKLOG/NEXT into **IN_PROGRESS.md** before substantive implementation — not only be described as moving. Use \`taskplanner_move\`; without it, cut the whole \`##\` section and its \`---\` across by hand.
 - **Done:** When the implementation is finished, **move** the same task section from IN_PROGRESS.md into **DONE.md** and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
-- **Plan:** If this project requires a plan (${config.aiPlanRequired ? '**yes for this project** — see above' : 'check the **aiPlanRequired** field in .tasks/config.json'}), the \`### Plan\` block must exist in IN_PROGRESS **before** coding, and should be **trimmed to a short done-summary** when you move the task to DONE.
+${config.aiPlanRequired ? '- **Plan:** The `### Plan` block must exist in IN_PROGRESS **before** coding, and should be **trimmed to a short done-summary** when you move the task to DONE.\n' : ''}
 - **Work log:** If \`.tasks/WORK_LOG.md\` exists, append one short entry at the top when moving a task to Done (see **Work Log** above).
 
 ## Creating a New Task
@@ -202,7 +206,7 @@ Rules for new tasks:
 - **Priority** is required. If not specified by the user, default to \`P2\`.
 - **Tags** are optional. Pick from the project's tag list if relevant: ${config.tags.length > 0 ? config.tags.join(', ') : '(none configured)'}.
 - **Updated** — set to the current date/time.
-- Add the task at the **${config.insertPosition}** of the file (after the \`# Heading\` line).
+- Add the task at the **${config.insertPosition}** of the file (after the \`# Heading\` line). Beyond that, the order of tasks within a file carries no meaning — never reorder a file to match priority.
 - Always end the task section with a \`---\` separator.
 - If the user asks to create multiple tasks at once, increment the ID for each one.
 
@@ -258,4 +262,46 @@ export function upsertReadmeAttribution(existingContent: string): string {
   const separator = existingContent.length > 0 && !existingContent.endsWith('\n') ? '\n' : '';
   const extraNewline = existingContent.length > 0 ? '\n' : '';
   return existingContent + separator + extraNewline + markedSection + '\n';
+}
+
+/** Package that hosts resolve the MCP server from. */
+export const MCP_SERVER_PACKAGE = '@smekai/taskplanner';
+
+/** Filename hosts such as Claude Code read repository-level MCP servers from. */
+export const MCP_CONFIG_FILE = '.mcp.json';
+
+/**
+ * Add or refresh only the `taskplanner` entry in an `.mcp.json`, leaving any other servers and
+ * unknown fields untouched. Returns null when the file is present but not parseable, so a caller
+ * can refuse rather than overwrite something it does not understand.
+ *
+ * The command carries no absolute path on purpose: `.mcp.json` is committed and shared across
+ * machines, so anything install-specific would break for every other clone.
+ */
+export function upsertMcpServerConfig(existingContent: string): string | null {
+  let root: Record<string, unknown> = {};
+  if (existingContent.trim().length > 0) {
+    try {
+      const parsed: unknown = JSON.parse(existingContent);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      root = parsed as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  const servers =
+    root.mcpServers && typeof root.mcpServers === 'object' && !Array.isArray(root.mcpServers)
+      ? (root.mcpServers as Record<string, unknown>)
+      : {};
+
+  const updated = {
+    ...root,
+    mcpServers: {
+      ...servers,
+      taskplanner: { command: 'npx', args: ['-y', MCP_SERVER_PACKAGE] },
+    },
+  };
+
+  return `${JSON.stringify(updated, null, 2)}\n`;
 }
