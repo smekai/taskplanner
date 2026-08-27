@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { TaskListSortBy } from '../../core/filter/taskFilter.js';
 import { AiTool } from '../commands/implementWithAi.js';
+import { GROUP_BY_VALUES, GroupBy } from '../../core/model/messages.js';
 
-export type GroupBy = 'status' | 'assignee' | 'date' | 'none';
+export { GROUP_BY_VALUES } from '../../core/model/messages.js';
+export type { GroupBy } from '../../core/model/messages.js';
 
 const SECTION = 'taskplanner';
 
@@ -49,8 +51,6 @@ export async function setSortBy(
 ): Promise<void> {
   await cfg().update('sortBy', value, target);
 }
-
-const GROUP_BY_VALUES: readonly GroupBy[] = ['status', 'assignee', 'date', 'none'];
 
 export function getGroupBy(): GroupBy {
   const value = cfg().get<string>('groupBy', 'status');

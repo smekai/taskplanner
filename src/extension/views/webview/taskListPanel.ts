@@ -396,6 +396,7 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     const groupByItems = [
       { value: 'status', label: 'Status' },
       { value: 'assignee', label: 'Assignee' },
+      { value: 'epic', label: 'Epic' },
       { value: 'date', label: 'Date' },
       { value: 'none', label: 'No grouping' },
     ]

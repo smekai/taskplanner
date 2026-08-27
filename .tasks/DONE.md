@@ -1,5 +1,207 @@
 # Done
 
+## TASK-054: initialize writes no MCP config, so hosts outside Cursor never reach the tools
+**Priority:** P1 | **Tags:** core, setup | **Epic:** 2.2.x
+**Updated:** 2026-08-27 12:05
+
+Split out of TASK-048, which covers the guidance half. This is the wiring half.
+
+**Verified against current code (2.1.14).** `src/core/project/projectSync.ts` writes exactly three
+files — `AGENTS.md`, `CLAUDE.md`, `.cursorrules` — plus optional README attribution. Searching
+`src/core/` and `src/extension/` for `.mcp.json` or `mcpServers` returns nothing.
+
+**Not universally broken, which is why the original framing was wrong:**
+
+- **Cursor** — works. `src/extension/extension.ts:151` calls `cursor.plugins.registerPath(pluginDir)`,
+  and `plugins/taskplanner/mcp.json` points at the bundled server. Tools are reachable.
+- **Codex** — works via the repository marketplace at `.agents/plugins/marketplace.json`, though in
+  this repo that file is committed by hand, not produced by `initialize`.
+- **Claude Code and other hosts that read `.mcp.json`** — no path at all.
+- **npm consumers** — install `@smekai/taskplanner` and get nothing wired up; they must hand-write
+  the config from `packages/mcp-server/README.md`.
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** the repo had no `.mcp.json`, so no tool was reachable and
+the agent hand-edited markdown all session. **This repository has no `.mcp.json` either** — tasks
+TASK-048..053 were filed by hand-editing `BACKLOG.md`, the defect reproducing on its own maintainer.
+
+**The open design question, which is why this is not a one-liner:** what command should a generated
+`.mcp.json` contain? The extension's own copy of the server sits at an OS- and install-dependent
+path, which is exactly what TASK-046 existed to stop consumers depending on. `npx -y
+@smekai/taskplanner` is portable and resolves the published package, but adds a first-run download
+and assumes npm is present. Writing an `.mcp.json` into a user's repository also means writing a
+file that tells their agent to execute something — that should be opt-in, or at least announced,
+not a silent side effect of Initialize.
+
+**Done looks like:** a decision recorded on the command form and on consent, then `initialize`
+offers or writes the config for hosts that need it, resolving the server the way
+`packages/mcp-server/README.md` documents rather than by a path that depends on which editor is
+installed.
+
+### Plan
+
+**Decisions taken:** command is `npx`, the file is written only after the user agrees, and the
+answer is remembered in `.tasks/config.json` so Initialize asks once.
+
+- `upsertMcpServerConfig()` in `src/core/ai/aiInstructions.ts` merges only the
+  `mcpServers.taskplanner` key into whatever is already there, preserving other servers and unknown
+  top-level fields. It returns null rather than overwriting a file it cannot parse.
+- `writeMcpServerConfig()` in `projectSync.ts` does the file I/O and reports
+  written/unchanged/unparseable.
+- The written command carries **no absolute path** — `.mcp.json` is committed and shared across
+  machines, so an install-specific path would break for every other clone:
+  `{ "command": "npx", "args": ["-y", "@smekai/taskplanner"] }`. No `TASKPLANNER_WORKSPACE_ROOT`
+  either, for the same reason; the host runs with the repo as cwd and the instructions already tell
+  agents to pass `workspace_root` per call.
+- `TaskPlannerConfig.mcpConfig` records 'written' or 'declined'. Optional, so existing configs
+  need no migration and simply count as not-yet-asked.
+- The extension asks (`src/extension/commands/mcpConfigPrompt.ts`), core stays VS Code-free. A
+  Setup-menu entry writes it later for anyone who declined.
+- Generated instructions tell an agent the file can be created and to ask first.
+- Verified all four paths on scratch repositories: empty repo writes it; a repeat run reports
+  unchanged; a file already holding a different server keeps both; a corrupt file is left untouched.
+- Five tests on the merge helper. 138 -> 143 tests.
+
+**Not done here:** this repository gets no `.mcp.json` yet, because `npx -y @smekai/taskplanner`
+cannot resolve until the package is published. Worth adding right after the first publish.
+
+---
+
+## TASK-051: epic is write-only in practice — absent from MCP inputs and from groupBy
+**Priority:** P2 | **Tags:** core, feature | **Epic:** 2.2.x
+**Updated:** 2026-08-27 11:12
+
+`Task.epic` exists in `src/core/model/task.ts`, parses via `EPIC_RE` in `taskParser.ts`, serializes
+as `**Epic:** x` on the meta line in `taskSerializer.ts`, and is editable in the task list webview.
+An agent still cannot set it, and nobody can group by it.
+
+**Verified against current code (2.1.14):** the `inputSchema` of `taskplanner_create` accepts
+`title`, `priority`, `tags`, `assignee` — no `epic`; `taskplanner_update` accepts the same four.
+`groupBy` in `src/core/filter/taskFilter.ts:138` is typed `'status' | 'assignee' | 'date' | 'none'`.
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** the project organises everything around milestones and
+encodes them three separate ways because the real field is unusable — a `milestone-f` tag, a prose
+scope list inside an epic task, and the unused `epic` field. The prose list drifted: TASK-125 still
+described TASK-128 as "the closing dogfood" after TASK-141/142 superseded it, and had to be
+corrected by hand. Asked "what milestone are these new defects in?", the answer was "none — the tag
+was forgotten". A first-class grouped field makes that visible instead of discoverable by accident.
+
+**Scope:** add `epic` to the `taskplanner_create` and `taskplanner_update` inputs, and add `'epic'`
+to `groupBy` — filter, board view model, and the sidebar/kanban surfaces that offer the choice.
+
+**Done looks like:** an agent can set and change `epic` through MCP, the sidebar can group by it,
+and a task with no epic groups under a visible "No epic" bucket rather than disappearing.
+
+### Plan
+
+- `epic` added to the inputSchema of `taskplanner_create` and `taskplanner_update`, destructured
+  and passed through. `TaskStore.createTask`/`updateTask` already accepted it as part of `Task`,
+  so no store changes were needed.
+- `'epic'` added to the groupBy union in `taskFilter.ts` and `messages.ts`, with a switch case
+  mirroring `assignee`: `entry.task.epic || 'No epic'`.
+- Added to the `taskplanner.groupBy` enum in package.json and to the groupBy menu in
+  `taskListPanel.ts`. Drag-and-drop stays limited to status grouping, unchanged.
+- `formatTask` in the MCP server now shows `Epic:` on the metadata line — the field was invisible
+  in tool text output even where it was set.
+- Verified end to end against a real server on a scratch board: create with epic -> move -> get ->
+  update, epic survives every step and lands in the markdown as `**Epic:** 2.3.x`.
+- Two grouping tests (buckets by epic, "No epic" fallback). 136 -> 138 tests.
+- Key files: `src/mcp/server.ts`, `src/core/filter/taskFilter.ts`, `src/core/model/messages.ts`,
+  `src/extension/views/webview/taskListPanel.ts`, `package.json`.
+
+---
+
+## TASK-050: sortBy reads as a file-ordering contract but is view-only
+**Priority:** P1 | **Tags:** core, docs | **Epic:** 2.2.x
+**Updated:** 2026-08-27 11:12
+
+`sortBy` lives in `.tasks/config.json` next to `insertPosition`, which genuinely does affect where a
+task lands in the markdown. Nothing signals that one is layout and the other is presentation, and at
+a glance `insertPosition: "top"` and `sortBy: "priority"` look like they contradict each other.
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** the agent concluded file order was meant to be
+priority-ordered, hand-reordered `BACKLOG.md` to "fix" a P2-sitting-above-P0 ordering that never
+mattered to anything, and corrupted the file's encoding while doing it.
+
+**Verified against current code (2.1.14):** still open. `sortBy` is referenced only in
+`src/core/filter/taskFilter.ts`, `src/core/view/boardViewModel.ts`, `src/core/model/config.ts` and
+the extension's view layer. It appears zero times in `src/core/store/taskStore.ts` and
+`src/core/parser/taskSerializer.ts` — nothing ever reorders the markdown.
+
+**Why it matters:** the cost is not a wrong sort order, it is an agent rewriting task files to
+satisfy a setting that was never about files. Destructive, and unprompted.
+
+**Done looks like:** the ambiguity is gone — file order is documented as insignificant, in the
+generated instructions and in the config reference, and/or view-only settings move out of the file
+that describes file layout. Either route, a reader can tell which keys affect bytes on disk and
+which affect a panel. Worth deciding at the same time whether `insertPosition` and `sortBy` belong
+in the same object at all.
+
+### Plan
+
+- Planning turned up more than ambiguity: `config.sortBy` was **dead**. Zero reads anywhere in
+  src/ — both panels take sort order from the VS Code setting through `getSortBy()`, and
+  `setSortBy()` writes back there. The field existed only in the type and the default.
+- Removed it from `TaskPlannerConfig` and `createDefaultConfig()`; the default schema version is
+  now 3.
+- Added the v3 migration in `ConfigManager.migrateConfig()`: strips the key from existing files and
+  bumps the version, following the v2 pattern. Unknown keys are left alone.
+- Generated instructions now state that order within a file carries no meaning and that a file must
+  never be reordered to match priority — removing the field alone would have relocated the question,
+  since `insertPosition` still sits there and genuinely does affect layout.
+- Applied the same change to this repo's own config.json and to the config reference in
+  CONTRIBUTING.md. The VS Code setting `taskplanner.sortBy` in README stays: that one works.
+- Test asserts the key is dropped from disk, version becomes 3 and unrelated keys survive. 136 tests.
+- Key files: `src/core/model/config.ts`, `src/core/config/configManager.ts`,
+  `src/core/ai/aiInstructions.ts`.
+
+---
+
+## TASK-049: Generated instructions still demand a Plan when aiPlanRequired is false
+**Priority:** P1 | **Tags:** core, docs | **Epic:** 2.2.x
+**Updated:** 2026-08-27 11:12
+
+**Observed (isotopy, 2026-08-17, 2.1.4):** the repo sets `"aiPlanRequired": false`, yet its
+generated `CLAUDE.md` carried the full Plan section. The agent read the flag, saw `false`, and
+wrote a `### Plan` block anyway, because the prose sat under a heading called
+**"Mandatory checklist (do not skip)"** and prose outranks a config value.
+
+**Verified against current code (2.1.14): partly fixed, one defect left.** Rendering
+`generateAiInstructions({ ...createDefaultConfig(), aiPlanRequired: false })` shows the
+`### Planning Requirement` section and the numbered "Write a plan" step are now correctly omitted.
+What still renders, verbatim, under *Mandatory checklist (do not skip)*:
+
+> - **Plan:** If this project requires a plan (check the **aiPlanRequired** field in
+>   .tasks/config.json), the `### Plan` block must exist in IN_PROGRESS **before** coding, and
+>   should be **trimmed to a short done-summary** when you move the task to DONE.
+
+The generator knows the answer and emits a conditional pointing at a file instead. Two incidental
+mentions survive too — "trim `### Plan` to a done-summary" in the Done step, and "Detailed steps
+belong in the task's `### Plan`" in the Work Log section — both describing an artefact that should
+not exist in this configuration.
+
+**File:** `src/core/ai/aiInstructions.ts`; the checklist bullet is the load-bearing one.
+
+**Why it matters:** the flag is the only knob a user has to turn planning off, and it visibly does
+not work. Same npm-launch exposure as TASK-048.
+
+**Done looks like:** with `aiPlanRequired: false` the generated instructions contain no instruction
+to write, trim, or maintain a `### Plan`, and the checklist bullet is dropped rather than made
+conditional-in-prose. A unit test renders both variants and asserts the false one is Plan-free.
+
+### Plan
+
+- The mandatory-checklist Plan bullet is now dropped entirely when the flag is false, instead of
+  becoming a conditional that pointed the reader at .tasks/config.json.
+- The two incidental mentions went with it: the Done step no longer says to trim a plan, and the
+  Work Log section no longer refers to one.
+- With the flag true the text is unchanged in substance, and the bullet reads cleaner: the
+  "if this project requires a plan" hedge is gone because the generator already knows.
+- Two tests: false renders no `### Plan`, no `Planning Requirement` and no mention of the flag
+  name; true keeps all three. 133 -> 135 tests.
+- Key file: `src/core/ai/aiInstructions.ts`.
+
+---
+
 ## TASK-055: Stop committing and shipping stale build sourcemaps
 **Priority:** P2 | **Tags:** setup, ci | **Epic:** 2.2.x
 **Updated:** 2026-08-27 13:20

@@ -15,6 +15,47 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-054 — 2026-08-27
+**What:** Initialize can now write a repository `.mcp.json` so hosts outside Cursor reach the
+TaskPlanner tools, after asking once and remembering the answer.
+**Decisions:** `npx` rather than a resolved path, because the file is committed and shared — an
+install-specific path would break for every other clone. Asked rather than written silently: unlike
+AGENTS.md, this file tells an agent what to execute. Merges instead of overwriting, and refuses a
+file it cannot parse.
+**Outcome:** 143 tests. This repo gets no .mcp.json until the npm package is published.
+
+---
+
+## TASK-051 — 2026-08-27
+**What:** `epic` is now settable through `taskplanner_create`/`taskplanner_update` and usable as a
+grouping in the sidebar, so the field stops being write-only.
+**Decisions:** Followed the `assignee` precedent exactly rather than inventing a shape — same switch
+case, same "No epic" fallback bucket. Also surfaced Epic in the MCP text output, which had omitted
+it even when set.
+**Outcome:** 138 tests, plus an end-to-end check against a real server confirming epic survives a
+move and reaches the markdown.
+
+---
+
+## TASK-050 — 2026-08-27
+**What:** Removed `sortBy` from .tasks/config.json, with a v3 migration that strips it from
+existing files.
+**Decisions:** Deleted rather than documented — checking during planning showed the field was never
+read at all, so documenting it would have preserved a lie. Kept a line in the generated instructions
+saying file order is meaningless, because `insertPosition` still sits in the same file.
+**Outcome:** 136 tests. The VS Code setting taskplanner.sortBy is untouched and remains the real one.
+
+---
+
+## TASK-049 — 2026-08-27
+**What:** Generated instructions no longer demand a `### Plan` when `aiPlanRequired` is false.
+**Decisions:** Dropped the checklist bullet outright rather than rewording it — the generator knows
+the answer, so emitting a conditional that sends the reader to a config file was the actual bug.
+**Outcome:** 135 tests. Regeneration of this repo's own instruction files is deferred to the end of
+the 2.2.0 batch so it happens once.
+
+---
+
 ## TASK-055 — 2026-08-27
 **What:** Removed a tracked 814 kB sourcemap that was four months stale and referenced by nothing,
 and stopped production builds from leaving orphaned maps behind.

@@ -64,7 +64,7 @@ describe('synchronizeTaskPlannerProject', () => {
     expect(readme).toContain('Keep me.');
     expect(readme).toContain('TASKPLANNER:ATTRIBUTION:START');
     const saved = JSON.parse(fs.readFileSync(path.join(tasksDir, 'config.json'), 'utf-8'));
-    expect(saved.version).toBe(2);
+    expect(saved.version).toBe(3);
     expect(saved.taskplannerVersion).toBe('2.0.0');
     expect(saved.readmeAttribution).toBe(true);
   });
@@ -149,6 +149,6 @@ describe('synchronizeTaskPlannerProject', () => {
     });
 
     expect(result.synchronized).toBe(true);
-    expect(configManager.get().version).toBe(2);
+    expect(configManager.get().version).toBe(3);
   });
 });

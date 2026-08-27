@@ -6,6 +6,7 @@ import {
   TaskViewItem,
   StateViewData,
   GroupViewData,
+  GroupBy,
 } from '../model/messages.js';
 
 const DEFAULT_LIMIT = 50;
@@ -135,7 +136,7 @@ const COLLAPSED_STATES = new Set(['Backlog', 'Done', 'Rejected']);
 export function groupTasks(
   tasksByState: Map<string, Task[]>,
   states: TaskState[],
-  groupBy: 'status' | 'assignee' | 'date' | 'none',
+  groupBy: GroupBy,
   filter?: TaskFilter,
   limit: number | null = DEFAULT_LIMIT,
   sortBy: TaskListSortBy = 'priority',
@@ -174,6 +175,9 @@ export function groupTasks(
         break;
       case 'assignee':
         key = entry.task.assignee || 'Unassigned';
+        break;
+      case 'epic':
+        key = entry.task.epic || 'No epic';
         break;
       case 'date':
         key = entry.task.updatedAt ? entry.task.updatedAt.split('T')[0] : 'No date';

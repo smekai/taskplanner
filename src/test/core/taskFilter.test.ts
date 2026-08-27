@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { filterAndPaginate, sortTasks } from '../../core/filter/taskFilter.js';
+import { filterAndPaginate, groupTasks, sortTasks } from '../../core/filter/taskFilter.js';
 import { Task, Priority } from '../../core/model/task.js';
 import { TaskState } from '../../core/model/state.js';
+import { GROUP_BY_VALUES } from '../../core/model/messages.js';
+import * as fs from 'fs';
 
 const states: TaskState[] = [
   { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
@@ -202,5 +204,61 @@ describe('sortTasks', () => {
       'TASK-002',
       'TASK-003',
     ]);
+  });
+});
+
+describe('groupTasks by epic', () => {
+  const byState = () =>
+    new Map<string, Task[]>([
+      [
+        'Backlog',
+        [
+          { ...makeTask('TASK-001', 'Milestone work'), epic: '2.2.x' },
+          { ...makeTask('TASK-002', 'Other milestone'), epic: '2.3.x' },
+          makeTask('TASK-003', 'Unassigned to any epic'),
+        ],
+      ],
+    ]);
+
+  it('buckets tasks by their epic', () => {
+    const groups = groupTasks(byState(), states, 'epic');
+    const names = groups.map((g) => g.label).sort();
+    expect(names).toContain('2.2.x');
+    expect(names).toContain('2.3.x');
+    expect(groups.find((g) => g.label === '2.2.x')?.tasks).toHaveLength(1);
+  });
+
+  it('collects tasks without an epic under a visible bucket', () => {
+    const groups = groupTasks(byState(), states, 'epic');
+    const none = groups.find((g) => g.label === 'No epic');
+    expect(none).toBeDefined();
+    expect(none?.tasks.map((t) => t.id)).toEqual(['TASK-003']);
+  });
+});
+
+describe('groupBy vocabulary', () => {
+  // The bug this guards: 'epic' was added to the filter, the message type, the setting enum and the
+  // menu, but not to the extension's accepted-value list, so the selection was silently rejected on
+  // the next read. These declarations live in different files and must not drift apart.
+  it('matches the taskplanner.groupBy enum in package.json', () => {
+    const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+    const enumValues = pkg.contributes.configuration.properties['taskplanner.groupBy'].enum;
+    expect([...enumValues].sort()).toEqual([...GROUP_BY_VALUES].sort());
+  });
+
+  it('matches the grouping menu offered in the task list panel', () => {
+    const panel = fs.readFileSync('src/extension/views/webview/taskListPanel.ts', 'utf8');
+    const block = /const groupByItems = \[([\s\S]*?)\]/.exec(panel);
+    expect(block).not.toBeNull();
+    const offered = [...block![1].matchAll(/value: '([^']+)'/g)].map((m) => m[1]);
+    expect(offered.sort()).toEqual([...GROUP_BY_VALUES].sort());
+  });
+
+  it('groups every declared value without falling through', () => {
+    const tasks = new Map<string, Task[]>([['Backlog', [makeTask('TASK-001', 'One')]]]);
+    for (const value of GROUP_BY_VALUES) {
+      const groups = groupTasks(tasks, states, value);
+      expect(groups.some((g) => g.tasks.length > 0)).toBe(true);
+    }
   });
 });

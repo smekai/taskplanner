@@ -4,6 +4,8 @@ import {
   generateAiInstructions,
   upsertMarkedSection,
   upsertReadmeAttribution,
+  upsertMcpServerConfig,
+  MCP_CONFIG_FILE,
 } from '../ai/aiInstructions.js';
 import { ConfigManager } from '../config/configManager.js';
 
@@ -126,4 +128,23 @@ export function synchronizeTaskPlannerProject(
   }
 
   return { ...comparison, synchronized: true, updatedFiles };
+}
+
+export type McpConfigWriteResult = 'written' | 'unchanged' | 'unparseable';
+
+/**
+ * Write the repository-level MCP config so hosts that read `.mcp.json` can reach the TaskPlanner
+ * tools. Only the `taskplanner` server entry is touched; anything else in the file is preserved.
+ *
+ * Callers are expected to have the user's agreement first — this writes a file that tells an agent
+ * what to execute, so it is never a silent side effect of Initialize.
+ */
+export function writeMcpServerConfig(workspaceRoot: string): McpConfigWriteResult {
+  const filePath = path.join(workspaceRoot, MCP_CONFIG_FILE);
+  const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  const updated = upsertMcpServerConfig(existing);
+  if (updated === null) return 'unparseable';
+  if (updated === existing) return 'unchanged';
+  fs.writeFileSync(filePath, updated, 'utf-8');
+  return 'written';
 }

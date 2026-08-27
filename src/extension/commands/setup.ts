@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import { ConfigManager } from '../../core/config/configManager.js';
 import { getSortBy, setSortBy } from '../config/extensionConfig.js';
 import { synchronizeTaskPlannerProject } from '../../core/project/projectSync.js';
+import { MCP_CONFIG_FILE } from '../../core/ai/aiInstructions.js';
+import { writeMcpConfigNow } from './mcpConfigPrompt.js';
 
 export function registerSetupCommand(
   context: vscode.ExtensionContext,
@@ -41,6 +43,16 @@ export function registerSetupCommand(
         description: 'Create/update AGENTS.md, CLAUDE.md, and .cursorrules',
         action: 'initAi',
       });
+
+      // Only once the board exists: writing the config saves .tasks/config.json, and a .tasks/
+      // holding nothing else would make every existsSync check treat the project as initialized.
+      if (isInitialized) {
+        items.push({
+          label: `$(plug) Write ${MCP_CONFIG_FILE}`,
+          description: 'Let hosts that read this file reach the TaskPlanner MCP tools',
+          action: 'writeMcpConfig',
+        });
+      }
 
       items.push({
         label: config.aiPlanRequired
@@ -129,6 +141,9 @@ export function registerSetupCommand(
           );
           break;
         }
+        case 'writeMcpConfig':
+          writeMcpConfigNow(workspaceRoot, configManager);
+          break;
         case 'configureAi':
           await vscode.commands.executeCommand('taskplanner.configureAiProvider');
           break;

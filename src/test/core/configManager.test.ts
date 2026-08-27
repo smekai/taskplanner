@@ -19,13 +19,57 @@ describe('ConfigManager', () => {
 
   it('returns default config when no file exists', () => {
     const config = configManager.load();
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
     expect(config.idPrefix).toBe('TASK');
     expect(config.nextId).toBe(1);
     expect(config.states).toHaveLength(5);
     expect(config.taskplannerVersion).toBe('');
     expect(config.aiPlanRequired).toBe(true);
     expect(config.readmeAttribution).toBe(true);
+  });
+
+  it('strips the legacy sortBy field and bumps to version 3', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 2, idPrefix: 'ACME', nextId: 42, sortBy: 'priority' }),
+    );
+
+    const config: Record<string, unknown> = configManager.load();
+    expect(config.sortBy).toBeUndefined();
+    expect(config.version).toBe(3);
+    // Unrelated keys survive the migration.
+    expect(config.idPrefix).toBe('ACME');
+    expect(config.nextId).toBe(42);
+
+    // The key is gone from disk, not just from the in-memory object.
+    const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+    expect('sortBy' in onDisk).toBe(false);
+  });
+
+  it('records the v3 schema even when there was nothing to change', () => {
+    // A v2 file that already lacks sortBy and already has Rejected: the migration finds nothing to
+    // do, but the file must still be marked as having reached v3.
+    const states = [
+      { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
+      { name: 'Next', fileName: 'NEXT.md', order: 1 },
+      { name: 'In Progress', fileName: 'IN_PROGRESS.md', order: 2 },
+      { name: 'Done', fileName: 'DONE.md', order: 3 },
+      { name: 'Rejected', fileName: 'REJECTED.md', order: 4 },
+    ];
+    fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify({ version: 2, states }));
+
+    expect(configManager.load().version).toBe(3);
+    const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+    expect(onDisk.version).toBe(3);
+  });
+
+  it('never downgrades a config written by a newer TaskPlanner', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 99, idPrefix: 'FUTURE' }),
+    );
+
+    expect(configManager.load().version).toBe(99);
   });
 
   it('saves and loads config', () => {

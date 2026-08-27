@@ -4,6 +4,7 @@ import {
   ATTRIBUTION_MARKER_START,
   contentHasTaskPlannerMarkers,
   generateAiInstructions,
+  upsertMcpServerConfig,
   upsertMarkedSection,
   upsertReadmeAttribution,
 } from '../../core/ai/aiInstructions.js';
@@ -58,6 +59,23 @@ describe('generateAiInstructions', () => {
     expect(instructions.agentsMd).toBe(instructions.cursorRules);
   });
 
+  it('says nothing about a Plan when aiPlanRequired is false', () => {
+    const config = { ...createDefaultConfig(), aiPlanRequired: false };
+    const { claudeMd } = generateAiInstructions(config);
+    expect(claudeMd).not.toContain('### Plan');
+    expect(claudeMd).not.toContain('Planning Requirement');
+    // The checklist bullet used to survive the flag by deferring to the config file.
+    expect(claudeMd).not.toContain('aiPlanRequired');
+  });
+
+  it('keeps the Plan requirement when aiPlanRequired is true', () => {
+    const config = { ...createDefaultConfig(), aiPlanRequired: true };
+    const { claudeMd } = generateAiInstructions(config);
+    expect(claudeMd).toContain('### Planning Requirement');
+    expect(claudeMd).toContain('- **Plan:** The `### Plan` block must exist');
+    expect(claudeMd).toContain('trim `### Plan` to a done-summary');
+  });
+
   it('names the MCP tools and prefers them over hand-editing', () => {
     const { claudeMd } = generateAiInstructions(createDefaultConfig());
     for (const tool of [
@@ -91,5 +109,43 @@ describe('upsertMarkedSection', () => {
     expect(updated).toContain('Keep this ending.');
     expect(updated).toContain('# Updated TaskPlanner workflow');
     expect(updated).not.toContain('\nold\n');
+  });
+});
+
+describe('upsertMcpServerConfig', () => {
+  it('creates a config when there is no file yet', () => {
+    const result = upsertMcpServerConfig('');
+    expect(result).not.toBeNull();
+    const parsed = JSON.parse(result!);
+    expect(parsed.mcpServers.taskplanner).toEqual({
+      command: 'npx',
+      args: ['-y', '@smekai/taskplanner'],
+    });
+  });
+
+  it('carries no absolute path, since the file is committed and shared', () => {
+    const result = upsertMcpServerConfig('')!;
+    expect(result).not.toMatch(/[A-Za-z]:\\|\/Users\/|\/home\//);
+  });
+
+  it('preserves other servers and unknown top-level fields', () => {
+    const existing = JSON.stringify({
+      $schema: 'https://example.invalid/schema.json',
+      mcpServers: { other: { command: 'node', args: ['other.js'] } },
+    });
+    const parsed = JSON.parse(upsertMcpServerConfig(existing)!);
+    expect(parsed.mcpServers.other).toEqual({ command: 'node', args: ['other.js'] });
+    expect(parsed.mcpServers.taskplanner).toBeDefined();
+    expect(parsed.$schema).toBe('https://example.invalid/schema.json');
+  });
+
+  it('is idempotent', () => {
+    const once = upsertMcpServerConfig('')!;
+    expect(upsertMcpServerConfig(once)).toBe(once);
+  });
+
+  it('refuses to touch a file it cannot parse', () => {
+    expect(upsertMcpServerConfig('{ not json')).toBeNull();
+    expect(upsertMcpServerConfig('[1,2,3]')).toBeNull();
   });
 });

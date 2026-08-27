@@ -169,8 +169,8 @@ Project configuration lives in `.tasks/config.json`:
 
 ```json
 {
-  "version": 2,
-  "taskplannerVersion": "2.1.18",
+  "version": 3,
+  "taskplannerVersion": "2.2.0",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
@@ -184,8 +184,7 @@ Project configuration lives in `.tasks/config.json`:
   "tags": [],
   "insertPosition": "top",
   "aiPlanRequired": true,
-  "readmeAttribution": true,
-  "sortBy": "priority"
+  "readmeAttribution": true
 }
 ```
 
@@ -196,10 +195,9 @@ Project configuration lives in `.tasks/config.json`:
 | `idPrefix` | Prefix for task IDs (e.g. `TASK` → `TASK-001`) |
 | `states` | Task board columns with file mappings |
 | `priorities` | Available priority levels |
-| `insertPosition` | Where new tasks are added: `top` or `bottom` |
+| `insertPosition` | Where new tasks are added: `top` or `bottom`. Beyond the insertion point, order within a file carries no meaning |
 | `aiPlanRequired` | Whether AI agents must write a `### Plan` before coding |
 | `readmeAttribution` | Whether future managed updates may add the voluntary attribution block to an existing root README |
-| `sortBy` | Default sort order: `priority`, `name`, or `id` |
 
 ## Testing
 

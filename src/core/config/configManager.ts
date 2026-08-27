@@ -2,6 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TaskPlannerConfig, createDefaultConfig } from '../model/config.js';
 
+/** Task-file schema version this build writes. Bump when migrateConfig gains a step. */
+const CONFIG_SCHEMA_VERSION = 3;
+
 export class ConfigManager {
   private config: TaskPlannerConfig;
   private configPath: string;
@@ -42,8 +45,23 @@ export class ConfigManager {
       changed = true;
     }
 
+    // v3: Drop "sortBy". It was never read — sort order is a view setting, not project layout —
+    // and sitting beside insertPosition it read as a file-ordering contract.
+    const legacy = this.config as TaskPlannerConfig & { sortBy?: unknown };
+    if (legacy.sortBy !== undefined) {
+      delete legacy.sortBy;
+      changed = true;
+    }
+
+    // Record the schema the file has been brought up to, whether or not this run had anything to
+    // change — otherwise a v2 config that already happens to match v3 stays labelled v2 forever.
+    // Never downgrade: a file written by a newer TaskPlanner keeps its own version.
+    if (this.config.version < CONFIG_SCHEMA_VERSION) {
+      this.config.version = CONFIG_SCHEMA_VERSION;
+      changed = true;
+    }
+
     if (changed) {
-      this.config.version = 2;
       this.save();
     }
   }
