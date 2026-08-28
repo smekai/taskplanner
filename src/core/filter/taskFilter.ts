@@ -93,24 +93,20 @@ export function filterAndPaginate(
   const result: StateViewData[] = [];
 
   for (const state of states) {
-    // Skip states that don't match the status filter
     if (filter?.status && filter.status !== state.name) {
       continue;
     }
 
     let tasks = tasksByState.get(state.name) ?? [];
 
-    // Apply query filter
     if (filter?.query) {
       tasks = tasks.filter((t) => matchesQuery(t, filter.query!));
     }
 
-    // Apply tag filter
     if (filter?.tag) {
       tasks = tasks.filter((t) => matchesTag(t, filter.tag!));
     }
 
-    // Apply sorting
     tasks = sortTasks(tasks, sortBy);
 
     const hasContentFilter = Boolean(filter?.query?.trim()) || Boolean(filter?.tag);
@@ -130,7 +126,6 @@ export function filterAndPaginate(
   return { states: result, filter };
 }
 
-/** Default collapsed states for the task list */
 const COLLAPSED_STATES = new Set(['Backlog', 'Done', 'Rejected']);
 
 export function groupTasks(
@@ -142,7 +137,6 @@ export function groupTasks(
   sortBy: TaskListSortBy = 'priority',
   stateDisplayCounts?: ReadonlyMap<string, number>,
 ): GroupViewData[] {
-  // Collect all tasks with their state name
   let allTasks: { task: Task; stateName: string }[] = [];
   for (const state of states) {
     if (filter?.status && filter.status !== state.name) {
@@ -154,17 +148,14 @@ export function groupTasks(
     }
   }
 
-  // Apply query filter
   if (filter?.query) {
     allTasks = allTasks.filter((t) => matchesQuery(t.task, filter.query!));
   }
 
-  // Apply tag filter
   if (filter?.tag) {
     allTasks = allTasks.filter((t) => matchesTag(t.task, filter.tag!));
   }
 
-  // Group
   const groups = new Map<string, { task: Task; stateName: string }[]>();
 
   for (const entry of allTasks) {
@@ -192,10 +183,8 @@ export function groupTasks(
     groups.get(key)!.push(entry);
   }
 
-  // Build result
   const result: GroupViewData[] = [];
 
-  // For status grouping, maintain state order
   if (groupBy === 'status') {
     for (const state of states) {
       if (filter?.status && filter.status !== state.name) {
@@ -220,7 +209,6 @@ export function groupTasks(
       });
     }
   } else {
-    // Sort group keys
     const keys = [...groups.keys()].sort();
     for (const key of keys) {
       const entries = groups.get(key)!;

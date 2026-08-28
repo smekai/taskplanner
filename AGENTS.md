@@ -70,6 +70,11 @@ Every commit must include a patch version bump. The pre-commit hook runs `script
 
 ESLint and Prettier cover the mechanical part — run `npm run lint` and `npm run format` before a PR.
 
+**This is enforced.** `npm run lint` runs `scripts/check-comments.js`, which fails on any comment
+in `src/` outside `src/test/`. Machine directives (`eslint-disable`, `@ts-expect-error`,
+`prettier-ignore`) are exempt. For the genuinely non-obvious case, prefix the comment with `WHY:`
+and give the reason — the check counts those and lets them through.
+
 Beyond that: **a comment is a signal that the code is not clear enough yet.** Before writing one,
 try to make it unnecessary — name the function after the comment, extract the condition into a named
 predicate, split the branch out. Names and types stay true as the code changes; comments drift.

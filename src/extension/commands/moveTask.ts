@@ -14,7 +14,6 @@ export function registerMoveTaskCommand(
       if (typeof item === 'string') {
         taskId = item;
       } else {
-        // Prompt user to pick a task
         taskStore.ensureAllDeferredStatesLoaded();
         const allTasks = taskStore.getAllTasks();
         const picks: vscode.QuickPickItem[] = [];
@@ -45,7 +44,6 @@ export function registerMoveTaskCommand(
         return;
       }
 
-      // Pick target state (exclude current state)
       const config = configManager.get();
       const targetStates = config.states
         .filter((s) => s.name !== found.stateName)

@@ -97,7 +97,6 @@ export class ConfigManager {
     return this.config;
   }
 
-  /** Re-read config.json without running migrations — picks up concurrent writes. */
   reloadFromDisk(): void {
     if (!fs.existsSync(this.configPath)) {
       return;
@@ -127,7 +126,6 @@ export class ConfigManager {
     }
 
     const defaults = createDefaultConfig() as unknown as Record<string, unknown>;
-    // Unknown keys pass through, so settings written by a newer TaskPlanner survive a round-trip.
     const merged: Record<string, unknown> = { ...parsed };
 
     for (const [key, isValid] of Object.entries(FIELDS)) {
@@ -181,7 +179,6 @@ export class ConfigManager {
   }
 
   private recordSchemaVersion(): boolean {
-    // Never downgrade: a file written by a newer TaskPlanner keeps its own version.
     if (this.config.version >= CONFIG_SCHEMA_VERSION) return false;
     this.config.version = CONFIG_SCHEMA_VERSION;
     return true;
@@ -221,7 +218,6 @@ export class ConfigManager {
     return id;
   }
 
-  /** Raise `nextId` to `floor` if it is below. Returns true when config changed. */
   reconcileNextId(floor: number): boolean {
     if (this.config.nextId < floor) {
       this.config.nextId = floor;

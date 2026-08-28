@@ -46,8 +46,6 @@ export function registerSetupCommand(
         action: 'initAi',
       });
 
-      // Only once the board exists: writing the config saves .tasks/config.json, and a .tasks/
-      // holding nothing else would make every existsSync check treat the project as initialized.
       if (isInitialized) {
         items.push({
           label: '$(archive) Archive completed tasks',

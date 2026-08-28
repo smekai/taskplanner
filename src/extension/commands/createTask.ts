@@ -11,7 +11,6 @@ export function registerCreateTaskCommand(
   async function createTask(targetState: string) {
     const config = configManager.get();
 
-    // Title
     const title = await vscode.window.showInputBox({
       prompt: 'Task title',
       placeHolder: 'e.g., Implement user authentication',
@@ -21,13 +20,11 @@ export function registerCreateTaskCommand(
       return;
     }
 
-    // Description (optional)
     const description = await vscode.window.showInputBox({
       prompt: 'Description (optional)',
       placeHolder: 'Brief description of the task',
     });
 
-    // Priority
     const priorityPick = await vscode.window.showQuickPick(
       config.priorities.map((p) => ({
         label: p,
@@ -40,7 +37,6 @@ export function registerCreateTaskCommand(
     }
     const priority = isPriority(priorityPick.label) ? priorityPick.label : Priority.P4;
 
-    // Tags (optional)
     const tagsInput = await vscode.window.showInputBox({
       prompt: 'Tags (comma-separated, optional)',
       placeHolder: 'e.g., auth, backend',
@@ -52,7 +48,6 @@ export function registerCreateTaskCommand(
           .filter(Boolean)
       : [];
 
-    // Assignee (optional)
     const assignee = await vscode.window.showInputBox({
       prompt: 'Assignee (optional)',
       placeHolder: 'e.g., John',

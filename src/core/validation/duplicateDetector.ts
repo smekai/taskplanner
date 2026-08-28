@@ -98,7 +98,6 @@ export function resolveConflict(
       return stateDiff;
     }
 
-    // Stable fallback: keep the latest occurrence in the same state file.
     return a.index - b.index;
   });
 

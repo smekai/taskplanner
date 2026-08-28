@@ -2,7 +2,7 @@
   "name": "taskplanner",
   "displayName": "Task → Plan → AI",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
-  "version": "2.2.8",
+  "version": "2.2.9",
   "publisher": "refined",
   "license": "MIT",
   "icon": "resources/icons/taskplanner-color.png",
@@ -240,7 +240,7 @@
     "release:check": "npm run build && npm run lint && npm test && npm run validate:versions && npm run validate:cursor-plugin && npm run validate:codex-plugin && npm run package:codex-skills && npm run validate:codex-submission && npm run smoke:mcp-server",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src --ext ts && node scripts/check-comments.js",
     "format": "prettier --write \"src/**/*.ts\" \"esbuild.js\"",
     "package": "node scripts/package-vsix.js",
     "package:codex-skills": "node scripts/package-codex-skills.js"

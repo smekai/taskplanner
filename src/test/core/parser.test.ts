@@ -608,6 +608,21 @@ describe('parseTimestamp', () => {
     expect(parseTimestamp('2026-99-99')).toBeNull();
   });
 
+  it('rejects an out-of-range time instead of rolling it into the next hour', () => {
+    // Reported on PR #8: `12:99` used to come back as 13:39, so malformed metadata could
+    // silently change which archive bucket a task landed in.
+    expect(parseTimestamp('2026-08-27 12:99')).toBeNull();
+    expect(parseTimestamp('2026-08-27 25:00')).toBeNull();
+    expect(parseTimestamp('2026-08-27 23:59')?.toISOString()).toBe('2026-08-27T23:59:00.000Z');
+  });
+
+  it('rejects two-digit years that Date.UTC remaps into the 1900s', () => {
+    // Date.UTC(50, ...) is 1950, so `0050-01-01` would have parsed as a date 76 years off.
+    expect(parseTimestamp('0050-01-01')).toBeNull();
+    expect(parseTimestamp('0099-12-31')).toBeNull();
+    expect(parseTimestamp('0100-01-01')?.toISOString()).toBe('0100-01-01T00:00:00.000Z');
+  });
+
   it('rejects anything that is not one of the two forms', () => {
     expect(parseTimestamp(undefined)).toBeNull();
     expect(parseTimestamp('')).toBeNull();

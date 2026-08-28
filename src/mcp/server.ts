@@ -88,8 +88,6 @@ async function freshStore(explicitRoot?: string): Promise<{
   const tasksDir = await findTasksDir(explicitRoot);
   const configManager = new ConfigManager(tasksDir);
   configManager.load();
-  // A broken config no longer throws, so an agent would otherwise work against silently defaulted
-  // settings with no way to know. stderr is the one channel a stdio server can use freely.
   for (const diagnostic of configManager.getDiagnostics()) {
     console.error(`TaskPlanner config: ${diagnostic.message}`);
   }
@@ -107,7 +105,9 @@ function formatTask(task: Task, stateName: string): string {
   if (task.epic) meta.push(`Epic: ${task.epic}`);
   if (task.assignee) meta.push(`Assignee: ${task.assignee}`);
   if (task.waitingUntil) {
-    meta.push(`Waiting until: ${task.waitingUntil}${isWaiting(task.waitingUntil) ? ' (not startable yet)' : ''}`);
+    meta.push(
+      `Waiting until: ${task.waitingUntil}${isWaiting(task.waitingUntil) ? ' (not startable yet)' : ''}`,
+    );
   }
   if (task.updatedAt) meta.push(`Updated: ${task.updatedAt}`);
   lines.push(meta.join(' | '));
@@ -121,8 +121,6 @@ function formatTask(task: Task, stateName: string): string {
 }
 
 function structuredTask(task: Task, stateName: string): Record<string, unknown> {
-  // `waiting` is derived here so every tool reports it the same way and no client has to redo the
-  // date comparison to find out whether a task can be started.
   return { ...task, state: stateName, waiting: isWaiting(task.waitingUntil) };
 }
 
@@ -157,10 +155,9 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-    version: '2.2.8',
+  version: '2.2.9',
 });
 
-// ── taskplanner_board ───────────────────────────────────
 server.registerTool(
   'taskplanner_board',
   {
@@ -206,7 +203,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_list ────────────────────────────────────
 server.registerTool(
   'taskplanner_list',
   {
@@ -288,7 +284,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_get ─────────────────────────────────────
 server.registerTool(
   'taskplanner_get',
   {
@@ -315,7 +310,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_create ──────────────────────────────────
 server.registerTool(
   'taskplanner_create',
   {
@@ -388,7 +382,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_move ────────────────────────────────────
 server.registerTool(
   'taskplanner_move',
   {
@@ -434,7 +427,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_update ──────────────────────────────────
 server.registerTool(
   'taskplanner_update',
   {
@@ -502,7 +494,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_board_data (JSON for the visual board UI) ──
 server.registerTool(
   'taskplanner_board_data',
   {
@@ -543,8 +534,6 @@ server.registerTool(
   },
 );
 
-// ── taskplanner_board_visual (MCP Apps UI entry) ─────────
-// MCP Apps spec: https://modelcontextprotocol.io/extensions/apps
 const BOARD_RESOURCE_URI = 'ui://taskplanner/board';
 const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app';
 const LEGACY_UI_META_KEY = 'ui/resourceUri';
@@ -611,7 +600,6 @@ server.registerTool(
   },
 );
 
-// ── Start ───────────────────────────────────────────────
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);

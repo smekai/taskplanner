@@ -1,34 +1,37 @@
 import { Task } from '../model/task.js';
 import { daysSince, parseTimestamp } from '../util/time.js';
 
-export const UNDATED_ARCHIVE_FILE = 'DONE-undated.md';
-export const UNDATED_WORK_LOG_ARCHIVE_FILE = 'WORK_LOG-undated.md';
+export interface ArchiveKind {
+  filePrefix: string;
+  label: string;
+}
+
+export const TASK_ARCHIVE: ArchiveKind = { filePrefix: 'DONE', label: 'Done' };
+export const WORK_LOG_ARCHIVE: ArchiveKind = { filePrefix: 'WORK_LOG', label: 'Work log' };
+
+const UNDATED_BUCKET = 'undated';
+const ARCHIVE_FILE_RE = /^(DONE|WORK_LOG)-(undated|\d{4})\.md$/;
 
 export interface ArchiveResult {
   archived: number;
   files: string[];
 }
 
-function halfYearSuffix(date: Date): string {
-  return `${date.getUTCFullYear()}-H${date.getUTCMonth() < 6 ? 1 : 2}`;
+export function archiveFileName(kind: ArchiveKind, date: string | undefined): string {
+  const parsed = parseTimestamp(date);
+  const bucket = parsed === null ? UNDATED_BUCKET : String(parsed.getUTCFullYear());
+  return `${kind.filePrefix}-${bucket}.md`;
 }
 
-export function archiveFileFor(task: Task): string {
-  const date = parseTimestamp(task.updatedAt);
-  return date === null ? UNDATED_ARCHIVE_FILE : `DONE-${halfYearSuffix(date)}.md`;
+export function archiveHeading(fileName: string): string {
+  const match = ARCHIVE_FILE_RE.exec(fileName);
+  if (!match) return 'Archived';
+
+  const [, filePrefix, bucket] = match;
+  const kind = filePrefix === WORK_LOG_ARCHIVE.filePrefix ? WORK_LOG_ARCHIVE : TASK_ARCHIVE;
+  return `${kind.label} — ${bucket}`;
 }
 
-export function archiveHeadingFor(fileName: string): string {
-  if (fileName === UNDATED_ARCHIVE_FILE) return 'Done — undated';
-  const match = /^DONE-(\d{4})-H([12])\.md$/.exec(fileName);
-  return match ? `Done — ${match[1]} H${match[2]}` : 'Done — archived';
-}
-
-/**
- * An unset or non-positive threshold disables archiving entirely: upgrading TaskPlanner must never
- * reshuffle a board nobody asked it to touch. An undatable task counts as old enough — unknown-age
- * history is still history.
- */
 export function isDateArchivable(
   value: string | undefined,
   afterDays: number,
@@ -56,7 +59,7 @@ export function planArchive(
       keep.push(task);
       continue;
     }
-    const fileName = archiveFileFor(task);
+    const fileName = archiveFileName(TASK_ARCHIVE, task.updatedAt);
     const bucket = byFile.get(fileName) ?? [];
     bucket.push(task);
     byFile.set(fileName, bucket);
@@ -71,11 +74,8 @@ export interface WorkLogEntry {
   text: string;
 }
 
-/** Splits WORK_LOG.md into its header and its entries, keeping each entry's text verbatim. */
 export function splitWorkLog(content: string): { header: string; entries: WorkLogEntry[] } {
   const lines = content.split('\n');
-  // Demanding a real ID and date is what keeps the template block in the file header from
-  // being read as an entry.
   const heading = /^## ([A-Z]+-\d+) — (\d{4}-\d{2}-\d{2})\s*$/;
 
   const starts: number[] = [];
@@ -98,11 +98,6 @@ export function splitWorkLog(content: string): { header: string; entries: WorkLo
   }
 
   return { header: lines.slice(0, starts[0]).join('\n').replace(/\s+$/, ''), entries };
-}
-
-export function workLogArchiveFileFor(entry: WorkLogEntry): string {
-  const date = parseTimestamp(entry.date);
-  return date === null ? UNDATED_WORK_LOG_ARCHIVE_FILE : `WORK_LOG-${halfYearSuffix(date)}.md`;
 }
 
 export function joinWorkLog(header: string, entries: WorkLogEntry[]): string {

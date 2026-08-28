@@ -115,9 +115,10 @@ function renderColumn(state: StateViewData): string {
       ? '<div class="empty">No tasks</div>'
       : state.tasks.map((t) => renderCard(t, state.name)).join('');
   const hiddenCount = Math.max(0, state.totalCount - state.tasks.length);
-  const more = hiddenCount > 0 && !expandedAllStates
-    ? `<button class="more-pill show-more-btn" type="button" data-state="${escapeHtml(state.name)}">Show ${hiddenCount} more</button>`
-    : '';
+  const more =
+    hiddenCount > 0 && !expandedAllStates
+      ? `<button class="more-pill show-more-btn" type="button" data-state="${escapeHtml(state.name)}">Show ${hiddenCount} more</button>`
+      : '';
   const body = isCollapsed ? '' : `${cards}${more}`;
   const compactClass = isNarrowLayout ? ' compact' : '';
   const collapsedClass = isCollapsed ? ' collapsed' : '';
@@ -180,7 +181,6 @@ function ensureLayoutState(data: TaskViewData): void {
     return;
   }
 
-  // Keep existing user toggles, but drop states no longer present.
   const names = new Set(data.states.map((state) => state.name));
   collapsedStates = new Set(Array.from(collapsedStates).filter((name) => names.has(name)));
 }
@@ -335,7 +335,9 @@ async function openDrawer(taskId: string): Promise<void> {
     const task = findTaskInCurrent(taskId);
     const title = escapeHtml(task?.title ?? taskId);
     const priority = escapeHtml(task?.priority ?? '');
-    const assignee = task?.assignee ? `<span class="assignee">@${escapeHtml(task.assignee)}</span>` : '';
+    const assignee = task?.assignee
+      ? `<span class="assignee">@${escapeHtml(task.assignee)}</span>`
+      : '';
     const tags = (task?.tags ?? [])
       .map((t) => `<span class="tag">${escapeHtml(t)}</span>`)
       .join('');

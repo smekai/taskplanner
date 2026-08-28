@@ -8,7 +8,6 @@ const PROMPT =
   `${MCP_CONFIG_FILE} (Claude Code and others) can then use the TaskPlanner tools instead of ` +
   'editing the task markdown by hand.';
 
-/** Report the outcome of a write attempt without duplicating the wording at each call site. */
 function report(result: ReturnType<typeof writeMcpServerConfig>): boolean {
   if (result === 'unparseable') {
     vscode.window.showWarningMessage(
@@ -24,7 +23,6 @@ function report(result: ReturnType<typeof writeMcpServerConfig>): boolean {
   return true;
 }
 
-/** Write the MCP config, recording the outcome so the prompt is not repeated. */
 export function writeMcpConfigNow(workspaceRoot: string, configManager: ConfigManager): boolean {
   const ok = report(writeMcpServerConfig(workspaceRoot));
   if (ok) {
@@ -34,10 +32,6 @@ export function writeMcpConfigNow(workspaceRoot: string, configManager: ConfigMa
   return ok;
 }
 
-/**
- * Ask once whether to write the repository MCP config, and remember the answer. This writes a file
- * that tells an agent what to execute, so it never happens without the user saying so.
- */
 export async function promptForMcpConfig(
   workspaceRoot: string,
   configManager: ConfigManager,
@@ -46,7 +40,6 @@ export async function promptForMcpConfig(
 
   const choice = await vscode.window.showInformationMessage(PROMPT, 'Add it', 'Not now');
   if (choice !== 'Add it') {
-    // "Not now" and dismissal both record a decline; Setup can still write it later.
     configManager.update({ mcpConfig: 'declined' });
     configManager.save();
     return;

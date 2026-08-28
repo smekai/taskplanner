@@ -170,7 +170,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 3,
-  "taskplannerVersion": "2.2.8",
+  "taskplannerVersion": "2.2.9",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
@@ -219,6 +219,12 @@ deliberate deviation from an API contract, an output format that must match byte
 
 Comments are welcome in tests, where a name plus a short note explains the failure a case guards
 against better than a comment beside the code it guards.
+
+This is enforced, not merely advised: `npm run lint` runs `scripts/check-comments.js`, which fails
+the build on any comment in `src/` outside `src/test/`. Machine directives (`eslint-disable`,
+`@ts-expect-error`, `prettier-ignore`) are exempt. When a comment really is the right answer,
+prefix it with `WHY:` and state the reason; the check reports how many such comments exist, so the
+exceptions stay countable and reviewable.
 
 ## Pull Requests
 

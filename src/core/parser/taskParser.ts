@@ -194,7 +194,6 @@ export function findTaskLineNumber(content: string, taskId: string): number {
   return 1;
 }
 
-/** Count `## PREFIX-###:` task headings without full parsing (for deferred state loads). */
 export function countTaskHeadings(rawContent: string): number {
   const content = stripBom(rawContent);
   let n = 0;
@@ -206,7 +205,15 @@ export function countTaskHeadings(rawContent: string): number {
   return n;
 }
 
-/** Highest numeric suffix among `## PREFIX-NNN:` headings in raw markdown, or 0 if none. */
+export function taskIdsIn(rawContent: string): Set<string> {
+  const ids = new Set<string>();
+  for (const line of stripBom(rawContent).split('\n')) {
+    const match = line.match(TASK_HEADING_RE);
+    if (match) ids.add(match[1]);
+  }
+  return ids;
+}
+
 export function maxTaskIdNumber(rawContent: string, prefix: string): number {
   const content = stripBom(rawContent);
   const re = new RegExp(`^## ${prefix}-(\\d+):`);

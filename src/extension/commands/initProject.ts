@@ -22,19 +22,17 @@ export function registerInitCommand(
       }
 
       try {
-        // Initialize config
         configManager.load();
         configManager.save();
 
-        // Create state files
         fileStore.initializeStateFiles(configManager.get());
 
-        // Reload task store
         await taskStore.reloadAsync();
 
         if (getAutoInitAiFiles()) {
           const synchronized = await vscode.commands.executeCommand<boolean>('taskplanner.initAi');
-          if (!synchronized) throw new Error('Managed project-file synchronization did not finish.');
+          if (!synchronized)
+            throw new Error('Managed project-file synchronization did not finish.');
         } else {
           synchronizeTaskPlannerProject(
             workspaceFolder.uri.fsPath,

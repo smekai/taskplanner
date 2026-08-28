@@ -292,8 +292,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     this.view.webview.html = this.buildListHtml(groups, groupBy);
   }
 
-  // ── Welcome ───────────────────────────────────────────────────────
-
   private buildWelcomeHtml(): string {
     const body = `
       <div class="welcome">
@@ -333,8 +331,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
 
     return getWebviewHtml(this.view!.webview, 'Tasks', extraStyles + body, '');
   }
-
-  // ── List view ─────────────────────────────────────────────────────
 
   private buildParseWarningBanner(): string {
     if (this.parseWarningsDismissed) {
@@ -1030,7 +1026,9 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
 
     const headerDndClass = dndByStatus ? ' group-header-dnd' : '';
     const headerStateAttr = dndByStatus ? ` data-state-name="${this.escapeAttr(group.label)}"` : '';
-    const headerCollapsedAttr = dndByStatus ? ` data-collapsed="${isHidden ? 'true' : 'false'}"` : '';
+    const headerCollapsedAttr = dndByStatus
+      ? ` data-collapsed="${isHidden ? 'true' : 'false'}"`
+      : '';
 
     return `
       <div class="group-section">
@@ -1080,8 +1078,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       </div>
     `;
   }
-
-  // ── Detail / edit view ────────────────────────────────────────────
 
   private buildDetailHtml(task: Task, stateName: string): string {
     const states = this.configManager.get().states;
@@ -1581,8 +1577,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
 
     return getWebviewHtml(this.view!.webview, 'Tasks', extraStyles + body, script);
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────
 
   private collectAvailableTags(configTags: string[], tasksByState: Map<string, Task[]>): string[] {
     const tags = new Set<string>(configTags);

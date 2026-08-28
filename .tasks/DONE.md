@@ -1,5 +1,35 @@
 # Done
 
+## TASK-058: Address PR 8 review and enforce the no-comment rule
+**Priority:** P1 | **Tags:** core, refactor, testing
+**Updated:** 2026-08-28 07:35
+
+Two parts.
+
+**PR 8 review comments** — four from `refined`:
+- [P1] `taskStore.ts` archive append reserializes a parsed archive, so an archive file whose markdown does not parse cleanly (`## T-001 Missing colon` plus user text) is rewritten with only the new task, silently deleting the old content.
+- [P1] The archive file is written before `DONE.md`, so an interrupted run leaves a task in both, and a retry duplicates it in the archive.
+- [P2] `parseTimestamp` round-trips only month and day: `2026-08-27 12:99` returns 13:39 rather than null, and years 0000-0099 are remapped by `Date.UTC`.
+- [P2] Apply this PR's own comment rule to its production changes.
+
+**Enforce the comment rule** — a written rule in the docs is not enough; comments keep coming back. Add tooling that fails the build so the rule cannot be ignored, allowing comments in tests and leaving an explicit escape hatch for the genuinely non-obvious case.
+
+### Plan
+
+Done.
+
+**PR 8 review.** Archive appends now go to the raw file, so an archive holding a malformed heading or hand-written prose keeps everything it had; appends skip IDs already present, so an interrupted run heals on retry; every board write goes through a temp file and rename. `parseTimestamp` round-trips all five components, rejecting `12:99` and the `0000`–`0099` years `Date.UTC` remaps. Docblocks removed from `archive.ts`, `fileStore.ts`, `taskStore.ts` and `time.ts` as asked.
+
+Not taken: dropping the archive scan from `getMaxTaskIdNumber`. `nextId` is authoritative in config.json, but that function exists as the repair path for when it is not — excluding archived IDs would make the repair itself hand out IDs already used. Raised on the PR rather than changed.
+
+**Archiving unified.** One file per year for both kinds — `DONE-2026.md`, `WORK_LOG-2026.md` — from a shared `archiveFileName(kind, date)` and `archiveHeading(fileName)` over an `ArchiveKind` descriptor. The `fileName.replace('WORK_LOG', 'DONE')` hack is gone.
+
+**Comment rule enforced.** `scripts/check-comments.js` walks the TypeScript AST (so URLs in template literals are not mistaken for comments) and fails `npm run lint` on any comment in `src/` outside `src/test/`. Machine directives are exempt; a `WHY:` prefix is the countable escape hatch. 119 comments removed from 24 files; production code is now at zero.
+
+194 tests, all four new ones mutation-checked.
+
+---
+
 ## TASK-057: Simplify config validation and date handling
 **Priority:** P2 | **Tags:** core, refactor
 **Updated:** 2026-08-27 18:32

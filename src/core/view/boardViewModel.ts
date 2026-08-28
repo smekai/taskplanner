@@ -6,9 +6,6 @@ import { filterAndPaginate, TaskListSortBy } from '../filter/taskFilter.js';
 export interface BuildBoardViewModelOptions {
   searchQuery?: string;
   sortBy?: TaskListSortBy;
-  /**
-   * Per-state cap. `undefined` uses the core default (50), `null` disables the cap.
-   */
   limit?: number | null;
 }
 

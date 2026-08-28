@@ -30,7 +30,10 @@ function summarizeConflict(conflict: DuplicateConflict): string {
   return `${conflict.taskId}: ${title} (in ${states})`;
 }
 
-function resolveAll(conflicts: DuplicateConflict[], configManager: ConfigManager): DuplicateResolution[] {
+function resolveAll(
+  conflicts: DuplicateConflict[],
+  configManager: ConfigManager,
+): DuplicateResolution[] {
   const states = configManager.get().states;
   return conflicts.map((conflict) => resolveConflict(conflict, states));
 }
@@ -65,7 +68,9 @@ async function reviewConflicts(
 
   if (picked.label === autoFixAllItem.label) {
     const removed = applyResolutions(taskStore, resolveAll(conflicts, configManager));
-    vscode.window.showInformationMessage(`Resolved duplicate conflicts. Removed ${removed} duplicates.`);
+    vscode.window.showInformationMessage(
+      `Resolved duplicate conflicts. Removed ${removed} duplicates.`,
+    );
     return;
   }
 
@@ -75,10 +80,7 @@ async function reviewConflicts(
   }
 
   const action = await vscode.window.showQuickPick(
-    [
-      { label: 'Auto-fix this conflict' },
-      { label: 'Auto-fix all conflicts' },
-    ],
+    [{ label: 'Auto-fix this conflict' }, { label: 'Auto-fix all conflicts' }],
     { placeHolder: `Resolve ${conflict.taskId}` },
   );
   if (!action) {
@@ -90,7 +92,9 @@ async function reviewConflicts(
       ? resolveAll(conflicts, configManager)
       : [resolveConflict(conflict, configManager.get().states)];
   const removed = applyResolutions(taskStore, resolutions);
-  vscode.window.showInformationMessage(`Resolved duplicate conflicts. Removed ${removed} duplicates.`);
+  vscode.window.showInformationMessage(
+    `Resolved duplicate conflicts. Removed ${removed} duplicates.`,
+  );
 }
 
 export async function checkAndPromptDuplicateConflicts(
@@ -121,7 +125,9 @@ export async function checkAndPromptDuplicateConflicts(
 
     if (action === 'Auto-fix All') {
       const removed = applyResolutions(taskStore, resolveAll(conflicts, configManager));
-      vscode.window.showInformationMessage(`Resolved duplicate conflicts. Removed ${removed} duplicates.`);
+      vscode.window.showInformationMessage(
+        `Resolved duplicate conflicts. Removed ${removed} duplicates.`,
+      );
       return;
     }
     if (action === 'Review') {

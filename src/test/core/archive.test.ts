@@ -6,10 +6,11 @@ import { ConfigManager } from '../../core/config/configManager.js';
 import { FileStore } from '../../core/store/fileStore.js';
 import { TaskStore } from '../../core/store/taskStore.js';
 import {
-  archiveFileFor,
+  TASK_ARCHIVE,
+  WORK_LOG_ARCHIVE,
+  archiveFileName,
   isArchivable,
   splitWorkLog,
-  workLogArchiveFileFor,
 } from '../../core/store/archive.js';
 import { Priority, Task } from '../../core/model/task.js';
 
@@ -26,16 +27,21 @@ function task(id: string, updatedAt?: string): Task {
   };
 }
 
-describe('archiveFileFor', () => {
-  it('buckets by half-year', () => {
-    expect(archiveFileFor(task('T-1', '2026-03-16 10:00'))).toBe('DONE-2026-H1.md');
-    expect(archiveFileFor(task('T-2', '2026-08-27 10:00'))).toBe('DONE-2026-H2.md');
-    expect(archiveFileFor(task('T-3', '2025-06-30'))).toBe('DONE-2025-H1.md');
+describe('archiveFileName', () => {
+  it('buckets by year', () => {
+    expect(archiveFileName(TASK_ARCHIVE, '2026-03-16 10:00')).toBe('DONE-2026.md');
+    expect(archiveFileName(TASK_ARCHIVE, '2026-08-27 10:00')).toBe('DONE-2026.md');
+    expect(archiveFileName(TASK_ARCHIVE, '2025-06-30')).toBe('DONE-2025.md');
   });
 
-  it('gives undated tasks their own bucket rather than inventing a date', () => {
-    expect(archiveFileFor(task('T-4'))).toBe('DONE-undated.md');
-    expect(archiveFileFor(task('T-5', 'sometime last year'))).toBe('DONE-undated.md');
+  it('names both archive kinds the same way', () => {
+    expect(archiveFileName(WORK_LOG_ARCHIVE, '2026-03-01')).toBe('WORK_LOG-2026.md');
+    expect(archiveFileName(WORK_LOG_ARCHIVE, undefined)).toBe('WORK_LOG-undated.md');
+  });
+
+  it('gives undated entries their own bucket rather than inventing a date', () => {
+    expect(archiveFileName(TASK_ARCHIVE, undefined)).toBe('DONE-undated.md');
+    expect(archiveFileName(TASK_ARCHIVE, 'sometime last year')).toBe('DONE-undated.md');
   });
 });
 
@@ -104,11 +110,11 @@ describe('TaskStore.archiveCompleted', () => {
     const result = store.archiveCompleted(NOW);
 
     expect(result.archived).toBe(1);
-    expect(result.files).toEqual(['DONE-2026-H1.md']);
+    expect(result.files).toEqual(['DONE-2026.md']);
     const doneMd = fs.readFileSync(path.join(tmpDir, 'DONE.md'), 'utf-8');
     expect(doneMd).not.toContain('T-001');
     expect(doneMd).toContain('T-002');
-    expect(fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026-H1.md'), 'utf-8')).toContain(
+    expect(fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8')).toContain(
       'body for T-001',
     );
   });
@@ -118,9 +124,9 @@ describe('TaskStore.archiveCompleted', () => {
     writeDone(`# Done\n\n${done('T-001', '2026-01-15')}`);
 
     expect(store.archiveCompleted(NOW).archived).toBe(1);
-    const after = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026-H1.md'), 'utf-8');
+    const after = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8');
     expect(store.archiveCompleted(NOW).archived).toBe(0);
-    expect(fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026-H1.md'), 'utf-8')).toBe(after);
+    expect(fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8')).toBe(after);
   });
 
   it('appends to an archive file rather than replacing it', () => {
@@ -131,7 +137,7 @@ describe('TaskStore.archiveCompleted', () => {
     writeDone(`# Done\n\n${done('T-002', '2026-02-20')}`);
     store.archiveCompleted(NOW);
 
-    const archive = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026-H1.md'), 'utf-8');
+    const archive = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8');
     expect(archive).toContain('T-001');
     expect(archive).toContain('T-002');
   });
@@ -152,12 +158,51 @@ describe('TaskStore.archiveCompleted', () => {
     expect(created.id).toBe('T-003');
   });
 
+  it('never destroys archive content it cannot parse', () => {
+    // Reported on PR #8: the append reparsed and reserialized the archive, so a file holding a
+    // malformed heading plus user-authored prose was rewritten with only the new task.
+    setup(90);
+    const precious =
+      '# Done — 2026\n\n## T-001 Missing colon\n\nUser notes that must survive.\n\n---\n';
+    fs.mkdirSync(path.join(tmpDir, 'archive'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), precious);
+
+    writeDone(`# Done\n\n${done('T-002', '2026-01-15')}`);
+    store.archiveCompleted(NOW);
+
+    const archived = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8');
+    expect(archived).toContain('User notes that must survive.');
+    expect(archived).toContain('## T-001 Missing colon');
+    expect(archived).toContain('## T-002:');
+  });
+
+  it('does not duplicate a task when an interrupted run is retried', () => {
+    // Reported on PR #8: the archive is written before DONE.md, so a crash in between left the
+    // task in both files and the retry appended it to the archive a second time.
+    setup(90);
+    writeDone(`# Done\n\n${done('T-002', '2026-01-15')}`);
+
+    const realWriteState = fileStore.writeState.bind(fileStore);
+    fileStore.writeState = () => {
+      throw new Error('interrupted after the archive was written');
+    };
+    expect(() => store.archiveCompleted(NOW)).toThrow('interrupted');
+    fileStore.writeState = realWriteState;
+
+    store.reload();
+    store.ensureStateLoaded('Done');
+    store.archiveCompleted(NOW);
+
+    const archived = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8');
+    expect(archived.match(/^## T-002:/gm)).toHaveLength(1);
+  });
+
   it('preserves the task body through the move', () => {
     setup(90);
     writeDone(`# Done\n\n${done('T-001', '2026-01-15', '**Tags:** core, ci\n')}`);
     store.archiveCompleted(NOW);
 
-    const archived = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026-H1.md'), 'utf-8');
+    const archived = fs.readFileSync(path.join(tmpDir, 'archive', 'DONE-2026.md'), 'utf-8');
     expect(archived).toContain('body for T-001');
     expect(archived).toContain('**Tags:** core, ci');
     expect(archived).toContain('**Updated:** 2026-01-15');
@@ -222,15 +267,6 @@ describe('work log archiving', () => {
     expect(header).toContain('TASK-### — YYYY-MM-DD');
   });
 
-  it('buckets entries by half-year like tasks', () => {
-    expect(workLogArchiveFileFor({ id: 'T-1', date: '2026-03-01', text: '' })).toBe(
-      'WORK_LOG-2026-H1.md',
-    );
-    expect(workLogArchiveFileFor({ id: 'T-2', date: '2026-09-01', text: '' })).toBe(
-      'WORK_LOG-2026-H2.md',
-    );
-  });
-
   it('moves old entries out and leaves the header and recent ones', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wl-'));
     fs.writeFileSync(
@@ -249,13 +285,13 @@ describe('work log archiving', () => {
 
     const result = store.archiveCompleted(NOW);
 
-    expect(result.files).toContain('WORK_LOG-2026-H1.md');
+    expect(result.files).toContain('WORK_LOG-2026.md');
     const remaining = fs.readFileSync(path.join(dir, 'WORK_LOG.md'), 'utf-8');
     expect(remaining).toContain('# Work Log');
     expect(remaining).toContain('T-002');
     expect(remaining).not.toContain('did T-001');
 
-    const archived = fs.readFileSync(path.join(dir, 'archive', 'WORK_LOG-2026-H1.md'), 'utf-8');
+    const archived = fs.readFileSync(path.join(dir, 'archive', 'WORK_LOG-2026.md'), 'utf-8');
     expect(archived).toContain('**What:** did T-001.');
     fs.rmSync(dir, { recursive: true, force: true });
   });

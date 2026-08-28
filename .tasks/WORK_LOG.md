@@ -15,6 +15,20 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-058 — 2026-08-28
+**What:** Fixed the four PR #8 review findings, unified task and work-log archiving onto one
+year-based naming scheme, and made the no-comment rule a build gate.
+**Decisions:** Archive appends write to the raw file rather than reparsing it — the reviewer's
+alternative (refuse when parse warnings exist) would block on files a human legitimately hand-edited.
+Dedupe by task ID makes an interrupted run heal on retry, which is cheaper than a real two-file
+transaction and covers the reported failure. Kept the archive scan in `getMaxTaskIdNumber` against
+the review: it is the repair path for a stale `nextId`, so omitting archived IDs would make the
+repair reissue them.
+**Outcome:** 119 comments removed from 24 production files, zero remaining; `npm run lint` now fails
+on any new one. 194 tests, the four new ones mutation-checked.
+
+---
+
 ## TASK-057 — 2026-08-27
 **What:** Cut the config decoder scaffolding and collapsed date handling to one parser and two
 formatters; wrote the "comments are a smell" rule into this repo's agent instructions.

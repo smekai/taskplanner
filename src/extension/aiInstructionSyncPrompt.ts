@@ -5,10 +5,6 @@ import { contentHasTaskPlannerMarkers } from '../core/ai/aiInstructions.js';
 
 const WORKSPACE_STATE_KEY = 'suppressAiInstructionSyncPrompt';
 
-/**
- * If the workspace has TaskPlanner config but a supported AI instruction file is missing the
- * TaskPlanner marker block, offer to synchronize all instruction targets.
- */
 export function scheduleAiInstructionSyncPrompt(
   context: vscode.ExtensionContext,
   workspaceRoot: string,
