@@ -6,12 +6,21 @@ import { ConfigManager } from '../config/configManager.js';
 import { FileStore } from './fileStore.js';
 import { IdGenerator } from '../id/idGenerator.js';
 import { DuplicateResolution } from '../validation/duplicateDetector.js';
-import { countTaskHeadings, maxTaskIdNumber } from '../parser/taskParser.js';
+import { countTaskHeadings, maxTaskIdNumber, taskIdsIn } from '../parser/taskParser.js';
 import { currentTimestamp } from '../util/time.js';
+import {
+  ArchiveResult,
+  WORK_LOG_ARCHIVE,
+  archiveFileName,
+  archiveHeading,
+  isDateArchivable,
+  joinWorkLog,
+  planArchive,
+  splitWorkLog,
+} from './archive.js';
 
 export type TaskStoreListener = () => void;
 
-/** States that skip full parse on reload until explicitly loaded (large archives). */
 const DEFERRED_STATE_NAMES = new Set(['Done', 'Rejected']);
 
 export function isDeferredStateName(stateName: string): boolean {
@@ -21,9 +30,7 @@ export function isDeferredStateName(stateName: string): boolean {
 export class TaskStore {
   private tasksByState: Map<string, Task[]> = new Map();
   private parseWarningsByFile: Map<string, ParseWarning[]> = new Map();
-  /** Done/Rejected not yet fully parsed; `tasksByState` holds [] until loaded. */
   private deferredUnloadedStates: Set<string> = new Set();
-  /** Heading counts for deferred states (from `countTaskHeadings`). */
   private deferredSectionCounts: Map<string, number> = new Map();
   private listeners: TaskStoreListener[] = [];
   private fileStore: FileStore;
@@ -45,7 +52,6 @@ export class TaskStore {
     this.reloadSync();
   }
 
-  /** Reset in-memory state and deferred tracking to a blank slate before a reload. */
   private resetReloadState(): void {
     this.tasksByState = new Map();
     this.parseWarningsByFile = new Map();
@@ -53,15 +59,16 @@ export class TaskStore {
     this.deferredSectionCounts.clear();
   }
 
-  /** Record a deferred state (raw counted only; tasks loaded lazily). */
   private applyDeferredState(state: TaskState, raw: string): void {
     this.deferredSectionCounts.set(state.name, countTaskHeadings(raw));
     this.deferredUnloadedStates.add(state.name);
     this.tasksByState.set(state.name, []);
   }
 
-  /** Record a fully-parsed state's tasks and warnings. */
-  private applyParsedState(state: TaskState, pr: { tasks: Task[]; warnings: ParseWarning[] }): void {
+  private applyParsedState(
+    state: TaskState,
+    pr: { tasks: Task[]; warnings: ParseWarning[] },
+  ): void {
     this.tasksByState.set(state.name, pr.tasks);
     if (pr.warnings.length > 0) {
       this.parseWarningsByFile.set(state.fileName, pr.warnings);
@@ -92,7 +99,6 @@ export class TaskStore {
     this.notifyListeners();
   }
 
-  /** Parse one state file into memory; clears deferred flag for that state. */
   private parseStateIntoStore(stateName: string): void {
     const state = this.findState(stateName);
     if (!state) {
@@ -117,7 +123,6 @@ export class TaskStore {
     this.notifyListeners();
   }
 
-  /** Load a deferred state (Done/Rejected) if it was not parsed yet. */
   ensureStateLoaded(stateName: string): void {
     if (!this.deferredUnloadedStates.has(stateName)) {
       return;
@@ -126,7 +131,6 @@ export class TaskStore {
     this.notifyListeners();
   }
 
-  /** Load every deferred state (e.g. assignee grouping, search, move picker). */
   ensureAllDeferredStatesLoaded(): void {
     const pending = [...this.deferredUnloadedStates];
     if (pending.length === 0) {
@@ -138,7 +142,6 @@ export class TaskStore {
     this.notifyListeners();
   }
 
-  /** Per-state counts for UI: heading count when deferred, else parsed task length. */
   getStateDisplayCounts(): Map<string, number> {
     const m = new Map<string, number>();
     for (const s of this.config.states) {
@@ -170,10 +173,6 @@ export class TaskStore {
     return new Map(this.tasksByState);
   }
 
-  /**
-   * Highest task-ID number across every state. Loaded states read from memory;
-   * deferred states (Done/Rejected) scan raw file content so they stay deferred.
-   */
   getMaxTaskIdNumber(): number {
     const prefix = this.config.idPrefix;
     let max = 0;
@@ -196,7 +195,78 @@ export class TaskStore {
         }
       }
     }
+
+    for (const fileName of this.fileStore.listArchiveFiles()) {
+      const n = maxTaskIdNumber(this.fileStore.readArchiveRaw(fileName), prefix);
+      if (n > max) max = n;
+    }
+
     return max;
+  }
+
+  archiveCompleted(now = new Date()): ArchiveResult {
+    const afterDays = this.config.archiveDoneAfterDays ?? 0;
+    const doneState = this.config.states.find((state) => state.name === 'Done');
+    if (afterDays <= 0 || !doneState) return { archived: 0, files: [] };
+
+    this.ensureStateLoaded(doneState.name);
+    const { keep, byFile } = planArchive(this.getTasksByState(doneState.name), afterDays, now);
+
+    let archived = 0;
+    for (const [fileName, moving] of byFile) {
+      const alreadyArchived = taskIdsIn(this.fileStore.readArchiveRaw(fileName));
+      const fresh = moving.filter((task) => !alreadyArchived.has(task.id));
+      if (fresh.length > 0) {
+        this.fileStore.appendArchive(fileName, archiveHeading(fileName), fresh);
+      }
+      archived += fresh.length;
+    }
+
+    if (byFile.size > 0) {
+      this.tasksByState.set(doneState.name, keep);
+      this.fileStore.writeState(doneState, keep);
+      this.notifyListeners();
+    }
+
+    const log = this.archiveWorkLog(afterDays, now);
+    return { archived, files: [...byFile.keys(), ...log].sort() };
+  }
+
+  private archiveWorkLog(afterDays: number, now: Date): string[] {
+    const content = this.fileStore.readWorkLog();
+    if (!content.trim()) return [];
+
+    const { header, entries } = splitWorkLog(content);
+    const keep: typeof entries = [];
+    const byFile = new Map<string, typeof entries>();
+
+    for (const entry of entries) {
+      if (!isDateArchivable(entry.date, afterDays, now)) {
+        keep.push(entry);
+        continue;
+      }
+      const fileName = archiveFileName(WORK_LOG_ARCHIVE, entry.date);
+      byFile.set(fileName, [...(byFile.get(fileName) ?? []), entry]);
+    }
+
+    if (byFile.size === 0) return [];
+
+    for (const [fileName, moving] of byFile) {
+      const existing = this.fileStore.readArchiveRaw(fileName);
+      const prior = existing ? splitWorkLog(existing) : { header: '', entries: [] };
+      const archivedIds = new Set(prior.entries.map((entry) => entry.id));
+      const fresh = moving.filter((entry) => !archivedIds.has(entry.id));
+      if (fresh.length === 0) continue;
+
+      const heading = `# ${archiveHeading(fileName)}`;
+      this.fileStore.writeArchiveRaw(
+        fileName,
+        joinWorkLog(prior.header || heading, [...prior.entries, ...fresh]),
+      );
+    }
+
+    this.fileStore.writeWorkLog(joinWorkLog(header, keep));
+    return [...byFile.keys()];
   }
 
   private findInMemory(taskId: string): { task: Task; stateName: string } | null {
@@ -272,12 +342,10 @@ export class TaskStore {
       return this.reorderTaskToIndex(taskId, targetIndex) ? found.task : null;
     }
 
-    // Remove from source
     const sourceTasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
     this.tasksByState.set(found.stateName, sourceTasks);
     this.fileStore.writeState(sourceState, sourceTasks);
 
-    // Add to target with updated timestamp
     found.task.updatedAt = currentTimestamp();
     const targetTasks = [...this.getTasksByState(targetStateName)].filter((t) => t.id !== taskId);
     if (targetIndex !== undefined) {
@@ -290,6 +358,8 @@ export class TaskStore {
     }
     this.tasksByState.set(targetStateName, targetTasks);
     this.fileStore.writeState(targetState, targetTasks);
+
+    if (targetStateName === 'Done') this.archiveCompleted();
 
     this.notifyListeners();
     return found.task;
@@ -324,12 +394,16 @@ export class TaskStore {
       return null;
     }
 
-    // Skip write/notify if no fields actually changed
     if (!TaskStore.hasChanges(found.task, updates)) {
       return found.task;
     }
 
-    const updatedTask: Task = { ...found.task, ...updates, id: taskId, updatedAt: currentTimestamp() };
+    const updatedTask: Task = {
+      ...found.task,
+      ...updates,
+      id: taskId,
+      updatedAt: currentTimestamp(),
+    };
     const tasks = this.getTasksByState(found.stateName).map((t) =>
       t.id === taskId ? updatedTask : t,
     );

@@ -15,7 +15,6 @@ export {
   ATTRIBUTION_TEXT,
 };
 
-/** True if synced TaskPlanner AI block is present (e.g. after Initialize AI Instructions). */
 export function contentHasTaskPlannerMarkers(content: string): boolean {
   return content.includes(MARKER_START);
 }
@@ -35,7 +34,6 @@ export function generateAiInstructions(config: TaskPlannerConfig): AiInstruction
   };
 }
 
-/** Default content for `.tasks/WORK_LOG.md` when initializing a new project. */
 export const DEFAULT_WORK_LOG_CONTENT = `# Work Log
 
 Top-level trace of completed work and key decisions. One entry per task moved to Done — newest at top. Keep entries short (3–5 lines); detailed steps stay in each task's \`### Plan\` in \`DONE.md\`.
@@ -117,6 +115,10 @@ ${stateList}
 
 Auxiliary file (optional rolling log, not a task state):
 - **Work Log** → \`WORK_LOG.md\`
+
+Completed work may be archived out of \`DONE.md\` into \`.tasks/archive/\` once a project sets
+\`archiveDoneAfterDays\`. Those files are plain markdown in the same format but are not board states —
+if a task is not in \`DONE.md\`, grep the archive before concluding it never existed.
 
 ## Task Format
 
@@ -221,10 +223,6 @@ Rules for new tasks:
 `;
 }
 
-/**
- * Insert or update the TaskPlanner section in an existing file content.
- * Uses marker comments to make the operation idempotent.
- */
 export function upsertMarkedSection(existingContent: string, section: string): string {
   const markedSection = `${MARKER_START}\n${section}\n${MARKER_END}`;
 
@@ -232,7 +230,6 @@ export function upsertMarkedSection(existingContent: string, section: string): s
   const endIdx = existingContent.indexOf(MARKER_END);
 
   if (startIdx !== -1 && endIdx !== -1) {
-    // Replace existing section
     return (
       existingContent.substring(0, startIdx) +
       markedSection +
@@ -240,13 +237,11 @@ export function upsertMarkedSection(existingContent: string, section: string): s
     );
   }
 
-  // Append to end
   const separator = existingContent.length > 0 && !existingContent.endsWith('\n') ? '\n' : '';
   const extraNewline = existingContent.length > 0 ? '\n' : '';
   return existingContent + separator + extraNewline + markedSection + '\n';
 }
 
-/** Add or refresh the voluntary README attribution without touching surrounding content. */
 export function upsertReadmeAttribution(existingContent: string): string {
   const markedSection = `${ATTRIBUTION_MARKER_START}\n${ATTRIBUTION_TEXT}\n${ATTRIBUTION_MARKER_END}`;
   const startIdx = existingContent.indexOf(ATTRIBUTION_MARKER_START);
@@ -265,20 +260,10 @@ export function upsertReadmeAttribution(existingContent: string): string {
   return existingContent + separator + extraNewline + markedSection + '\n';
 }
 
-/** Package that hosts resolve the MCP server from. */
 export const MCP_SERVER_PACKAGE = '@smekai/taskplanner';
 
-/** Filename hosts such as Claude Code read repository-level MCP servers from. */
 export const MCP_CONFIG_FILE = '.mcp.json';
 
-/**
- * Add or refresh only the `taskplanner` entry in an `.mcp.json`, leaving any other servers and
- * unknown fields untouched. Returns null when the file is present but not parseable, so a caller
- * can refuse rather than overwrite something it does not understand.
- *
- * The command carries no absolute path on purpose: `.mcp.json` is committed and shared across
- * machines, so anything install-specific would break for every other clone.
- */
 export function upsertMcpServerConfig(existingContent: string): string | null {
   let root: Record<string, unknown> = {};
   if (existingContent.trim().length > 0) {

@@ -6,7 +6,13 @@ import {
   maxTaskIdNumber,
 } from '../../core/parser/taskParser.js';
 import { serializeStateFile, serializeTask } from '../../core/parser/taskSerializer.js';
-import { isWaiting, currentDate } from '../../core/util/time.js';
+import {
+  isWaiting,
+  currentDate,
+  currentTimestamp,
+  parseTimestamp,
+  daysSince,
+} from '../../core/util/time.js';
 import { Priority } from '../../core/model/task.js';
 import type { Task } from '../../core/model/task.js';
 
@@ -417,7 +423,8 @@ this is orphaned
     expect(tasks).toHaveLength(2);
     expect(
       warnings.some(
-        (w) => w.message.includes('Invalid task heading') || w.message.includes('not part of any task'),
+        (w) =>
+          w.message.includes('Invalid task heading') || w.message.includes('not part of any task'),
       ),
     ).toBe(true);
   });
@@ -559,40 +566,91 @@ describe('Waiting until', () => {
 });
 
 describe('isWaiting', () => {
+  const AUG_27 = new Date('2026-08-27T00:00:00Z');
+
   it('is true only before the date arrives', () => {
-    expect(isWaiting('2026-09-03', '2026-08-27')).toBe(true);
-    expect(isWaiting('2026-09-03', '2026-09-03')).toBe(false);
-    expect(isWaiting('2026-09-03', '2026-09-04')).toBe(false);
+    expect(isWaiting('2026-09-03', AUG_27)).toBe(true);
+    expect(isWaiting('2026-09-03', new Date('2026-09-03T00:00:00Z'))).toBe(false);
+    expect(isWaiting('2026-09-03', new Date('2026-09-04T00:00:00Z'))).toBe(false);
   });
 
   it('treats absent or unparseable values as not waiting', () => {
     // A typo must not hide work forever.
-    expect(isWaiting(undefined, '2026-08-27')).toBe(false);
-    expect(isWaiting('next tuesday', '2026-08-27')).toBe(false);
-    expect(isWaiting('', '2026-08-27')).toBe(false);
+    expect(isWaiting(undefined, AUG_27)).toBe(false);
+    expect(isWaiting('next tuesday', AUG_27)).toBe(false);
+    expect(isWaiting('', AUG_27)).toBe(false);
   });
 
-  it('ignores a time suffix', () => {
-    expect(isWaiting('2026-09-03 10:00', '2026-08-27')).toBe(true);
+  it('accepts a time suffix but not text glued to the date', () => {
+    expect(isWaiting('2026-09-03 10:00', AUG_27)).toBe(true);
+    expect(isWaiting('2026-09-03xyz', AUG_27)).toBe(false);
   });
-});
 
-describe('isWaiting date validation', () => {
   it('rejects impossible calendar dates', () => {
     // A regexp alone accepts these, and a task would then be suppressed forever — the exact
     // failure this function promises not to cause.
-    expect(isWaiting('2026-99-99', '2026-08-27')).toBe(false);
-    expect(isWaiting('2026-02-31', '2026-08-27')).toBe(false);
-    expect(isWaiting('2026-13-01', '2026-08-27')).toBe(false);
+    expect(isWaiting('2026-99-99', AUG_27)).toBe(false);
+    expect(isWaiting('2026-02-31', AUG_27)).toBe(false);
+    expect(isWaiting('2026-13-01', AUG_27)).toBe(false);
+  });
+});
+
+describe('parseTimestamp', () => {
+  it('accepts the two forms the board writes', () => {
+    expect(parseTimestamp('2026-08-27')?.toISOString()).toBe('2026-08-27T00:00:00.000Z');
+    expect(parseTimestamp('2026-08-27 14:30')?.toISOString()).toBe('2026-08-27T14:30:00.000Z');
+    expect(parseTimestamp('  2026-08-27  ')?.toISOString()).toBe('2026-08-27T00:00:00.000Z');
   });
 
-  it('accepts a trailing time but not text glued to the date', () => {
-    expect(isWaiting('2026-09-03 10:00', '2026-08-27')).toBe(true);
-    expect(isWaiting('2026-09-03xyz', '2026-08-27')).toBe(false);
+  it('rejects dates that Date.UTC would silently roll over', () => {
+    expect(parseTimestamp('2026-02-31')).toBeNull();
+    expect(parseTimestamp('2026-13-01')).toBeNull();
+    expect(parseTimestamp('2026-99-99')).toBeNull();
   });
 
-  it('uses the local calendar day rather than UTC', () => {
-    const local = new Date(2026, 7, 27, 23, 30);
-    expect(currentDate(local)).toBe('2026-08-27');
+  it('rejects an out-of-range time instead of rolling it into the next hour', () => {
+    // Reported on PR #8: `12:99` used to come back as 13:39, so malformed metadata could
+    // silently change which archive bucket a task landed in.
+    expect(parseTimestamp('2026-08-27 12:99')).toBeNull();
+    expect(parseTimestamp('2026-08-27 25:00')).toBeNull();
+    expect(parseTimestamp('2026-08-27 23:59')?.toISOString()).toBe('2026-08-27T23:59:00.000Z');
+  });
+
+  it('rejects two-digit years that Date.UTC remaps into the 1900s', () => {
+    // Date.UTC(50, ...) is 1950, so `0050-01-01` would have parsed as a date 76 years off.
+    expect(parseTimestamp('0050-01-01')).toBeNull();
+    expect(parseTimestamp('0099-12-31')).toBeNull();
+    expect(parseTimestamp('0100-01-01')?.toISOString()).toBe('0100-01-01T00:00:00.000Z');
+  });
+
+  it('rejects anything that is not one of the two forms', () => {
+    expect(parseTimestamp(undefined)).toBeNull();
+    expect(parseTimestamp('')).toBeNull();
+    expect(parseTimestamp('27/08/2026')).toBeNull();
+    expect(parseTimestamp('2026-08-27T14:30:00.000Z')).toBeNull();
+  });
+});
+
+describe('currentDate and currentTimestamp', () => {
+  it('both format the same instant in UTC', () => {
+    // The bug this guards: currentTimestamp was UTC while currentDate was local, so the two
+    // disagreed about the day for anyone not on UTC.
+    const instant = new Date('2026-08-27T23:30:00Z');
+    expect(currentDate(instant)).toBe('2026-08-27');
+    expect(currentTimestamp(instant)).toBe('2026-08-27 23:30');
+  });
+});
+
+describe('daysSince', () => {
+  const NOW = new Date('2026-08-27T00:00:00Z');
+
+  it('measures whole and fractional days back', () => {
+    expect(daysSince('2026-08-20', NOW)).toBe(7);
+    expect(daysSince('2026-08-26 12:00', NOW)).toBe(0.5);
+  });
+
+  it('is null when there is no usable date', () => {
+    expect(daysSince(undefined, NOW)).toBeNull();
+    expect(daysSince('whenever', NOW)).toBeNull();
   });
 });

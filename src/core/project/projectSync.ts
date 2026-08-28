@@ -32,10 +32,6 @@ export interface ProjectSyncResult extends VersionSyncComparison {
   updatedFiles: string[];
 }
 
-/**
- * Return a stable x.y.z version. SemVer build metadata, including +codex cachebusters,
- * deliberately has no effect on project synchronization.
- */
 export function normalizeTaskPlannerVersion(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const match = /^(\d+)\.(\d+)\.(\d+)(?:\+[0-9A-Za-z.-]+)?$/.exec(value.trim());
@@ -66,10 +62,6 @@ export function compareTaskPlannerVersions(
   return { status: 'equal', installedVersion, storedVersion };
 }
 
-/**
- * Synchronize only TaskPlanner-owned marker blocks and safe config defaults.
- * The recorded version is persisted last so an interrupted sync retries next time.
- */
 export function synchronizeTaskPlannerProject(
   workspaceRoot: string,
   configManager: ConfigManager,
@@ -132,13 +124,6 @@ export function synchronizeTaskPlannerProject(
 
 export type McpConfigWriteResult = 'written' | 'unchanged' | 'unparseable';
 
-/**
- * Write the repository-level MCP config so hosts that read `.mcp.json` can reach the TaskPlanner
- * tools. Only the `taskplanner` server entry is touched; anything else in the file is preserved.
- *
- * Callers are expected to have the user's agreement first — this writes a file that tells an agent
- * what to execute, so it is never a silent side effect of Initialize.
- */
 export function writeMcpServerConfig(workspaceRoot: string): McpConfigWriteResult {
   const filePath = path.join(workspaceRoot, MCP_CONFIG_FILE);
   const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';

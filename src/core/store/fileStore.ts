@@ -6,8 +6,14 @@ import { TaskState } from '../model/state.js';
 import { TaskPlannerConfig } from '../model/config.js';
 import { ParseResult } from '../model/parseResult.js';
 import { parseTasks } from '../parser/taskParser.js';
-import { serializeStateFile } from '../parser/taskSerializer.js';
+import { serializeStateFile, serializeTask } from '../parser/taskSerializer.js';
 import { DEFAULT_WORK_LOG_CONTENT } from '../ai/aiInstructions.js';
+
+function writeFileAtomic(filePath: string, content: string): void {
+  const tempPath = `${filePath}.tmp`;
+  fs.writeFileSync(tempPath, content, 'utf-8');
+  fs.renameSync(tempPath, filePath);
+}
 
 export class FileStore {
   constructor(private tasksDir: string) {}
@@ -23,8 +29,7 @@ export class FileStore {
 
   writeState(state: TaskState, tasks: Task[]): void {
     const filePath = path.join(this.tasksDir, state.fileName);
-    const content = serializeStateFile(state.name, tasks);
-    fs.writeFileSync(filePath, content, 'utf-8');
+    writeFileAtomic(filePath, serializeStateFile(state.name, tasks));
   }
 
   readAllStates(config: TaskPlannerConfig): Map<string, ParseResult> {
@@ -101,5 +106,51 @@ export class FileStore {
       return '';
     }
     return fs.readFileSync(filePath, 'utf-8');
+  }
+  archiveDir(): string {
+    return path.join(this.tasksDir, 'archive');
+  }
+
+  listArchiveFiles(): string[] {
+    const dir = this.archiveDir();
+    if (!fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith('.md'))
+      .sort();
+  }
+
+  readArchiveRaw(fileName: string): string {
+    const filePath = path.join(this.archiveDir(), fileName);
+    return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  }
+
+  readWorkLog(): string {
+    const filePath = path.join(this.tasksDir, 'WORK_LOG.md');
+    return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  }
+
+  writeWorkLog(content: string): void {
+    writeFileAtomic(path.join(this.tasksDir, 'WORK_LOG.md'), content);
+  }
+
+  writeArchiveRaw(fileName: string, content: string): void {
+    const dir = this.archiveDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    writeFileAtomic(path.join(dir, fileName), content);
+  }
+
+  writeArchive(fileName: string, header: string, tasks: Task[]): void {
+    this.writeArchiveRaw(fileName, serializeStateFile(header, tasks));
+  }
+
+  appendArchive(fileName: string, header: string, tasks: Task[]): void {
+    const existing = this.readArchiveRaw(fileName);
+    if (!existing.trim()) {
+      this.writeArchive(fileName, header, tasks);
+      return;
+    }
+    const sections = tasks.map((task) => `${serializeTask(task)}\n\n---\n`).join('\n');
+    this.writeArchiveRaw(fileName, `${existing.replace(/\s+$/, '')}\n\n${sections}`);
   }
 }

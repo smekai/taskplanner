@@ -26,7 +26,6 @@ export type AiTool =
 const GLOBAL_ONBOARDING_KEY = 'taskplanner.aiProviderOnboarding';
 const CHAT_OPEN_COMMAND = 'workbench.action.chat.open';
 
-/** Best-effort Cursor-internal commands after Tier 1 (may not exist in all builds). */
 const CURSOR_PLAN_COMMANDS = ['composerMode.plan', 'cursor.composer.plan'];
 const CURSOR_SUBMIT_COMMANDS = ['workbench.action.chat.acceptInput', 'chat.action.acceptInput'];
 
@@ -108,7 +107,6 @@ export function registerImplementWithAiCommand(
   );
 }
 
-/** One-time prompt to pick default AI tool; safe to call when `.tasks` exists. */
 export function registerAiProviderOnboarding(
   context: vscode.ExtensionContext,
   isInitialized: boolean,
@@ -350,8 +348,6 @@ async function dispatchCursor(
   await copyToClipboard(prompt, 'Cursor chat commands not available.');
 }
 
-// TODO: Open prompt directly in Claude Code sidebar once supported.
-// https://github.com/anthropics/claude-code/issues/42000
 async function dispatchClaudeCode(prompt: string): Promise<void> {
   const uri = vscode.Uri.parse(
     `vscode://anthropic.claude-code/open?prompt=${encodeURIComponent(prompt)}`,

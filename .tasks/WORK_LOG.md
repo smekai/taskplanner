@@ -15,6 +15,45 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-058 — 2026-08-28
+**What:** Fixed the four PR #8 review findings, unified task and work-log archiving onto one
+year-based naming scheme, and made the no-comment rule a build gate.
+**Decisions:** Archive appends write to the raw file rather than reparsing it — the reviewer's
+alternative (refuse when parse warnings exist) would block on files a human legitimately hand-edited.
+Dedupe by task ID makes an interrupted run heal on retry, which is cheaper than a real two-file
+transaction and covers the reported failure. Kept the archive scan in `getMaxTaskIdNumber` against
+the review: it is the repair path for a stale `nextId`, so omitting archived IDs would make the
+repair reissue them.
+**Outcome:** 119 comments removed from 24 production files, zero remaining; `npm run lint` now fails
+on any new one. 194 tests, the four new ones mutation-checked.
+
+---
+
+## TASK-057 — 2026-08-27
+**What:** Cut the config decoder scaffolding and collapsed date handling to one parser and two
+formatters; wrote the "comments are a smell" rule into this repo's agent instructions.
+**Decisions:** Plain type guards over zod — 11 flat fields do not need a schema library, and it keeps
+zod out of the extension bundle. Native `Date` over moment (maintenance mode) or Day.js: standardizing
+on UTC removed the timezone arithmetic a date library exists to solve, leaving strict parsing as the
+only real win, which is six lines. The rule stays out of `aiInstructions.ts` so TaskPlanner does not
+impose a code style on its users.
+**Outcome:** Three files 509 → 380 lines, 90 → 14 comment lines, no dependency added, both bundles
+slightly smaller. `isWaiting` now takes a `Date` — a public API change, noted in the changelog.
+
+---
+
+## TASK-053 — 2026-08-27
+**What:** Completed tasks older than `archiveDoneAfterDays` move out of `DONE.md` into dated files
+under `.tasks/archive/`, keeping the board file bounded.
+**Decisions:** Off by default — an upgrade must not reshuffle a board nobody asked it to touch.
+Undated tasks are archived into their own bucket rather than given an invented date. Runs after a
+move into Done, not on activation: opening a project should not rewrite task files.
+**Outcome:** 174 tests. The real hazard was ID reuse — `getMaxTaskIdNumber` walked configured states
+only; it now scans the archive raw, and removing that scan fails the regression test. On this
+repository's real board: 1055 lines to 629, no ID reuse, second run a no-op.
+
+---
+
 ## TASK-052 — 2026-08-27
 **What:** Tasks can carry `**Waiting until:** YYYY-MM-DD`, and the tools mark work that cannot start
 yet so an agent following the workflow does not pick it.

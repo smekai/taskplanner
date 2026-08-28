@@ -4,11 +4,7 @@ import { TaskStore } from '../../../core/store/taskStore.js';
 import { ConfigManager } from '../../../core/config/configManager.js';
 import { TaskListSortBy } from '../../../core/filter/taskFilter.js';
 import { buildBoardViewModel } from '../../../core/view/boardViewModel.js';
-import {
-  TaskViewData,
-  StateViewData,
-  TaskViewItem,
-} from '../../../core/model/messages.js';
+import { TaskViewData, StateViewData, TaskViewItem } from '../../../core/model/messages.js';
 import { getWebviewHtml } from './webviewHelper.js';
 import { getSortBy, setSortBy } from '../../config/extensionConfig.js';
 
@@ -151,7 +147,6 @@ export class KanbanPanel {
       sortBy: this.sortBy,
     });
 
-    // Apply per-state "show all" (VS Code panel only — MCP App view uses defaults)
     if (this.showAllForState.size > 0) {
       const unlimitedData = buildBoardViewModel(this.taskStore, this.configManager, {
         searchQuery: this.searchQuery,
@@ -206,7 +201,6 @@ export class KanbanPanel {
   }
 
   private buildHtml(data: TaskViewData): string {
-    // Extract known states
     const stateMap = new Map(data.states.map((s) => [s.name, s]));
     const nextState = stateMap.get('Next');
     const backlogState = stateMap.get('Backlog');
@@ -214,8 +208,6 @@ export class KanbanPanel {
     const doneState = stateMap.get('Done');
     const rejectedState = stateMap.get('Rejected');
 
-    // Build columns: Backlog | Next+In Progress | Done+Rejected
-    // Any other custom states get their own columns
     const knownNames = new Set(['Next', 'Backlog', 'In Progress', 'Done', 'Rejected']);
     const customStates = data.states.filter((s) => !knownNames.has(s.name));
 
@@ -842,12 +834,7 @@ export class KanbanPanel {
     return html;
   }
 
-  /** Standard column (used for In Progress and custom states) */
-  private buildStandardColumn(
-    state: StateViewData,
-    columnKey: string,
-    title = state.name,
-  ): string {
+  private buildStandardColumn(state: StateViewData, columnKey: string, title = state.name): string {
     const cards = state.tasks.map((t) => this.buildCard(t)).join('\n');
     const showMore = state.hasMore
       ? `<div class="show-more" data-action="showAll" data-state-name="${state.name}">Showing ${state.tasks.length} of ${state.totalCount} — Show all</div>`
@@ -873,13 +860,11 @@ export class KanbanPanel {
     `;
   }
 
-  /** Active column: Next + In Progress merged */
   private buildActiveColumn(nextState?: StateViewData, inProgressState?: StateViewData): string {
     const nextCount = nextState?.totalCount ?? 0;
     const inProgressCount = inProgressState?.totalCount ?? 0;
     const totalActive = nextCount + inProgressCount;
 
-    // In Progress sub-zone (shown at top)
     let inProgressHtml = '';
     if (inProgressState) {
       const cards = inProgressState.tasks.map((t) => this.buildCard(t)).join('\n');
@@ -898,7 +883,6 @@ export class KanbanPanel {
         </div>`;
     }
 
-    // Next sub-zone
     let nextHtml = '';
     if (nextState) {
       const cards = nextState.tasks.map((t) => this.buildCard(t)).join('\n');
@@ -936,7 +920,6 @@ export class KanbanPanel {
     `;
   }
 
-  /** Completed column: Done + Rejected merged */
   private buildCompletedColumn(doneState?: StateViewData, rejectedState?: StateViewData): string {
     const doneCount = doneState?.totalCount ?? 0;
     const rejectedCount = rejectedState?.totalCount ?? 0;
@@ -946,7 +929,6 @@ export class KanbanPanel {
     let innerContent: string;
 
     if (isExpanded) {
-      // Show Done and Rejected as sub-zones with cards
       let doneHtml = '';
       if (doneState) {
         const cards = doneState.tasks.map((t) => this.buildCard(t)).join('\n');
@@ -978,7 +960,6 @@ export class KanbanPanel {
 
       innerContent = `${doneHtml}${rejectedHtml}`;
     } else {
-      // Collapsed: show drop zones and a button
       const showButton =
         totalCompleted > 0
           ? `<button class="show-collapsed-btn" data-action="showCompleted">Show ${totalCompleted} completed tasks</button>`

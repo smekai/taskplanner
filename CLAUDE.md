@@ -64,6 +64,38 @@ Every commit must include a patch version bump. The pre-commit hook runs `script
 - **Regex-based parsing** — no YAML dependency, the format is simple enough.
 - **Single file per state** — scales well for typical project task counts.
 - **Config in `.tasks/config.json`** — stores operational metadata (next ID, settings).
+- **Dates are UTC** — every board date is parsed and formatted through `src/core/util/time.ts`.
+  Nothing else parses or formats a date; there are two forms, `YYYY-MM-DD` and `YYYY-MM-DD HH:MM`.
+
+## Code Style
+
+ESLint and Prettier cover the mechanical part — run `npm run lint` and `npm run format` before a PR.
+
+**This is enforced.** `npm run lint` runs `scripts/check-comments.js`, which fails on any comment
+in `src/` outside `src/test/`. Machine directives (`eslint-disable`, `@ts-expect-error`,
+`prettier-ignore`) are exempt. For the genuinely non-obvious case, prefix the comment with `WHY:`
+and give the reason — the check counts those and lets them through.
+
+Beyond that: **a comment is a signal that the code is not clear enough yet.** Before writing one,
+try to make it unnecessary — name the function after the comment, extract the condition into a named
+predicate, split the branch out. Names and types stay true as the code changes; comments drift.
+
+Do not write:
+
+- Comments that restate the code (`// increment nextId`).
+- Doc blocks on every exported symbol. A precise name and type already say it.
+- Section banners, decorative dividers, or step-by-step narration of a function body.
+- Rationale that belongs in the commit message, `CHANGELOG.md`, or a task's `### Plan`.
+
+Do write, sparingly:
+
+- A one-line note where the code must stay non-obvious: a workaround for an external bug, a
+  deliberate deviation from an API contract, or an output format that must match byte-for-byte.
+
+Comments belong in tests. A test name plus a short note explains the failure a case guards against
+far better than a comment sitting beside the code it guards.
+
+If you find yourself explaining a function in prose, that is the signal to rewrite the function.
 
 <!-- TASKPLANNER:START -->
 # TaskPlanner — AI Agent Instructions
@@ -82,6 +114,10 @@ Each state has its own file:
 
 Auxiliary file (optional rolling log, not a task state):
 - **Work Log** → `WORK_LOG.md`
+
+Completed work may be archived out of `DONE.md` into `.tasks/archive/` once a project sets
+`archiveDoneAfterDays`. Those files are plain markdown in the same format but are not board states —
+if a task is not in `DONE.md`, grep the archive before concluding it never existed.
 
 ## Task Format
 

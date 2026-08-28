@@ -8,10 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Completed tasks can be archived out of DONE.md. Set **archiveDoneAfterDays** in .tasks/config.json and anything older moves into dated files under .tasks/archive/, so the board file stays a working document instead of growing without limit. Archiving is off until you set it, archived files stay plain markdown you can grep, and task IDs are never reissued for archived work. Run it on demand from the Setup menu. WORK_LOG.md is archived on the same schedule, since it grows one entry per completed task and had no story of its own (TASK-053).
 - Tasks can declare **Waiting until: YYYY-MM-DD** for work blocked on something outside the repository — an external quota, a third-party release. The MCP tools mark such tasks and the generated instructions tell agents to skip them whatever their priority, so a compliant agent no longer picks up a P0 it cannot start. Set it through `taskplanner_create` or `taskplanner_update` (TASK-052).
 - This repository now ships a `.mcp.json`, so agents working on TaskPlanner itself use the TaskPlanner tools rather than hand-editing the task board (TASK-056).
 
+### Changed
+
+- Completed tasks and work-log entries archive into **one file per year** — `DONE-2026.md`, `WORK_LOG-2026.md` — instead of half-year buckets. Both kinds of archive now derive their file name and heading from the same place (TASK-058).
+
+- **Waiting until** dates are now compared in UTC, matching the **Updated** stamps written into the same files. Previously the two used different calendars, so near midnight a task could be judged startable on one day and not the other depending on the contributor's timezone (TASK-057).
+- A **Waiting until** value with text after the date, such as `2026-09-03 soon`, is no longer accepted. Only `YYYY-MM-DD` and `YYYY-MM-DD HH:MM` parse; anything else leaves the task visible rather than hiding it on a value nobody can read (TASK-057).
+- Work-log entries whose heading carries an impossible date archive into `WORK_LOG-undated.md`, the same way undated tasks go to `DONE-undated.md` (TASK-057).
+- **Library API:** `isWaiting`'s second argument is now a `Date` rather than a `YYYY-MM-DD` string, and `parseTimestamp` and `daysSince` are exported from `@smekai/taskplanner`. Date handling is one parser and two formatters; every function takes a `Date` and strings appear only at the boundaries (TASK-057).
+
 ### Fixed
+
+- Archiving no longer rewrites an archive file it could not fully parse. A file holding a malformed heading or hand-written prose kept only the newly archived task; new sections are now appended to the raw text, so anything already in the file survives (TASK-058).
+- An interrupted archive run no longer duplicates work. The archive is written before DONE.md, so a failure in between left a task in both; appends now skip task IDs already in the target file, and every board write goes through a temp file and rename (TASK-058).
+- `**Updated:** 2026-08-27 12:99` no longer parses as 13:39, and years `0000`–`0099` no longer land 1900 years off. A timestamp must survive a full round-trip — year, month, day, hour and minute — or it is treated as absent (TASK-058).
 
 - A malformed `.tasks/config.json` no longer breaks TaskPlanner. States given in the wrong shape are repaired from the defaults where the name is recognised, unparseable JSON falls back to defaults, and loading reports what it had to ignore instead of throwing — previously a `states` list of plain strings crashed on `path.join`, which took down MCP tool calls as well as the views. Problems are written to the **TaskPlanner** output channel with a warning, so defaults are never applied silently (TASK-036).
 

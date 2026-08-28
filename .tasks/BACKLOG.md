@@ -1,26 +1,36 @@
 # Backlog
 
-## TASK-053: No archiving story for DONE.md
-**Priority:** P3 | **Tags:** core, feature | **Epic:** 2.2.x
-**Updated:** 2026-08-27 11:12
+## TASK-059: Move date handling to Luxon
+**Priority:** P2 | **Tags:** core, refactor
+**Updated:** 2026-08-28 07:52
 
-`DONE.md` is the historical record, so agents grep it and load parts of it constantly, and it only
-grows. There is no supported way to archive completed work — per milestone, per release, or by age
-— while keeping it findable.
+**Prerequisite for TASK-021** (task date tracking and statistics). Do this first: TASK-021 needs calendar arithmetic — period boundaries, "last N weeks/months" — and that is where a date library earns its place. Landing it before TASK-021 avoids writing that arithmetic by hand and then migrating it.
 
-**Observed (isotopy, 2026-08-17, 2.1.4):** `.tasks/DONE.md` is 3,831 lines. For scale, this
-repository's own `DONE.md` is 629 lines, so the pain arrives well before a project feels large.
+`src/core/util/time.ts` is 37 hand-written lines: one regex, a five-component round-trip check, two formatters, `isWaiting` and `daysSince`. It is correct and covered by mutation-checked tests, but PR #8 review found two bugs in that round-trip (`12:99` parsed as 13:39; years `0000`–`0099` remapped into the 1900s), which is the class of mistake a library does not make.
 
-**Verified against current code (2.1.14):** no archive command, tool, or setting.
-`src/core/store/taskStore.ts:14` already defers full parsing of large states, with a comment
-referring to "large archives" — the read path anticipates this, the write path has no answer.
+### Why Luxon, measured 2026-08-28
 
-**Lowest priority of the six.** Annoying, not yet painful; filed so it is not rediscovered from
-scratch later.
+All four candidates reject `12:99`, `2026-02-31` and `2026-09-03 soon`, so any of them fixes that class. The separator is UTC:
 
-**Done looks like:** completed tasks can move out of `DONE.md` into a dated or milestone-scoped
-archive that stays greppable and parseable, without breaking ID uniqueness or the deferred-load
-behaviour, plus a decision on whether archived tasks remain visible in any view.
+| library | UTC out of the box | minified | gzipped | status |
+| --- | --- | --- | --- | --- |
+| **Luxon** | **yes** | 71 KB | 22 KB | maintained, by a moment maintainer |
+| moment | yes | 61 KB | 20 KB | **maintenance mode, not for new projects** |
+| dayjs | **no** — silently local | 13 KB | 5.5 KB | maintained |
+| date-fns | **no** — silently local | 150 KB | 31 KB | maintained |
+
+`dayjs.utc(v, formats, true)` and `date-fns` `parse()` return local time even with the utc plugin: `2026-08-27` came back as `2026-08-26T21:00Z` on a UTC+3 machine. That silently reintroduces the local/UTC split TASK-057 removed, and it would affect every date rather than only malformed ones — so the two smallest options are disqualified on correctness, not size.
+
+moment is excluded because its own maintainers declare it a legacy project in maintenance mode.
+
+### Scope
+
+- Replace the body of `parseTimestamp` with `DateTime.fromFormat(value, format, { zone: 'utc' })` over the two accepted formats. This is the only seam; every other function already routes through it.
+- Keep the public signatures — `parseTimestamp`, `currentTimestamp`, `currentDate`, `isWaiting`, `daysSince` are exported from `src/core/index.ts` and are public API of `@smekai/taskplanner`.
+- Luxon becomes a real dependency bundled by esbuild into the extension and the npm library; check `dist/extension.js` growth is acceptable (~22 KB gzipped) before committing.
+- The existing tests in `src/test/core/parser.test.ts` are the acceptance criteria — they must pass unchanged, including the two-digit-year and out-of-range-time cases. Note one deliberate difference: Luxon parses `0050-01-01` as year 50, while the current code rejects it. Decide whether to keep rejecting it or accept the more correct behaviour, and record the choice.
+
+Do not take this on for its own sake — if TASK-021 is dropped, the hand-written version is correct and tested, and this stays worth doing only for the maintenance argument.
 
 ---
 
@@ -59,7 +69,9 @@ behaviour, plus a decision on whether archived tasks remain visible in any view.
 
 ## TASK-021: Task date tracking and statistics
 **Priority:** P3 | **Tags:** feature, core
-**Updated:** 2026-07-27 13:35
+**Updated:** 2026-08-28 07:52
+
+**Blocked on TASK-059** (move date handling to Luxon). Do that first — the statistics here need calendar arithmetic (period boundaries, "last N weeks/months"), which is exactly what the current hand-written `src/core/util/time.ts` does not cover and what a date library exists for. Starting here first means writing that arithmetic by hand and migrating it afterwards.
 
 **Validation (2026-07-27):** Partially addressed — statistics not done; date tracking is incomplete.
 
@@ -74,6 +86,6 @@ behaviour, plus a decision on whether archived tasks remain visible in any view.
 - `createdAt` and `finishedAt` (or equivalent) fields and markdown metadata.
 - Statistics UI or reports (cycle time, throughput, performance metrics).
 
-**Scope (revised):** Add created/finished dates with parser/serializer support; build statistics view or export on top of the date fields. Do not re-implement `updatedAt` or group-by-date.
+**Scope (revised):** Add created/finished dates with parser/serializer support; build statistics view or export on top of the date fields. Do not re-implement `updatedAt` or group-by-date. All new date parsing and formatting goes through `src/core/util/time.ts` — the board is UTC everywhere and nothing else parses or formats a date.
 
 ---

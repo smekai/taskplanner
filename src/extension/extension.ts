@@ -41,7 +41,6 @@ export async function activate(context: vscode.ExtensionContext) {
   const taskPlannerLog = vscode.window.createOutputChannel('TaskPlanner');
   context.subscriptions.push(taskPlannerLog);
 
-  // Load config and tasks if .tasks/ exists
   const isInitialized = fs.existsSync(tasksDir);
   vscode.commands.executeCommand('setContext', 'taskplanner:initialized', isInitialized);
 
@@ -74,7 +73,6 @@ export async function activate(context: vscode.ExtensionContext) {
     scheduleAiInstructionSyncPrompt(context, workspaceFolder.uri.fsPath, tasksDir);
   }
 
-  // Sidebar webview view
   const taskListProvider = new TaskListViewProvider(taskStore, configManager, () =>
     fs.existsSync(tasksDir),
   );
@@ -95,7 +93,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Commands
   registerInitCommand(context, configManager, fileStore, taskStore, installedVersion);
   registerInitAiCommand(context, configManager, installedVersion);
   registerSetupCommand(
@@ -104,6 +101,7 @@ export async function activate(context: vscode.ExtensionContext) {
     configManager,
     workspaceFolder.uri.fsPath,
     installedVersion,
+    taskStore,
   );
   registerCreateTaskCommand(context, taskStore, configManager);
   registerMoveTaskCommand(context, taskStore, configManager);
@@ -112,7 +110,6 @@ export async function activate(context: vscode.ExtensionContext) {
   registerImplementWithAiCommand(context, taskStore, configManager);
   registerAiProviderOnboarding(context, isInitialized);
 
-  // Refresh command
   context.subscriptions.push(
     vscode.commands.registerCommand('taskplanner.refresh', async () => {
       configManager.load();
@@ -120,7 +117,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Webview panel commands
   context.subscriptions.push(
     vscode.commands.registerCommand('taskplanner.openTaskList', () => {
       vscode.commands.executeCommand('taskplanner.taskView.focus');
@@ -144,7 +140,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(viewProviderDisposable, watcher);
 
-  // Register bundled Cursor plugin (no-op in plain VS Code)
   try {
     const pluginDir = path.join(context.extensionPath, 'plugins', 'taskplanner');
     if (fs.existsSync(pluginDir)) {
@@ -160,14 +155,7 @@ export function deactivate() {
   // Cleanup handled by disposables
 }
 
-/**
- * Surface config.json problems. Loading degrades to a usable board rather than throwing, so without
- * this the user would silently run on defaults and never learn their settings were ignored.
- */
-function reportConfigDiagnostics(
-  configManager: ConfigManager,
-  log: vscode.OutputChannel,
-): void {
+function reportConfigDiagnostics(configManager: ConfigManager, log: vscode.OutputChannel): void {
   const diagnostics = configManager.getDiagnostics();
   if (diagnostics.length === 0) return;
 

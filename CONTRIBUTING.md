@@ -170,7 +170,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 3,
-  "taskplannerVersion": "2.2.5",
+  "taskplannerVersion": "2.2.10",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
@@ -206,6 +206,25 @@ Project configuration lives in `.tasks/config.json`:
 ## Code Style
 
 The project uses ESLint and Prettier. Run `npm run lint` and `npm run format` before submitting a PR.
+
+Beyond the mechanical part: **a comment is a signal that the code is not clear enough yet.** Before
+writing one, try to make it unnecessary — name the function after the comment, extract the condition
+into a named predicate, split the branch out. Names and types stay true as the code changes;
+comments drift away from what the code does.
+
+Avoid comments that restate the code, doc blocks on every exported symbol, section banners, and
+rationale that belongs in the commit message, `CHANGELOG.md`, or a task's `### Plan`. Keep the
+occasional one-line note where the code must stay non-obvious — a workaround for an external bug, a
+deliberate deviation from an API contract, an output format that must match byte-for-byte.
+
+Comments are welcome in tests, where a name plus a short note explains the failure a case guards
+against better than a comment beside the code it guards.
+
+This is enforced, not merely advised: `npm run lint` runs `scripts/check-comments.js`, which fails
+the build on any comment in `src/` outside `src/test/`. Machine directives (`eslint-disable`,
+`@ts-expect-error`, `prettier-ignore`) are exempt. When a comment really is the right answer,
+prefix it with `WHY:` and state the reason; the check reports how many such comments exist, so the
+exceptions stay countable and reviewable.
 
 ## Pull Requests
 

@@ -15,7 +15,6 @@ export interface Task {
   epic?: string;
   assignee?: string;
   updatedAt?: string;
-  /** ISO date (YYYY-MM-DD) before which the task cannot be started. */
   waitingUntil?: string;
   plan?: string;
 }

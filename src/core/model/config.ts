@@ -11,11 +11,8 @@ export interface TaskPlannerConfig {
   insertPosition: 'top' | 'bottom';
   aiPlanRequired: boolean;
   readmeAttribution: boolean;
-  /**
-   * Whether the user has been asked about a repository-level MCP config. Undefined means "not asked
-   * yet", so Initialize prompts once and never again.
-   */
   mcpConfig?: 'written' | 'declined';
+  archiveDoneAfterDays?: number;
 }
 
 export function createDefaultConfig(): TaskPlannerConfig {
