@@ -4,7 +4,7 @@ All notable changes to the **Task → Plan → AI** extension will be documented
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [2.3.0] - 2026-08-28
 
 ### Added
 
