@@ -1,5 +1,41 @@
 # Done
 
+## TASK-060: A CRLF board parses as an empty one, and a read rewrites config.json
+**Priority:** P0 | **Tags:** core, mcp
+**Updated:** 2026-09-11 07:12
+
+Two defects found by Isotopy's `TASK-162`, which makes the MCP server the agent's authoritative board reader. Both were reproduced against 2.3.0 over stdio.
+
+### 1. A CRLF board parses as empty, and the failure is not distinguishable
+
+`parseTasks` does `content.split('\n')`, so on a CRLF file every line keeps a trailing carriage return. `TASK_HEADING_RE` is anchored with `$` and uses `.`, and in JavaScript `.` excludes a carriage return while `$` (no `m` flag) does not forgive one — so the heading never matches. The line then falls through to the `/^##\s/` branch and is reported as *"Invalid task heading"*.
+
+Measured: the same `BACKLOG.md` returns `1 task(s) found` as LF and `No tasks found matching the criteria.` as CRLF. **A CRLF board reads exactly like an empty board**, which is why nothing downstream notices.
+
+The unanchored metadata regexes (`TAGS_RE`, `EPIC_RE`, `ASSIGNEE_RE`, `UPDATED_RE`, `WAITING_UNTIL_RE`) capture without `$`, so where a task *does* parse they take a trailing carriage return into the value — a second, quieter corruption of the same cause.
+
+Git for Windows defaults to `core.autocrlf=true`, so this is the default checkout on Windows. It went unnoticed because this repository and Isotopy's both set `autocrlf=false`.
+
+**Fix:** split on `/\r?\n/` at every site in `taskParser.ts` — one boundary fixes the heading anchor and the trailing-carriage-return values together.
+
+### 2. A read tool rewrites the user's `config.json`
+
+`ConfigManager.load()` calls `migrateConfig()`, which calls `save()` whenever any migration step applies. Every MCP tool goes through `freshStore()` and `configManager.load()`, so **`taskplanner_list` writes to disk**.
+
+Measured against a config with no `version` and no `Rejected` state: one list call added a `Rejected` state, added `order` to every state, and injected `version`, `taskplannerVersion`, `priorities`, `tags`, `aiPlanRequired` and `readmeAttribution`. A host that validates its own board config strictly then rejects what the read produced.
+
+Migration on load is deliberate for the extension and has a test pinning it (`configManager.test.ts` asserts the on-disk version after `load()`). The defect is that the MCP server inherits it: **a read tool must not write.**
+
+**Fix:** `load()` takes an explicit opt-out of persisting the migration; the extension keeps today's behaviour, the MCP server passes it. The migrated shape still reaches disk on the next write, which is where a write belongs.
+
+### Evidence
+
+Failing-first, one behaviour per test: a CRLF board parses to the same tasks as the LF one; a task's tags and assignee carry no trailing carriage return; and an MCP read leaves `config.json` byte-identical while a write still persists the migration.
+
+Cross-platform: the parser fix is what makes a Windows checkout readable at all; both endings are covered by the same specs. Tested on Windows.
+
+---
+
 ## TASK-058: Address PR 8 review and enforce the no-comment rule
 **Priority:** P1 | **Tags:** core, refactor, testing
 **Updated:** 2026-08-28 07:35

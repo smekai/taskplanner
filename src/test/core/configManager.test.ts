@@ -63,6 +63,63 @@ describe('ConfigManager', () => {
     expect(onDisk.version).toBe(3);
   });
 
+  // The MCP server runs every tool through load(), so migrating-and-saving there
+  // means a *read* tool rewrites the caller's board. A host that validates its own
+  // config strictly then rejects what the read produced.
+  describe('a load that may not write', () => {
+    const UNMIGRATED = {
+      idPrefix: 'TASK',
+      nextId: 1,
+      states: [
+        { name: 'Backlog', fileName: 'BACKLOG.md' },
+        { name: 'Done', fileName: 'DONE.md' },
+      ],
+      insertPosition: 'top',
+    };
+    const writeUnmigrated = () =>
+      fs.writeFileSync(
+        path.join(tmpDir, 'config.json'),
+        JSON.stringify(UNMIGRATED, null, 2) + '\n',
+      );
+
+    it('leaves config.json byte-identical when migration may not be persisted', () => {
+      writeUnmigrated();
+      const before = fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8');
+
+      configManager.load({ persistMigration: false });
+
+      expect(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8')).toBe(before);
+    });
+
+    it('still migrates in memory, so the caller reads a usable board', () => {
+      writeUnmigrated();
+
+      const config = configManager.load({ persistMigration: false });
+
+      expect(config.version).toBe(3);
+      expect(config.states.some((state) => state.name === 'Rejected')).toBe(true);
+    });
+
+    it('persists the migration on the next write, which is where a write belongs', () => {
+      writeUnmigrated();
+      configManager.load({ persistMigration: false });
+
+      configManager.save();
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.version).toBe(3);
+    });
+
+    it('persists by default, because the extension migrates a project when it opens it', () => {
+      writeUnmigrated();
+
+      configManager.load();
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.version).toBe(3);
+    });
+  });
+
   it('never downgrades a config written by a newer TaskPlanner', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'config.json'),
