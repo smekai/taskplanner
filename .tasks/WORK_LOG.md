@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-061 — 2026-09-11
+**What:** Allocate from persisted nextId without routine board/archive scans; MCP creation loads only its destination.
+**Decisions:** Raise the counter from already observed IDs on writes; manual additions must advance nextId.
+**Outcome:** 209 tests and full release:check passed on Windows; version 2.3.2.
+
+---
+
 ## TASK-060 — 2026-09-11
 **What:** Fixed two defects Isotopy hit when it made the MCP server an agent's authoritative board
 reader: a CRLF board parsed to zero tasks, and any read tool rewrote the caller's `config.json`.
