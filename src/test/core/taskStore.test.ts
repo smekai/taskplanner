@@ -331,6 +331,23 @@ describe('TaskStore', () => {
     expect(task.id).toBe('TASK-200');
   });
 
+  it('does not re-read config.json on writes when it has not changed on disk', () => {
+    taskStore.createTask(
+      { title: 'First', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+    const load = vi.spyOn(configManager, 'load');
+
+    taskStore.createTask(
+      { title: 'Second', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+    taskStore.moveTask('TASK-001', 'Next');
+    taskStore.updateTask('TASK-002', { title: 'Renamed' });
+
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it('does not rewrite config on a move when the counter and schema already agree', () => {
     taskStore.createTask(
       { title: 'Existing', priority: Priority.P1, tags: [], description: '' },

@@ -316,7 +316,9 @@ export class TaskStore {
 
   private prepareWrite(): void {
     const previous = this.config;
-    this.configManager.load();
+    if (this.configManager.hasExternalChange()) {
+      this.configManager.load({ persistMigration: false });
+    }
     const floor = Math.max(
       previous.idPrefix === this.config.idPrefix ? previous.nextId : 1,
       this.observedNextIds.get(this.config.idPrefix) ?? 1,
