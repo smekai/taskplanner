@@ -143,13 +143,16 @@ describe('TaskStore.archiveCompleted', () => {
   });
 
   it('never reissues an archived task ID', () => {
-    // The hazard this whole task carries: getMaxTaskIdNumber walks configured states only, so
-    // without scanning the archive, nextId would forget archived tasks and hand out their IDs.
+    // Persist the observed ID floor before removing completed tasks from the live board.
     setup(90);
     writeDone(`# Done\n\n${done('T-001', '2026-01-15')}\n${done('T-002', '2026-01-16')}`);
     store.archiveCompleted(NOW);
 
     expect(fs.readFileSync(path.join(tmpDir, 'DONE.md'), 'utf-8')).not.toContain('T-00');
+    const freshConfig = new ConfigManager(tmpDir);
+    freshConfig.load({ persistMigration: false });
+    store = new TaskStore(freshConfig, fileStore);
+    store.reloadState('Backlog');
 
     const created = store.createTask(
       { title: 'New work', description: '', priority: Priority.P2, tags: [] },

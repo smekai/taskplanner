@@ -80,7 +80,10 @@ async function findTasksDir(explicitRoot?: string): Promise<string> {
   );
 }
 
-async function freshStore(explicitRoot?: string): Promise<{
+async function freshStore(
+  explicitRoot?: string,
+  targetState?: string,
+): Promise<{
   taskStore: TaskStore;
   configManager: ConfigManager;
   workspaceRoot: string;
@@ -93,7 +96,14 @@ async function freshStore(explicitRoot?: string): Promise<{
   }
   const fileStore = new FileStore(tasksDir);
   const taskStore = new TaskStore(configManager, fileStore);
-  taskStore.reload();
+  if (targetState === undefined) {
+    taskStore.reload();
+  } else {
+    const state = configManager
+      .get()
+      .states.find((candidate) => candidate.name.toLowerCase() === targetState.toLowerCase());
+    if (state) taskStore.reloadState(state.name);
+  }
   return { taskStore, configManager, workspaceRoot: path.dirname(tasksDir) };
 }
 
@@ -155,7 +165,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.3.1',
+  version: '2.3.3',
 });
 
 server.registerTool(
@@ -344,8 +354,8 @@ server.registerTool(
     waiting_until,
     state: targetState,
   }) => {
-    const { taskStore, configManager } = await freshStore(workspace_root);
     const stateName = targetState || 'Backlog';
+    const { taskStore, configManager } = await freshStore(workspace_root, stateName);
     const validState = configManager
       .get()
       .states.find((s) => s.name.toLowerCase() === stateName.toLowerCase());

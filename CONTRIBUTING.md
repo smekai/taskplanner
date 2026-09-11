@@ -170,7 +170,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 3,
-  "taskplannerVersion": "2.3.1",
+  "taskplannerVersion": "2.3.3",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
@@ -193,11 +193,20 @@ Project configuration lives in `.tasks/config.json`:
 | `version` | Task-file schema version; independent from the installed application version |
 | `taskplannerVersion` | Installed TaskPlanner version that last completed managed-project synchronization |
 | `idPrefix` | Prefix for task IDs (e.g. `TASK` → `TASK-001`) |
+| `nextId` | Persistent next ID; advance it when manually adding tasks or merging task files |
 | `states` | Task board columns with file mappings |
 | `priorities` | Available priority levels |
 | `insertPosition` | Where new tasks are added: `top` or `bottom`. Beyond the insertion point, order within a file carries no meaning |
 | `aiPlanRequired` | Whether AI agents must write a `### Plan` before coding |
 | `readmeAttribution` | Whether future managed updates may add the voluntary attribution block to an existing root README |
+
+Task creation uses the saved counter and reads only its destination state through MCP.
+Before a write, TaskPlanner compares the latest config with the counter and task IDs already
+observed in memory. It raises a lagging counter without scanning other states or archives;
+migrations persist on writes, while read-only MCP calls leave config unchanged. Startup no
+longer scans the archive to repair IDs. Loading the board for display still reads its state files.
+When editing task files manually, keep `nextId` above every allocated ID: an unchanged counter
+cannot reveal tasks inserted into files that have not been read.
 
 ## Testing
 

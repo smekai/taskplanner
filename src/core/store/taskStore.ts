@@ -29,6 +29,7 @@ export function isDeferredStateName(stateName: string): boolean {
 
 export class TaskStore {
   private tasksByState: Map<string, Task[]> = new Map();
+  private observedNextIds = new Map<string, number>();
   private parseWarningsByFile: Map<string, ParseWarning[]> = new Map();
   private deferredUnloadedStates: Set<string> = new Set();
   private deferredSectionCounts: Map<string, number> = new Map();
@@ -69,6 +70,7 @@ export class TaskStore {
     state: TaskState,
     pr: { tasks: Task[]; warnings: ParseWarning[] },
   ): void {
+    this.observeTaskIds(pr.tasks);
     this.tasksByState.set(state.name, pr.tasks);
     if (pr.warnings.length > 0) {
       this.parseWarningsByFile.set(state.fileName, pr.warnings);
@@ -105,6 +107,7 @@ export class TaskStore {
       return;
     }
     const pr = this.fileStore.readState(state);
+    this.observeTaskIds(pr.tasks);
     this.tasksByState.set(stateName, pr.tasks);
     this.deferredUnloadedStates.delete(stateName);
     this.deferredSectionCounts.set(stateName, pr.tasks.length);
@@ -212,6 +215,7 @@ export class TaskStore {
     this.ensureStateLoaded(doneState.name);
     const { keep, byFile } = planArchive(this.getTasksByState(doneState.name), afterDays, now);
 
+    if (byFile.size > 0) this.prepareWrite();
     let archived = 0;
     for (const [fileName, moving] of byFile) {
       const alreadyArchived = taskIdsIn(this.fileStore.readArchiveRaw(fileName));
@@ -300,6 +304,28 @@ export class TaskStore {
     return null;
   }
 
+  private observeTaskIds(tasks: Task[]): void {
+    for (const task of tasks) {
+      const parsed = this.idGenerator.parseId(task.id);
+      if (parsed) {
+        const previous = this.observedNextIds.get(parsed.prefix) ?? 1;
+        this.observedNextIds.set(parsed.prefix, Math.max(previous, parsed.number + 1));
+      }
+    }
+  }
+
+  private prepareWrite(): void {
+    const previous = this.config;
+    if (this.configManager.hasExternalChange()) {
+      this.configManager.load({ persistMigration: false });
+    }
+    const floor = Math.max(
+      previous.idPrefix === this.config.idPrefix ? previous.nextId : 1,
+      this.observedNextIds.get(this.config.idPrefix) ?? 1,
+    );
+    this.configManager.reconcileNextId(floor);
+  }
+
   createTask(task: Omit<Task, 'id'>, stateName: string): Task {
     const state = this.findState(stateName);
     if (!state) {
@@ -307,8 +333,7 @@ export class TaskStore {
     }
     this.ensureStateLoaded(stateName);
 
-    this.configManager.reloadFromDisk();
-    this.configManager.reconcileNextId(this.getMaxTaskIdNumber() + 1);
+    this.prepareWrite();
     const id = this.idGenerator.next();
     const newTask: Task = { ...task, id, updatedAt: currentTimestamp() };
 
@@ -342,6 +367,7 @@ export class TaskStore {
       return this.reorderTaskToIndex(taskId, targetIndex) ? found.task : null;
     }
 
+    this.prepareWrite();
     const sourceTasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
     this.tasksByState.set(found.stateName, sourceTasks);
     this.fileStore.writeState(sourceState, sourceTasks);
@@ -376,6 +402,7 @@ export class TaskStore {
       return false;
     }
 
+    this.prepareWrite();
     const tasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
     this.tasksByState.set(found.stateName, tasks);
     this.fileStore.writeState(state, tasks);
@@ -398,6 +425,7 @@ export class TaskStore {
       return found.task;
     }
 
+    this.prepareWrite();
     const updatedTask: Task = {
       ...found.task,
       ...updates,
@@ -450,6 +478,7 @@ export class TaskStore {
       return true;
     }
 
+    this.prepareWrite();
     const [item] = tasks.splice(from, 1);
     tasks.splice(to, 0, item);
     this.tasksByState.set(found.stateName, tasks);
@@ -480,6 +509,7 @@ export class TaskStore {
       return false;
     }
 
+    this.prepareWrite();
     [tasks[index], tasks[newIndex]] = [tasks[newIndex], tasks[index]];
     this.tasksByState.set(found.stateName, tasks);
     this.fileStore.writeState(state, tasks);
@@ -515,6 +545,7 @@ export class TaskStore {
       }
     }
 
+    if (resolutions.length > 0) this.prepareWrite();
     let removedCount = 0;
     const removalsByState = new Map<string, Set<number>>();
 

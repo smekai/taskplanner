@@ -68,7 +68,6 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showWarningMessage(message);
     }
     await taskStore.reloadAsync();
-    configManager.reconcileNextId(taskStore.getMaxTaskIdNumber() + 1);
     void checkAndPromptDuplicateConflicts(taskStore, configManager);
     scheduleAiInstructionSyncPrompt(context, workspaceFolder.uri.fsPath, tasksDir);
   }

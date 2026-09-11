@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Preserve task ID counters across migrated-state moves and allocate new IDs without routine board/archive scans; MCP creation loads only its destination state (TASK-061).
+
 - A board checked out with **CRLF line endings** is read correctly instead of coming back empty. Git for Windows converts line endings by default, and every task heading in such a file failed to match — so the board parsed to zero tasks with "Invalid task heading" warnings nobody surfaced, which is indistinguishable from a board that genuinely has no tasks. Where a task did parse, its title, tags, epic and assignee also kept a trailing carriage return. Affects the extension, the MCP tools and the library equally (TASK-060).
 - **A read no longer rewrites your `config.json`.** Every MCP tool loaded the config through the same path the extension uses, which migrates and saves — so `taskplanner_list` added a Rejected state, added `order` to every state and injected six more fields into the caller's file. A host that validates its own board config then rejected what the read had produced. Reads leave the file untouched; the migration still reaches disk on the next write, and the extension is unchanged (TASK-060).
 
