@@ -9,6 +9,10 @@ export interface ConfigDiagnostic {
   message: string;
 }
 
+export interface LoadOptions {
+  persistMigration?: boolean;
+}
+
 type Report = (message: string) => void;
 
 const isStringArray = (v: unknown): v is string[] =>
@@ -90,10 +94,10 @@ export class ConfigManager {
     return this.diagnostics;
   }
 
-  load(): TaskPlannerConfig {
+  load(options: LoadOptions = {}): TaskPlannerConfig {
     this.diagnostics = [];
     this.config = this.readFromDisk();
-    this.migrateConfig();
+    this.migrateConfig(options.persistMigration ?? true);
     return this.config;
   }
 
@@ -184,9 +188,9 @@ export class ConfigManager {
     return true;
   }
 
-  private migrateConfig(): void {
+  private migrateConfig(persist: boolean): void {
     const steps = [this.addRejectedState(), this.dropLegacySortBy(), this.recordSchemaVersion()];
-    if (steps.some(Boolean)) {
+    if (persist && steps.some(Boolean)) {
       this.save();
     }
   }

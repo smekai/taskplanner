@@ -87,7 +87,7 @@ async function freshStore(explicitRoot?: string): Promise<{
 }> {
   const tasksDir = await findTasksDir(explicitRoot);
   const configManager = new ConfigManager(tasksDir);
-  configManager.load();
+  configManager.load({ persistMigration: false });
   for (const diagnostic of configManager.getDiagnostics()) {
     console.error(`TaskPlanner config: ${diagnostic.message}`);
   }
@@ -155,7 +155,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.3.0',
+  version: '2.3.1',
 });
 
 server.registerTool(

@@ -9,6 +9,8 @@ const ASSIGNEE_RE = /^\*\*Assignee:\*\*\s*(.+)/;
 const UPDATED_RE = /^\*\*Updated:\*\*\s*(.+)/;
 const WAITING_UNTIL_RE = /^\*\*Waiting until:\*\*\s*(.+)/;
 const SEPARATOR_RE = /^---\s*$/;
+// WHY: `.` excludes a carriage return and `$` does not forgive a trailing one, so an unsplit CRLF board matched no heading and read back as empty rather than as broken.
+const LINE_BREAK = /\r?\n/;
 const PLAN_HEADING_RE = /^### Plan\s*$/;
 
 function stripBom(content: string): string {
@@ -17,7 +19,7 @@ function stripBom(content: string): string {
 
 export function parseTasks(rawContent: string): ParseResult {
   const content = stripBom(rawContent);
-  const lines = content.split('\n');
+  const lines = content.split(LINE_BREAK);
   const tasks: Task[] = [];
   const warnings: ParseWarning[] = [];
 
@@ -184,7 +186,7 @@ export function parseTasks(rawContent: string): ParseResult {
 }
 
 export function findTaskLineNumber(content: string, taskId: string): number {
-  const lines = content.split('\n');
+  const lines = content.split(LINE_BREAK);
   for (let i = 0; i < lines.length; i++) {
     const match = lines[i].match(TASK_HEADING_RE);
     if (match && match[1] === taskId) {
@@ -197,7 +199,7 @@ export function findTaskLineNumber(content: string, taskId: string): number {
 export function countTaskHeadings(rawContent: string): number {
   const content = stripBom(rawContent);
   let n = 0;
-  for (const line of content.split('\n')) {
+  for (const line of content.split(LINE_BREAK)) {
     if (TASK_HEADING_RE.test(line)) {
       n++;
     }
@@ -207,7 +209,7 @@ export function countTaskHeadings(rawContent: string): number {
 
 export function taskIdsIn(rawContent: string): Set<string> {
   const ids = new Set<string>();
-  for (const line of stripBom(rawContent).split('\n')) {
+  for (const line of stripBom(rawContent).split(LINE_BREAK)) {
     const match = line.match(TASK_HEADING_RE);
     if (match) ids.add(match[1]);
   }
@@ -218,7 +220,7 @@ export function maxTaskIdNumber(rawContent: string, prefix: string): number {
   const content = stripBom(rawContent);
   const re = new RegExp(`^## ${prefix}-(\\d+):`);
   let max = 0;
-  for (const line of content.split('\n')) {
+  for (const line of content.split(LINE_BREAK)) {
     const m = line.match(re);
     if (m) {
       const n = parseInt(m[1], 10);

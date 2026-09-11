@@ -15,6 +15,21 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-060 — 2026-09-11
+**What:** Fixed two defects Isotopy hit when it made the MCP server an agent's authoritative board
+reader: a CRLF board parsed to zero tasks, and any read tool rewrote the caller's `config.json`.
+**Decisions:** Split on `/\r?\n/` at the parser's line boundary rather than loosening each anchored
+regex — one change fixes the heading match and the trailing carriage returns the unanchored metadata
+regexes were capturing into titles, tags and assignees. Migration-on-load stays the default because
+the extension is right to migrate a project when it opens it; `load({ persistMigration: false })` is
+what a read-only caller passes, and the migrated shape still reaches disk on the next write.
+**Outcome:** 204 tests passing, 9 new. Verified over stdio against the rebuilt server: a CRLF board
+now returns `1 task(s) found` where it returned `No tasks found`, and neither ending rewrites the
+config. Both defects went unnoticed because this repository and Isotopy's both set
+`core.autocrlf=false`, while Git for Windows defaults to `true`.
+
+---
+
 ## TASK-058 — 2026-08-28
 **What:** Fixed the four PR #8 review findings, unified task and work-log archiving onto one
 year-based naming scheme, and made the no-comment rule a build gate.

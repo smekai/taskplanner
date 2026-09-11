@@ -358,6 +358,54 @@ ${long}
     expect(warnings).toHaveLength(0);
     expect(tasks[0].description).toBe(long);
   });
+
+  // Git for Windows checks out CRLF by default. `.` excludes a carriage return and
+  // `$` does not forgive one, so an unnormalized heading never matched and the board
+  // read back empty — indistinguishable from a board with no tasks on it.
+  describe('CRLF boards', () => {
+    const LF_BOARD = `# Backlog
+
+## TASK-001: Implement auth
+**Priority:** P1 | **Tags:** auth, backend | **Assignee:** owner
+**Waiting until:** 2026-12-01
+
+Build OAuth2 authentication.
+
+---
+`;
+    const crlf = (content: string) => content.replace(/\n/g, '\r\n');
+
+    it('reads the same tasks as the same board with LF endings', () => {
+      expect(parseTasks(crlf(LF_BOARD)).tasks).toEqual(parseTasks(LF_BOARD).tasks);
+    });
+
+    it('reports no warnings, rather than calling every heading invalid', () => {
+      expect(parseTasks(crlf(LF_BOARD)).warnings).toEqual([]);
+    });
+
+    it('leaves no carriage return on the values the metadata regexes capture', () => {
+      const task = parseTasks(crlf(LF_BOARD)).tasks[0];
+
+      expect(task.title).toBe('Implement auth');
+      expect(task.tags).toEqual(['auth', 'backend']);
+      expect(task.assignee).toBe('owner');
+      expect(task.waitingUntil).toBe('2026-12-01');
+    });
+
+    it('finds a task line number in a CRLF board', () => {
+      expect(findTaskLineNumber(crlf(LF_BOARD), 'TASK-001')).toBe(
+        findTaskLineNumber(LF_BOARD, 'TASK-001'),
+      );
+    });
+
+    it('counts task headings in a CRLF board', () => {
+      expect(countTaskHeadings(crlf(LF_BOARD))).toBe(1);
+    });
+
+    it('reads the highest task id from a CRLF board', () => {
+      expect(maxTaskIdNumber(crlf(LF_BOARD), 'TASK')).toBe(1);
+    });
+  });
 });
 
 describe('parseTasks malformed input', () => {
