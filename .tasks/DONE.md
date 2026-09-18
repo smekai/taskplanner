@@ -1,5 +1,65 @@
 # Done
 
+## TASK-062: A serialized task round-trips, and a host can ask which ids a board holds
+**Priority:** P0 | **Tags:** core
+**Updated:** 2026-09-18 12:57
+
+Found the way `TASK-060` was: Isotopy adopted the library as its one board reader, and its own review
+then caught something every consumer inherits. It is being worked around in Isotopy today, which is
+the wrong place — the format's invariants belong to the library that defines the format.
+
+### `serializeTask` does not round-trip
+
+`serializeTask` builds its heading and metadata line from bare template literals — `## ${task.id}:
+${task.title}`, then `**Priority:** … | **Tags:** ${task.tags.join(', ')} | **Epic:** … |
+**Assignee:** …`. There is **no guard on any of them**, and `serializer.test.ts` only asserts
+rendering, so the serialize-then-parse round-trip is never closed.
+
+Measured against 2.3.0: a task whose title is `Safe title`, a newline, then `## TASK-999: Injected`
+serialises and parses back as **two tasks** — the second one fabricated, with no error anywhere.
+
+That matters because these values are routinely model output. A host handing `serializeTask` an
+agent-written title gets an extra task on its board and no way to know. Isotopy's pre-adoption writer
+collapsed whitespace through every single-line field for exactly this reason; adopting the library
+silently dropped that protection.
+
+**The invariant to hold:** `parseTasks(serializeTask(task))` yields exactly one task, whatever a
+caller passes.
+
+- **Single-line fields — normalise.** `id`, `title`, `tags`, `epic`, `assignee`, `updatedAt` and
+  `waitingUntil` collapse internal whitespace to single spaces. Lossless for every legitimate value,
+  and the same rule the parser already applies when it trims what it reads back.
+- **Body fields — refuse, do not mangle.** A `description` or `plan` holding a line that is exactly
+  `---`, or that matches a task heading, cannot be escaped without changing what its author wrote.
+  Throw a named error identifying the field, so a caller finds out at the boundary rather than
+  corrupting a board. Silently emitting it is today's behaviour and is the worse of the two.
+
+### `taskIdsIn` is not reachable from the package root
+
+It exists in `src/core/parser/taskParser.ts` and is declared in `dist/parser/taskParser.d.ts`; the
+root `index.ts` just does not re-export it beside `parseTasks`, `findTaskLineNumber` and
+`countTaskHeadings`.
+
+A host that needs to know whether an id is already on a board — before deciding a task is absent —
+cannot reach the function that answers it, so it writes its own. Isotopy did, and matched
+`[A-Za-z]+-\d+` where the format matches `[A-Z]+-\d+`: **a laxer definition of a task id than the
+format has**, invented only because the strict one was unreachable.
+
+**`maxTaskIdNumber` stays internal.** `TASK-061` is deliberately moving ID allocation onto the
+persisted `nextId` and away from routine board scans, so exporting a scanner would invite exactly the
+pattern that task removes. A host allocates from `nextId` and advances it, as the tools do.
+
+### Evidence
+
+Failing-first: `parseTasks(serializeTask(task))` returns one task for a title, a tag, an epic and an
+assignee each carrying a heading; a description holding a separator line is refused by name rather
+than written; and `taskIdsIn` is importable from the package root.
+
+Cross-platform: n/a — pure string handling over already-read content, no filesystem or process
+surface.
+
+---
+
 ## TASK-060: A CRLF board parses as an empty one, and a read rewrites config.json
 **Priority:** P0 | **Tags:** core, mcp
 **Updated:** 2026-09-11 07:12

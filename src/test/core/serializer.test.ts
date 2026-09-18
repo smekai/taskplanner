@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { serializeTask, serializeStateFile } from '../../core/parser/taskSerializer.js';
+import { parseTasks } from '../../core/parser/taskParser.js';
 import { Task, Priority } from '../../core/model/task.js';
 
 describe('serializeTask', () => {
@@ -125,3 +126,54 @@ describe('serializeStateFile', () => {
     expect(result).toContain('---');
   });
 });
+
+// These values are routinely model output. Serializing one must not be able to put a
+// second task on someone's board, and the only check that proves it is the round-trip.
+describe('serializeTask round-trips', () => {
+  const HEADING = '\n## TASK-999: Injected';
+
+  const roundTripped = (overrides: Partial<Task>) =>
+    parseTasks(serializeTask(task(overrides))).tasks;
+
+  it.each([
+    ['title', { title: `Safe title${HEADING}` }],
+    ['tags', { tags: [`ui${HEADING}`] }],
+    ['epic', { epic: `Milestone${HEADING}` }],
+    ['assignee', { assignee: `owner${HEADING}` }],
+    ['updatedAt', { updatedAt: `2026-09-18 10:00${HEADING}` }],
+    ['waitingUntil', { waitingUntil: `2026-12-01${HEADING}` }],
+  ])('a task heading smuggled through %s does not become a second task', (_field, overrides) => {
+    expect(roundTripped(overrides).map((parsed) => parsed.id)).toEqual(['TASK-001']);
+  });
+
+  it('keeps the value, collapsed onto its one line', () => {
+    expect(roundTripped({ title: `Safe title${HEADING}` })[0].title).toBe(
+      'Safe title ## TASK-999: Injected',
+    );
+  });
+
+  it('refuses a description holding a separator, because escaping it would rewrite the author', () => {
+    expect(() => serializeTask(task({ description: 'Body\n\n---\n\nMore' }))).toThrow(
+      /description/,
+    );
+  });
+
+  it('refuses a plan holding a task heading', () => {
+    expect(() => serializeTask(task({ plan: `Step one${HEADING}` }))).toThrow(/plan/);
+  });
+
+  it('leaves an ordinary body alone, including a line that merely starts with a dash', () => {
+    expect(roundTripped({ description: 'Body\n- a list item\n--- not a separator' })).toHaveLength(1);
+  });
+});
+
+function task(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 'TASK-001',
+    title: 'Implement auth',
+    priority: Priority.P1,
+    tags: [],
+    description: 'Body.',
+    ...overrides,
+  };
+}

@@ -15,6 +15,19 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-062 — 2026-09-18
+**What:** Closed the `serializeTask` → `parseTasks` round-trip, which a newline in any single-line
+field could break, and exported `taskIdsIn` so a host stops writing its own heading regex.
+**Decisions:** Normalise the single-line fields but *refuse* a description or plan holding a line
+that would end the section — escaping it would rewrite what the author typed, and silently emitting
+it is the bug. `maxTaskIdNumber` stays internal on purpose: TASK-061 is moving ID allocation onto the
+persisted `nextId`, so exporting a board scanner would invite the pattern that task removes.
+**Outcome:** 214 tests, 10 new, all failing first. Found by Isotopy's own review, where the workaround
+had been written into the host — and where its reimplemented `taskIdsIn` accepted lowercase prefixes
+the format rejects.
+
+---
+
 ## TASK-060 — 2026-09-11
 **What:** Fixed two defects Isotopy hit when it made the MCP server an agent's authoritative board
 reader: a CRLF board parsed to zero tasks, and any read tool rewrote the caller's `config.json`.

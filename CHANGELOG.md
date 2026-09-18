@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Library API:** `taskIdsIn` is exported from `@smekai/taskplanner`, so a host can ask which task IDs a board file already holds without writing its own heading regex. It existed but was unreachable, and at least one consumer had reimplemented it more loosely than the format defines — accepting lowercase prefixes the parser rejects (TASK-062).
+
 ### Fixed
+
+- **A task can no longer smuggle a second task onto your board.** `serializeTask` wrote every single-line field verbatim, so a newline in a title, tag, epic, assignee or date closed the task section and opened another — a title of `Safe title` followed by `## TASK-999: Injected` serialized and parsed back as *two* tasks, silently. These values are routinely written by agents. Single-line fields are now collapsed onto one line, and a description or plan holding a line that would end the section is refused by name instead of corrupting the file (TASK-062).
 
 - A board checked out with **CRLF line endings** is read correctly instead of coming back empty. Git for Windows converts line endings by default, and every task heading in such a file failed to match — so the board parsed to zero tasks with "Invalid task heading" warnings nobody surfaced, which is indistinguishable from a board that genuinely has no tasks. Where a task did parse, its title, tags, epic and assignee also kept a trailing carriage return. Affects the extension, the MCP tools and the library equally (TASK-060).
 - **A read no longer rewrites your `config.json`.** Every MCP tool loaded the config through the same path the extension uses, which migrates and saves — so `taskplanner_list` added a Rejected state, added `order` to every state and injected six more fields into the caller's file. A host that validates its own board config then rejected what the read had produced. Reads leave the file untouched; the migration still reaches disk on the next write, and the extension is unchanged (TASK-060).
