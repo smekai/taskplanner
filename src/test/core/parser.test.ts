@@ -359,6 +359,42 @@ ${long}
     expect(tasks[0].description).toBe(long);
   });
 
+  // An attribute the parser does not know is still an attribute. Demoting it to prose
+  // leaves a host with metadata of its own nowhere to put it but the task body.
+  describe('unrecognised attributes', () => {
+    const board = (metadata: string) =>
+      `## TASK-001: A task\n**Priority:** P1\n${metadata}\n\nBody text.\n\n---\n`;
+
+    it('keeps an unknown attribute on its own line as data', () => {
+      expect(parseTasks(board('**Isotopy source:** run 7')).tasks[0].attributes).toEqual({
+        'Isotopy source': 'run 7',
+      });
+    });
+
+    it('keeps an unknown attribute sharing the pipe-joined line', () => {
+      const { tasks } = parseTasks(
+        '## TASK-001: A task\n**Priority:** P1 | **Tags:** ui | **Origin:** run 7\n\nBody.\n\n---\n',
+      );
+
+      expect(tasks[0].attributes).toEqual({ Origin: 'run 7' });
+      expect(tasks[0].tags).toEqual(['ui']);
+    });
+
+    it('leaves the description alone, rather than beginning it with the attribute', () => {
+      expect(parseTasks(board('**Isotopy source:** run 7')).tasks[0].description).toBe('Body text.');
+    });
+
+    it('reports no attributes when a task carries none', () => {
+      expect(parseTasks(board('**Updated:** 2026-09-18 10:00')).tasks[0].attributes).toBeUndefined();
+    });
+
+    it('round-trips through the serializer', () => {
+      const task = parseTasks(board('**Isotopy source:** run 7')).tasks[0];
+
+      expect(parseTasks(serializeTask(task)).tasks[0].attributes).toEqual(task.attributes);
+    });
+  });
+
   // Git for Windows checks out CRLF by default. `.` excludes a carriage return and
   // `$` does not forgive one, so an unnormalized heading never matched and the board
   // read back empty — indistinguishable from a board with no tasks on it.

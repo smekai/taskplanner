@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **An attribute TaskPlanner does not recognise is still an attribute.** A `**Key:** value` line in a task's metadata block used to fall through and become the first line of its description — so a tool with metadata of its own had nowhere to keep it, and no warning said so. Unknown attributes now parse into `Task.attributes` and are written back unchanged, whether they sit on their own line or share the pipe-joined one. Nothing about the file format changes; it stops discarding what is already in it (TASK-063).
+- **Library API:** `upsertTask` and `removeTask` edit one task inside a state file and leave every other byte alone — comments, hand-written prose, sections the parser cannot read, and the file's own CRLF or LF endings. `serializeStateFile` rebuilds a file from the tasks it parsed and therefore drops all of that, which is fine when you mean it and silent data loss when you do not. `removeTask` also hands back the section it took, so a caller can move a task between files (TASK-063).
 - **Library API:** `taskIdsIn` is exported from `@smekai/taskplanner`, so a host can ask which task IDs a board file already holds without writing its own heading regex. It existed but was unreachable, and at least one consumer had reimplemented it more loosely than the format defines — accepting lowercase prefixes the parser rejects (TASK-062).
 
 ### Fixed

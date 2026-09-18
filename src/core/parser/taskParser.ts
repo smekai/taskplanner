@@ -9,6 +9,7 @@ const ASSIGNEE_RE = /^\*\*Assignee:\*\*\s*(.+)/;
 const UPDATED_RE = /^\*\*Updated:\*\*\s*(.+)/;
 const WAITING_UNTIL_RE = /^\*\*Waiting until:\*\*\s*(.+)/;
 const SEPARATOR_RE = /^---\s*$/;
+const ATTRIBUTE_RE = /^\*\*(.+?):\*\*\s*(.*)$/;
 // WHY: `.` excludes a carriage return and `$` does not forgive a trailing one, so an unsplit CRLF board matched no heading and read back as empty rather than as broken.
 const LINE_BREAK = /\r?\n/;
 const PLAN_HEADING_RE = /^### Plan\s*$/;
@@ -44,6 +45,9 @@ export function parseTasks(rawContent: string): ParseResult {
         updatedAt: current.updatedAt,
         waitingUntil: current.waitingUntil,
         ...(plan ? { plan } : {}),
+        ...(current.attributes && Object.keys(current.attributes).length > 0
+          ? { attributes: current.attributes }
+          : {}),
       });
     } else if (current) {
       warnings.push({
@@ -158,6 +162,15 @@ export function parseTasks(rawContent: string): ParseResult {
           current.waitingUntil = waitingMatch[1].trim();
           matchedAny = true;
           continue;
+        }
+
+        const attributeMatch = segment.match(ATTRIBUTE_RE);
+        if (attributeMatch) {
+          current.attributes = {
+            ...current.attributes,
+            [attributeMatch[1].trim()]: attributeMatch[2].trim(),
+          };
+          matchedAny = true;
         }
       }
 

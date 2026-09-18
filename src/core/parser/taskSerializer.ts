@@ -42,6 +42,10 @@ export function serializeTask(task: Task): string {
     lines.push(`**Waiting until:** ${oneLine(task.waitingUntil)}`);
   }
 
+  for (const [key, value] of Object.entries(task.attributes ?? {})) {
+    lines.push(`**${oneLine(key)}:** ${oneLine(value)}`);
+  }
+
   if (task.description.trim()) {
     lines.push('');
     lines.push(bodyOrThrow('description', task.description));

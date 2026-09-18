@@ -1,5 +1,57 @@
 # Done
 
+## TASK-063: Nothing a board holds is lost by reading it or writing to it
+**Priority:** P1 | **Tags:** core
+**Updated:** 2026-09-18 13:03
+
+The third finding from Isotopy's adoption, after `TASK-060` and `TASK-062`, and the one that explains
+the rest. Two places where the library loses what a board holds, and a host that cannot afford the
+loss reimplements the library instead.
+
+### 1. An unrecognised metadata attribute is demoted to prose
+
+The metadata loop matches six known keys. A `**Key:** value` line it does not recognise falls through
+to `inMetadata = false` and is pushed onto `descriptionLines`. Measured: a board carrying
+`**Isotopy source:** milestone m1 · feature f1` in its metadata block parses to a task whose
+**description begins with that line**. No warning; the attribute is simply no longer an attribute.
+
+So a host with metadata of its own has nowhere to put it. Isotopy needed a durable per-task marker to
+keep follow-up creation idempotent across re-runs, found no field for it, and now writes
+`<!-- ISOTOPY-FINDING:<sha256-16> -->` **into the task body a human reads and edits**. A load-bearing
+identifier living in free text is not a design anyone chose; it is what the format left available.
+
+**The rule:** an attribute the parser does not know is still an attribute. Parse unrecognised
+`**Key:** value` metadata into the task as data, and serialize it back. This is not a new format —
+it makes the format already in use lossless for lines people already write.
+
+### 2. A write rebuilds the file and drops what it did not parse
+
+`serializeStateFile` reconstructs a state file from parsed tasks, so everything else goes: a comment
+above a task, hand-written prose at the top of the file, a section whose heading the parser refuses,
+and the file's own line endings. `TASK-058` already met this once — archive appends were changed to
+write raw text for exactly this reason — but the board writer still rebuilds.
+
+A host that will not accept that writes its own editor. Isotopy carries 34 lines of
+insert/take-section plus 13 lines of line-ending preservation to avoid `serializeStateFile`, and that
+is the *only* reason it touches board files itself.
+
+**The rule:** editing one task must leave every other byte alone. `upsertTask` and `removeTask`
+operate on raw content, replace or remove one section, and preserve the rest — including the file's
+own line endings. `serializeStateFile` stays for callers who genuinely want a full rebuild.
+
+### Evidence
+
+Failing-first: an unknown attribute survives parse as data and serialize re-emits it, in both the
+pipe-joined segment and on its own line; a description is unchanged by an attribute above it;
+`upsertTask` replaces a task while leaving a comment, prose and an unparseable section untouched;
+`upsertTask` into a CRLF file keeps CRLF and into an LF file keeps LF; `removeTask` returns the
+removed section so a caller can move it between files.
+
+Cross-platform: line endings are the whole point of half of this — both are covered by the same
+specs, on the platform where Git converts them.
+
+---
+
 ## TASK-062: A serialized task round-trips, and a host can ask which ids a board holds
 **Priority:** P0 | **Tags:** core
 **Updated:** 2026-09-18 12:57

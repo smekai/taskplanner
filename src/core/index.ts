@@ -9,6 +9,8 @@ export {
   countTaskHeadings,
   taskIdsIn,
 } from './parser/taskParser.js';
+export { upsertTask, removeTask } from './parser/boardEditor.js';
+export type { InsertPosition, RemovedTask } from './parser/boardEditor.js';
 export { serializeTask, serializeStateFile } from './parser/taskSerializer.js';
 export { IdGenerator } from './id/idGenerator.js';
 export { FileStore } from './store/fileStore.js';
