@@ -132,9 +132,6 @@ describe('serializeStateFile', () => {
 describe('serializeTask round-trips', () => {
   const HEADING = '\n## TASK-999: Injected';
 
-  const roundTripped = (overrides: Partial<Task>) =>
-    parseTasks(serializeTask(task(overrides))).tasks;
-
   it.each([
     ['title', { title: `Safe title${HEADING}` }],
     ['tags', { tags: [`ui${HEADING}`] }],
@@ -163,9 +160,15 @@ describe('serializeTask round-trips', () => {
   });
 
   it('leaves an ordinary body alone, including a line that merely starts with a dash', () => {
-    expect(roundTripped({ description: 'Body\n- a list item\n--- not a separator' })).toHaveLength(1);
+    expect(roundTripped({ description: 'Body\n- a list item\n--- not a separator' })).toHaveLength(
+      1,
+    );
   });
 });
+
+function roundTripped(overrides: Partial<Task> = {}): Task[] {
+  return parseTasks(serializeTask(task(overrides))).tasks;
+}
 
 function task(overrides: Partial<Task> = {}): Task {
   return {
@@ -177,3 +180,59 @@ function task(overrides: Partial<Task> = {}): Task {
     ...overrides,
   };
 }
+
+describe('attributes that cannot survive a round trip', () => {
+  // The parser splits every metadata line on "|" and matches the built-in fields before it
+  // reaches a custom attribute, so an attribute carrying either silently rewrites the task.
+  it('refuses a value holding the metadata delimiter rather than truncating it', () => {
+    expect(() => serializeTask(task({ attributes: { Source: 'a | b' } }))).toThrow(/Source/);
+  });
+
+  it('refuses a value that would smuggle in another field', () => {
+    expect(() =>
+      serializeTask(task({ attributes: { Source: 'agent | **Priority:** P0' } })),
+    ).toThrow(/Source/);
+  });
+
+  it.each(['Priority', 'Tags', 'Tag', 'Epic', 'Assignee', 'Updated', 'Waiting until'])(
+    'refuses an attribute named after the built-in %s',
+    (reserved) => {
+      expect(() => serializeTask(task({ attributes: { [reserved]: 'x' } }))).toThrow(
+        new RegExp(reserved),
+      );
+    },
+  );
+
+  it('refuses a name the attribute line cannot represent', () => {
+    expect(() => serializeTask(task({ attributes: { 'Own:** field': 'x' } }))).toThrow();
+    expect(() => serializeTask(task({ attributes: { 'a|b': 'x' } }))).toThrow();
+    expect(() => serializeTask(task({ attributes: { '  ': 'x' } }))).toThrow(/empty/);
+  });
+
+  it('keeps an attribute whose value merely looks like a field', () => {
+    const parsed = roundTripped({
+      priority: Priority.P1,
+      attributes: { Source: '**Priority:** P0' },
+    });
+
+    expect(parsed[0].priority).toBe(Priority.P1);
+    expect(parsed[0].attributes).toEqual({ Source: '**Priority:** P0' });
+  });
+});
+
+describe('the body guard follows the parser, not a looser approximation', () => {
+  // parseTasks requires a title after the id, so "## TASK-999:" alone is body text to it.
+  // Refusing it here would reject a task the parser itself produced.
+  it('accepts a heading-shaped line the parser does not treat as a heading', () => {
+    const parsed = roundTripped({ description: 'Body.\n## TASK-999:\nMore.' });
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].description).toContain('## TASK-999:');
+  });
+
+  it('still refuses a heading the parser would act on', () => {
+    expect(() => serializeTask(task({ description: 'Body.\n## TASK-999: Injected' }))).toThrow(
+      /description/,
+    );
+  });
+});

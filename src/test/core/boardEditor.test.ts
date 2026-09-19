@@ -94,3 +94,55 @@ describe('removeTask', () => {
     expect(removeTask(BOARD, 'TASK-404')).toEqual({ content: BOARD });
   });
 });
+
+// An author who forgets a separator still gets two tasks from parseTasks, so an edit has to
+// respect the same boundary: the section ends where the next heading starts, not at the next
+// separator further down the file.
+const MISSING_SEPARATOR = [
+  '# Backlog',
+  '',
+  '## TASK-001: Unterminated',
+  '**Priority:** P1',
+  '',
+  'Body.',
+  '',
+  '## TASK-002: Terminated',
+  '**Priority:** P2',
+  '',
+  '---',
+  '',
+].join('\n');
+
+const UNTERMINATED_TAIL = ['# Backlog', '', '## TASK-001: Only', '**Priority:** P1', ''].join('\n');
+
+describe('a section whose separator is missing', () => {
+  it('parseTasks reads both tasks, so both must survive an edit', () => {
+    expect(parseTasks(MISSING_SEPARATOR).tasks.map((t) => t.id)).toEqual(['TASK-001', 'TASK-002']);
+  });
+
+  it('removeTask takes only the unterminated task', () => {
+    const { content } = removeTask(MISSING_SEPARATOR, 'TASK-001');
+
+    expect(parseTasks(content).tasks.map((t) => t.id)).toEqual(['TASK-002']);
+  });
+
+  it('upsertTask replaces the unterminated task without swallowing the next one', () => {
+    const content = upsertTask(MISSING_SEPARATOR, task({ id: 'TASK-001', title: 'Rewritten' }));
+    const parsed = parseTasks(content).tasks;
+
+    expect(parsed.map((t) => t.id)).toEqual(['TASK-001', 'TASK-002']);
+    expect(parsed[0].title).toBe('Rewritten');
+  });
+
+  it('upsertTask replaces an unterminated final task instead of duplicating its id', () => {
+    const content = upsertTask(UNTERMINATED_TAIL, task({ id: 'TASK-001', title: 'Rewritten' }));
+    const parsed = parseTasks(content).tasks;
+
+    expect(parsed.map((t) => t.id)).toEqual(['TASK-001']);
+    expect(parsed[0].title).toBe('Rewritten');
+  });
+
+  it('removeTask takes an unterminated final task', () => {
+    expect(parseTasks(removeTask(UNTERMINATED_TAIL, 'TASK-001').content).tasks).toEqual([]);
+  });
+});

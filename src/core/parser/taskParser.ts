@@ -14,6 +14,28 @@ const ATTRIBUTE_RE = /^\*\*(.+?):\*\*\s*(.*)$/;
 const LINE_BREAK = /\r?\n/;
 const PLAN_HEADING_RE = /^### Plan\s*$/;
 
+const BUILT_IN_ATTRIBUTE_RES = [
+  PRIORITY_RE,
+  TAGS_RE,
+  EPIC_RE,
+  ASSIGNEE_RE,
+  UPDATED_RE,
+  WAITING_UNTIL_RE,
+];
+
+export function taskHeadingIdOf(line: string): string | undefined {
+  return line.match(TASK_HEADING_RE)?.[1];
+}
+
+export function isSectionSeparatorLine(line: string): boolean {
+  return SEPARATOR_RE.test(line);
+}
+
+export function isReservedAttributeKey(key: string): boolean {
+  const probe = `**${key}:** probe`;
+  return BUILT_IN_ATTRIBUTE_RES.some((pattern) => pattern.test(probe));
+}
+
 function stripBom(content: string): string {
   return content.length > 0 && content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
 }

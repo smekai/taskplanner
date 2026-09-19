@@ -343,26 +343,30 @@ export class TaskStore {
     }
 
     const sourceTasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
-    this.tasksByState.set(found.stateName, sourceTasks);
-    this.fileStore.writeState(sourceState, sourceTasks);
-
-    found.task.updatedAt = currentTimestamp();
+    const moved: Task = { ...found.task, updatedAt: currentTimestamp() };
     const targetTasks = [...this.getTasksByState(targetStateName)].filter((t) => t.id !== taskId);
     if (targetIndex !== undefined) {
       const clamped = Math.max(0, Math.min(targetIndex, targetTasks.length));
-      targetTasks.splice(clamped, 0, found.task);
+      targetTasks.splice(clamped, 0, moved);
     } else if (this.config.insertPosition === 'top') {
-      targetTasks.unshift(found.task);
+      targetTasks.unshift(moved);
     } else {
-      targetTasks.push(found.task);
+      targetTasks.push(moved);
     }
+
+    // WHY: serializing can refuse a task, and a refusal after the source file is written would leave the task in neither state.
+    const writes = [
+      this.fileStore.prepareState(sourceState, sourceTasks),
+      this.fileStore.prepareState(targetState, targetTasks),
+    ];
+    this.fileStore.commitWrites(writes);
+    this.tasksByState.set(found.stateName, sourceTasks);
     this.tasksByState.set(targetStateName, targetTasks);
-    this.fileStore.writeState(targetState, targetTasks);
 
     if (targetStateName === 'Done') this.archiveCompleted();
 
     this.notifyListeners();
-    return found.task;
+    return moved;
   }
 
   deleteTask(taskId: string): boolean {
@@ -516,6 +520,7 @@ export class TaskStore {
     }
 
     let removedCount = 0;
+    const pruned: { state: TaskState; tasks: Task[] }[] = [];
     const removalsByState = new Map<string, Set<number>>();
 
     for (const resolution of resolutions) {
@@ -541,8 +546,14 @@ export class TaskStore {
         }
       }
 
-      this.tasksByState.set(stateName, tasks);
-      this.fileStore.writeState(state, tasks);
+      pruned.push({ state, tasks });
+    }
+
+    this.fileStore.commitWrites(
+      pruned.map(({ state, tasks }) => this.fileStore.prepareState(state, tasks)),
+    );
+    for (const { state, tasks } of pruned) {
+      this.tasksByState.set(state.name, tasks);
     }
 
     if (removedCount > 0 || loadedDeferred) {

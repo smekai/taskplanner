@@ -1,20 +1,53 @@
 import { Task } from '../model/task.js';
+import { isReservedAttributeKey, isSectionSeparatorLine, taskHeadingIdOf } from './taskParser.js';
 
-const SECTION_BREAK_RE = /^(?:---\s*|## [A-Z]+-\d+:.*)$/m;
+const LINE_BREAK = /\r?\n/;
+const ATTRIBUTE_DELIMITER = '|';
+const UNUSABLE_KEY_CHARACTERS = /[|:*]/;
 
 // WHY: these values are often model output, and a newline in one closes the section and opens a second task on the line after it.
 function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function endsTheSection(line: string): boolean {
+  return isSectionSeparatorLine(line) || taskHeadingIdOf(line) !== undefined;
+}
+
 function bodyOrThrow(field: 'description' | 'plan', value: string): string {
   const body = value.trim();
-  if (SECTION_BREAK_RE.test(body)) {
+  if (body.split(LINE_BREAK).some(endsTheSection)) {
     throw new Error(
       `Task ${field} contains a line that would end the task section; remove the separator or heading before serializing.`,
     );
   }
   return body;
+}
+
+function attributeLineOrThrow(rawKey: string, rawValue: string): string {
+  const key = oneLine(rawKey);
+  const value = oneLine(rawValue);
+
+  if (key.length === 0) {
+    throw new Error('Task attribute name is empty; every attribute needs a name.');
+  }
+  if (UNUSABLE_KEY_CHARACTERS.test(key)) {
+    throw new Error(
+      `Task attribute name "${key}" contains one of | : *, which the metadata line cannot represent; rename the attribute before serializing.`,
+    );
+  }
+  if (isReservedAttributeKey(key)) {
+    throw new Error(
+      `Task attribute "${key}" is the name of a built-in field and would overwrite it when read back; rename the attribute before serializing.`,
+    );
+  }
+  if (value.includes(ATTRIBUTE_DELIMITER)) {
+    throw new Error(
+      `Task attribute "${key}" has a value containing "${ATTRIBUTE_DELIMITER}", which separates metadata fields and would truncate it when read back; remove it before serializing.`,
+    );
+  }
+
+  return `**${key}:** ${value}`;
 }
 
 export function serializeTask(task: Task): string {
@@ -43,7 +76,7 @@ export function serializeTask(task: Task): string {
   }
 
   for (const [key, value] of Object.entries(task.attributes ?? {})) {
-    lines.push(`**${oneLine(key)}:** ${oneLine(value)}`);
+    lines.push(attributeLineOrThrow(key, value));
   }
 
   if (task.description.trim()) {
