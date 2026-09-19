@@ -1,14 +1,12 @@
 # Done
 
-## TASK-063: Nothing a board holds is lost by reading it or writing to it
+## TASK-063: An attribute TaskPlanner does not recognise is still an attribute
 **Priority:** P1 | **Tags:** core
-**Updated:** 2026-09-18 13:03
+**Updated:** 2026-09-19 09:10
 
-The third finding from Isotopy's adoption, after `TASK-060` and `TASK-062`, and the one that explains
-the rest. Two places where the library loses what a board holds, and a host that cannot afford the
-loss reimplements the library instead.
+The third finding from Isotopy's adoption, after `TASK-060` and `TASK-062`.
 
-### 1. An unrecognised metadata attribute is demoted to prose
+### An unrecognised metadata attribute is demoted to prose
 
 The metadata loop matches six known keys. A `**Key:** value` line it does not recognise falls through
 to `inMetadata = false` and is pushed onto `descriptionLines`. Measured: a board carrying
@@ -24,31 +22,27 @@ identifier living in free text is not a design anyone chose; it is what the form
 `**Key:** value` metadata into the task as data, and serialize it back. This is not a new format —
 it makes the format already in use lossless for lines people already write.
 
-### 2. A write rebuilds the file and drops what it did not parse
+An attribute that cannot be read back unchanged is refused by name rather than written: the metadata
+line separates fields on `|`, and an attribute named after a built-in field would overwrite it.
+`isReservedAttributeKey` asks the parser's own patterns rather than restating their names, so a field
+added later is reserved automatically.
 
-`serializeStateFile` reconstructs a state file from parsed tasks, so everything else goes: a comment
-above a task, hand-written prose at the top of the file, a section whose heading the parser refuses,
-and the file's own line endings. `TASK-058` already met this once — archive appends were changed to
-write raw text for exactly this reason — but the board writer still rebuilds.
+### The second half became TASK-064
 
-A host that will not accept that writes its own editor. Isotopy carries 34 lines of
-insert/take-section plus 13 lines of line-ending preservation to avoid `serializeStateFile`, and that
-is the *only* reason it touches board files itself.
+This task originally also covered `serializeStateFile` rebuilding a file and dropping everything it
+did not parse. The first attempt at that was `upsertTask`/`removeTask` — raw-content section
+splicing — and review found it cutting into the neighbouring task, because a section whose separator
+is missing has no end to find. It was removed before merge rather than published.
 
-**The rule:** editing one task must leave every other byte alone. `upsertTask` and `removeTask`
-operate on raw content, replace or remove one section, and preserve the rest — including the file's
-own line endings. `serializeStateFile` stays for callers who genuinely want a full rebuild.
+The loss happens at **parse** time, not at write time: `ParseResult` carries only `tasks` and
+`warnings`, so the serializer cannot restore what it was never given. Fixing the round-trip is
+`TASK-064`, and no section editor is needed once it is lossless.
 
 ### Evidence
 
 Failing-first: an unknown attribute survives parse as data and serialize re-emits it, in both the
-pipe-joined segment and on its own line; a description is unchanged by an attribute above it;
-`upsertTask` replaces a task while leaving a comment, prose and an unparseable section untouched;
-`upsertTask` into a CRLF file keeps CRLF and into an LF file keeps LF; `removeTask` returns the
-removed section so a caller can move it between files.
-
-Cross-platform: line endings are the whole point of half of this — both are covered by the same
-specs, on the platform where Git converts them.
+pipe-joined segment and on its own line; a description is unchanged by an attribute above it; ten
+cases covering refused delimiters, refused reserved names and a value that merely looks like a field.
 
 ---
 
