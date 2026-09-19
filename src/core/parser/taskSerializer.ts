@@ -1,4 +1,5 @@
 import { Task } from '../model/task.js';
+import { BoardSegment } from '../model/parseResult.js';
 import { isReservedAttributeKey, isSectionSeparatorLine, taskHeadingIdOf } from './taskParser.js';
 
 const LINE_BREAK = /\r?\n/;
@@ -109,4 +110,108 @@ export function serializeStateFile(stateName: string, tasks: Task[]): string {
   }
 
   return lines.join('\n');
+}
+
+function lineEndingOf(content: string): '\r\n' | '\n' {
+  return content.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function freshSection(task: Task, lineEnding: string): string {
+  const body = serializeTask(task).replace(/\n/g, lineEnding);
+  return `${body}${lineEnding}${lineEnding}---${lineEnding}`;
+}
+
+function endsWithBlankLine(content: string, lineEnding: string): string {
+  if (content.length === 0 || content.endsWith(lineEnding + lineEnding)) return content;
+  return content.endsWith(lineEnding) ? content + lineEnding : content + lineEnding + lineEnding;
+}
+
+function sameTags(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((tag, index) => tag === b[index]);
+}
+
+function sameAttributes(a: Record<string, string> = {}, b: Record<string, string> = {}): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
+function sameTask(a: Task, b: Task): boolean {
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.description === b.description &&
+    a.priority === b.priority &&
+    a.epic === b.epic &&
+    a.assignee === b.assignee &&
+    a.updatedAt === b.updatedAt &&
+    a.waitingUntil === b.waitingUntil &&
+    (a.plan ?? '') === (b.plan ?? '') &&
+    sameTags(a.tags, b.tags) &&
+    sameAttributes(a.attributes, b.attributes)
+  );
+}
+
+interface OriginalSection {
+  raw: string;
+  task: Task;
+  leading: string;
+}
+
+function originalSections(
+  segments: BoardSegment[],
+  firstTaskAt: number,
+  lastTaskAt: number,
+): Map<string, OriginalSection> {
+  const originals = new Map<string, OriginalSection>();
+  for (let i = firstTaskAt; i <= lastTaskAt; i++) {
+    const segment = segments[i];
+    if (segment.kind !== 'task') continue;
+    const before = segments[i - 1];
+    const leading = i > firstTaskAt && before?.kind === 'text' ? before.raw : '';
+    if (!originals.has(segment.task.id)) {
+      originals.set(segment.task.id, { raw: segment.raw, task: segment.task, leading });
+    }
+  }
+  return originals;
+}
+
+// WHY: only the tasks in a state file are parsed, so writing through the segments is what keeps prose, comments and refused sections on disk.
+export function serializeBoard(segments: BoardSegment[], tasks: Task[]): string {
+  const whole = segments.map((segment) => segment.raw).join('');
+  const lineEnding = lineEndingOf(whole);
+  const firstTaskAt = segments.findIndex((segment) => segment.kind === 'task');
+
+  if (firstTaskAt === -1) {
+    return tasks.reduce(
+      (acc, task) => endsWithBlankLine(acc, lineEnding) + freshSection(task, lineEnding),
+      whole,
+    );
+  }
+
+  let lastTaskAt = firstTaskAt;
+  for (let i = segments.length - 1; i > firstTaskAt; i--) {
+    if (segments[i].kind === 'task') {
+      lastTaskAt = i;
+      break;
+    }
+  }
+
+  const join = (from: number, to: number) =>
+    segments
+      .slice(from, to)
+      .map((segment) => segment.raw)
+      .join('');
+  const originals = originalSections(segments, firstTaskAt, lastTaskAt);
+
+  let out = join(0, firstTaskAt);
+  for (const task of tasks) {
+    const original = originals.get(task.id);
+    if (!original) {
+      out = endsWithBlankLine(out, lineEnding) + freshSection(task, lineEnding);
+      continue;
+    }
+    out += original.leading;
+    out += sameTask(original.task, task) ? original.raw : freshSection(task, lineEnding);
+  }
+  return out + join(lastTaskAt + 1, segments.length);
 }

@@ -1,5 +1,6 @@
 import { Task, Priority, isPriority } from '../model/task.js';
-import { ParseResult, ParseWarning } from '../model/parseResult.js';
+import { BoardSegment, ParseResult, ParseWarning } from '../model/parseResult.js';
+import { segmentBoard } from './boardSegments.js';
 
 const TASK_HEADING_RE = /^## ([A-Z]+-\d+):\s*(.+)$/;
 const PRIORITY_RE = /^\*\*Priority:\*\*\s*(\S+)/;
@@ -217,7 +218,26 @@ export function parseTasks(rawContent: string): ParseResult {
   }
 
   flushTask();
-  return { tasks, warnings };
+  return { tasks, warnings, segments: attachTasks(segmentBoard(content), tasks) };
+}
+
+// WHY: segmentBoard reads boundaries only, so the parsed task is matched back onto its section here.
+function attachTasks(raw: ReturnType<typeof segmentBoard>, tasks: Task[]): BoardSegment[] {
+  const unclaimed = new Map<string, Task[]>();
+  for (const task of tasks) {
+    unclaimed.set(task.id, [...(unclaimed.get(task.id) ?? []), task]);
+  }
+  const segments: BoardSegment[] = [];
+  for (const segment of raw) {
+    const pending = segment.id === undefined ? undefined : unclaimed.get(segment.id);
+    const task = pending?.shift();
+    if (segment.kind === 'task' && task) {
+      segments.push({ kind: 'task', task, raw: segment.raw });
+    } else {
+      segments.push({ kind: 'text', raw: segment.raw });
+    }
+  }
+  return segments;
 }
 
 export function findTaskLineNumber(content: string, taskId: string): number {

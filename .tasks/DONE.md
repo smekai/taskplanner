@@ -1,5 +1,95 @@
 # Done
 
+## TASK-064: Parsing a board and writing it back is lossless
+**Priority:** P1 | **Tags:** core
+**Updated:** 2026-09-19 08:00
+
+Split out of `TASK-063`. `serializeStateFile` rebuilds a state file from parsed tasks, so everything the parser did not turn into a `Task` is gone on the next write: prose above the first task, a comment between two tasks, a section whose heading the parser refuses, and the file's own line endings.
+
+Measured on the current parser — original left, result of `parseTasks` then `serializeStateFile` right:
+
+    # Backlog                                # Backlog
+
+    Prose a human wrote at the top.          ## TASK-001: Real
+                                             **Priority:** P1
+    <!-- keep this -->
+    ## TASK-001: Real                        Body.
+    **Priority:** P1
+                                             ---
+    Body.
+
+    ---
+
+    ## task-002: lowercase, refused
+    **Priority:** P2
+
+    ---
+
+Prose, the comment and the whole `task-002` section are gone. The parser warned about all three; the content is still unrecoverable.
+
+### The loss is at parse time, not at write time
+
+    export interface ParseResult {
+      tasks: Task[];
+      warnings: ParseWarning[];
+    }
+
+That is the whole result. No preamble, nothing between tasks, no unparsed sections, no line endings. `serializeStateFile` cannot restore what it was never given, so any fix that starts at the serializer is working on the wrong end.
+
+### What was tried and rejected
+
+The first attempt was `upsertTask`/`removeTask` in a `boardEditor` module: find one task's section in the raw text and splice. Review found it cutting into the neighbouring task — a section whose separator is missing has no end to find, so `removeTask('TASK-001')` deleted TASK-002 as well. It was removed before merge rather than published.
+
+Splicing by id is the wrong shape regardless of that bug. It exposes byte-level editing to callers to work around a lossy parser, and it is a second write path that this repository's own code does not use.
+
+### The shape to build
+
+Make the round trip lossless and the editor is unnecessary.
+
+- `ParseResult` carries the file as an ordered list of segments: either a task, or raw text the parser did not claim. `tasks` stays as a projection over that list, so no existing caller changes.
+- A task segment keeps the original bytes it was parsed from. Writing a task that did not change re-emits those bytes, so a write only rewrites what actually changed and produces no diff noise.
+- A serializer that walks segments and emits each one is the exact inverse of the parser.
+- The invariant is testable directly: for any board file `x`, serializing `parseTasks(x)` unchanged returns `x` byte for byte. Property-test it over the boards in this repository and over the archive files.
+- `TaskStore` writes through it, so preservation is real for the extension and the MCP tools rather than theoretical for one external consumer.
+- `serializeStateFile` stays for building a file from nothing — initializing a state file and writing archives are legitimately full rebuilds.
+
+### Risks
+
+- CRLF must survive: `parseTasks` splits on `/\r?\n/` and normalises today.
+- Blank-line placement around sections must be preserved exactly, or every first write after the upgrade produces a large diff.
+- The deferred-state path reads raw content without parsing; it must keep working.
+
+
+### Plan
+
+Done. The parser gained a second, boundaries-only pass; its existing loop is untouched, so warning
+text and line numbers are unchanged.
+
+- `segmentBoard` (`src/core/parser/boardSegments.ts`) splits raw content into `text` and `task`
+  segments using the parser's own `taskHeadingIdOf` and `isSectionSeparatorLine`. A section ends at
+  its separator, the next task heading, or EOF.
+- `ParseResult.segments` carries them with the parsed `Task` attached. `tasks` and `warnings` are
+  unchanged, so every existing caller compiled untouched.
+- `serializeBoard(segments, tasks)` walks the new task list: preamble verbatim, then each task's
+  leading text plus either its **original bytes** when `sameTask` says nothing changed, or a fresh
+  section when it did, then the trailing text.
+- `FileStore.prepareState` reads the file it is about to overwrite and writes through
+  `serializeBoard`. An absent or empty file still goes through `serializeStateFile`, which stays for
+  building a file from nothing — initialization and archive writes.
+
+**Interior text is anchored to the task that follows it**, so a comment above a task travels with it
+through a reorder and goes with it on delete. Text before the first task belongs to the file, not to
+the first task, so deleting the first task does not take the file heading with it.
+
+**Proved, not asserted.** Two invariants are tested directly rather than by example: `segmentBoard`
+concatenates back to the exact input, and `serializeBoard` of an unmodified parse returns the input
+byte for byte — both parameterised over every board file in this repository plus CRLF, no trailing
+newline, unterminated final task, a section the parser refuses, and empty. 268 tests.
+
+The BOM is the one thing still dropped on write, as it was before.
+
+---
+
 ## TASK-063: An attribute TaskPlanner does not recognise is still an attribute
 **Priority:** P1 | **Tags:** core
 **Updated:** 2026-09-19 09:10

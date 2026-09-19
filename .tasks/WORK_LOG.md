@@ -5,6 +5,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 **Entry template** (insert after this header, before existing entries):
 
 ```markdown
+## TASK-064 — 2026-09-19
+**What:** Parsing a state file and writing it back is lossless; prose, comments, sections the parser refuses and CRLF all survive a write.
+**Decisions:** Segmentation is a second, boundaries-only pass, so the parser loop and its warnings are untouched. Interior text anchors to the task that follows it; text before the first task belongs to the file. An unchanged task is re-emitted from its original bytes, so a write produces no diff noise. `serializeStateFile` stays for building a file from nothing.
+**Outcome:** Replaces the `upsertTask`/`removeTask` section editor, removed earlier in this PR. Two invariants are property-tested over every board file in the repository. 268 tests.
+
+---
+
 ## TASK-### — YYYY-MM-DD
 **What:** One-line summary of what was delivered.
 **Decisions:** Key choices made and why (skip if none).
