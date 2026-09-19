@@ -5,6 +5,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 **Entry template** (insert after this header, before existing entries):
 
 ```markdown
+## TASK-064 — 2026-09-19
+**What:** Parsing a state file and writing it back is lossless; prose, comments, sections the parser refuses and CRLF all survive a write.
+**Decisions:** Segmentation is a second, boundaries-only pass, so the parser loop and its warnings are untouched. Interior text anchors to the task that follows it; text before the first task belongs to the file. An unchanged task is re-emitted from its original bytes, so a write produces no diff noise. `serializeStateFile` stays for building a file from nothing.
+**Outcome:** Replaces the `upsertTask`/`removeTask` section editor, removed earlier in this PR. Two invariants are property-tested over every board file in the repository. 268 tests.
+
+---
+
 ## TASK-### — YYYY-MM-DD
 **What:** One-line summary of what was delivered.
 **Decisions:** Key choices made and why (skip if none).
@@ -12,6 +19,34 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 ```
+
+---
+
+## TASK-063 — 2026-09-18
+**What:** Unknown `**Key:** value` metadata parses into `Task.attributes` and round-trips instead of
+becoming the first line of the description, and `upsertTask` / `removeTask` edit one task in a state
+file without rebuilding it.
+**Decisions:** Framed the attribute change as making the existing format lossless rather than adding
+a feature — nothing about what a board looks like changes, the parser just stops discarding what is
+already in it. Kept `serializeStateFile`: a full rebuild is right when a caller means it, and wrong
+only when it is the sole option. `removeTask` returns the section it took, because moving a task
+between files is the operation a host actually has.
+**Outcome:** 228 tests, 14 new. Found because Isotopy had no field for a durable per-task marker and
+was writing an HTML comment into the task body, and carried 47 lines of its own file editing purely
+to avoid the rebuilding writer.
+
+---
+
+## TASK-062 — 2026-09-18
+**What:** Closed the `serializeTask` → `parseTasks` round-trip, which a newline in any single-line
+field could break, and exported `taskIdsIn` so a host stops writing its own heading regex.
+**Decisions:** Normalise the single-line fields but *refuse* a description or plan holding a line
+that would end the section — escaping it would rewrite what the author typed, and silently emitting
+it is the bug. `maxTaskIdNumber` stays internal on purpose: TASK-061 is moving ID allocation onto the
+persisted `nextId`, so exporting a board scanner would invite the pattern that task removes.
+**Outcome:** 214 tests, 10 new, all failing first. Found by Isotopy's own review, where the workaround
+had been written into the host — and where its reimplemented `taskIdsIn` accepted lowercase prefixes
+the format rejects.
 
 ---
 

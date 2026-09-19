@@ -1,5 +1,6 @@
 import { Task, Priority, isPriority } from '../model/task.js';
-import { ParseResult, ParseWarning } from '../model/parseResult.js';
+import { BoardSegment, ParseResult, ParseWarning } from '../model/parseResult.js';
+import { segmentBoard } from './boardSegments.js';
 
 const TASK_HEADING_RE = /^## ([A-Z]+-\d+):\s*(.+)$/;
 const PRIORITY_RE = /^\*\*Priority:\*\*\s*(\S+)/;
@@ -9,9 +10,32 @@ const ASSIGNEE_RE = /^\*\*Assignee:\*\*\s*(.+)/;
 const UPDATED_RE = /^\*\*Updated:\*\*\s*(.+)/;
 const WAITING_UNTIL_RE = /^\*\*Waiting until:\*\*\s*(.+)/;
 const SEPARATOR_RE = /^---\s*$/;
+const ATTRIBUTE_RE = /^\*\*(.+?):\*\*\s*(.*)$/;
 // WHY: `.` excludes a carriage return and `$` does not forgive a trailing one, so an unsplit CRLF board matched no heading and read back as empty rather than as broken.
 const LINE_BREAK = /\r?\n/;
 const PLAN_HEADING_RE = /^### Plan\s*$/;
+
+const BUILT_IN_ATTRIBUTE_RES = [
+  PRIORITY_RE,
+  TAGS_RE,
+  EPIC_RE,
+  ASSIGNEE_RE,
+  UPDATED_RE,
+  WAITING_UNTIL_RE,
+];
+
+export function taskHeadingIdOf(line: string): string | undefined {
+  return line.match(TASK_HEADING_RE)?.[1];
+}
+
+export function isSectionSeparatorLine(line: string): boolean {
+  return SEPARATOR_RE.test(line);
+}
+
+export function isReservedAttributeKey(key: string): boolean {
+  const probe = `**${key}:** probe`;
+  return BUILT_IN_ATTRIBUTE_RES.some((pattern) => pattern.test(probe));
+}
 
 function stripBom(content: string): string {
   return content.length > 0 && content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
@@ -44,6 +68,9 @@ export function parseTasks(rawContent: string): ParseResult {
         updatedAt: current.updatedAt,
         waitingUntil: current.waitingUntil,
         ...(plan ? { plan } : {}),
+        ...(current.attributes && Object.keys(current.attributes).length > 0
+          ? { attributes: current.attributes }
+          : {}),
       });
     } else if (current) {
       warnings.push({
@@ -159,6 +186,15 @@ export function parseTasks(rawContent: string): ParseResult {
           matchedAny = true;
           continue;
         }
+
+        const attributeMatch = segment.match(ATTRIBUTE_RE);
+        if (attributeMatch) {
+          current.attributes = {
+            ...current.attributes,
+            [attributeMatch[1].trim()]: attributeMatch[2].trim(),
+          };
+          matchedAny = true;
+        }
       }
 
       if (matchedAny) {
@@ -182,7 +218,26 @@ export function parseTasks(rawContent: string): ParseResult {
   }
 
   flushTask();
-  return { tasks, warnings };
+  return { tasks, warnings, segments: attachTasks(segmentBoard(content), tasks) };
+}
+
+// WHY: segmentBoard reads boundaries only, so the parsed task is matched back onto its section here.
+function attachTasks(raw: ReturnType<typeof segmentBoard>, tasks: Task[]): BoardSegment[] {
+  const unclaimed = new Map<string, Task[]>();
+  for (const task of tasks) {
+    unclaimed.set(task.id, [...(unclaimed.get(task.id) ?? []), task]);
+  }
+  const segments: BoardSegment[] = [];
+  for (const segment of raw) {
+    const pending = segment.id === undefined ? undefined : unclaimed.get(segment.id);
+    const task = pending?.shift();
+    if (segment.kind === 'task' && task) {
+      segments.push({ kind: 'task', task, raw: segment.raw });
+    } else {
+      segments.push({ kind: 'text', raw: segment.raw });
+    }
+  }
+  return segments;
 }
 
 export function findTaskLineNumber(content: string, taskId: string): number {

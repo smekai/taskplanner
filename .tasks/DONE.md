@@ -1,5 +1,201 @@
 # Done
 
+## TASK-064: Parsing a board and writing it back is lossless
+**Priority:** P1 | **Tags:** core
+**Updated:** 2026-09-19 08:00
+
+Split out of `TASK-063`. `serializeStateFile` rebuilds a state file from parsed tasks, so everything the parser did not turn into a `Task` is gone on the next write: prose above the first task, a comment between two tasks, a section whose heading the parser refuses, and the file's own line endings.
+
+Measured on the current parser — original left, result of `parseTasks` then `serializeStateFile` right:
+
+    # Backlog                                # Backlog
+
+    Prose a human wrote at the top.          ## TASK-001: Real
+                                             **Priority:** P1
+    <!-- keep this -->
+    ## TASK-001: Real                        Body.
+    **Priority:** P1
+                                             ---
+    Body.
+
+    ---
+
+    ## task-002: lowercase, refused
+    **Priority:** P2
+
+    ---
+
+Prose, the comment and the whole `task-002` section are gone. The parser warned about all three; the content is still unrecoverable.
+
+### The loss is at parse time, not at write time
+
+    export interface ParseResult {
+      tasks: Task[];
+      warnings: ParseWarning[];
+    }
+
+That is the whole result. No preamble, nothing between tasks, no unparsed sections, no line endings. `serializeStateFile` cannot restore what it was never given, so any fix that starts at the serializer is working on the wrong end.
+
+### What was tried and rejected
+
+The first attempt was `upsertTask`/`removeTask` in a `boardEditor` module: find one task's section in the raw text and splice. Review found it cutting into the neighbouring task — a section whose separator is missing has no end to find, so `removeTask('TASK-001')` deleted TASK-002 as well. It was removed before merge rather than published.
+
+Splicing by id is the wrong shape regardless of that bug. It exposes byte-level editing to callers to work around a lossy parser, and it is a second write path that this repository's own code does not use.
+
+### The shape to build
+
+Make the round trip lossless and the editor is unnecessary.
+
+- `ParseResult` carries the file as an ordered list of segments: either a task, or raw text the parser did not claim. `tasks` stays as a projection over that list, so no existing caller changes.
+- A task segment keeps the original bytes it was parsed from. Writing a task that did not change re-emits those bytes, so a write only rewrites what actually changed and produces no diff noise.
+- A serializer that walks segments and emits each one is the exact inverse of the parser.
+- The invariant is testable directly: for any board file `x`, serializing `parseTasks(x)` unchanged returns `x` byte for byte. Property-test it over the boards in this repository and over the archive files.
+- `TaskStore` writes through it, so preservation is real for the extension and the MCP tools rather than theoretical for one external consumer.
+- `serializeStateFile` stays for building a file from nothing — initializing a state file and writing archives are legitimately full rebuilds.
+
+### Risks
+
+- CRLF must survive: `parseTasks` splits on `/\r?\n/` and normalises today.
+- Blank-line placement around sections must be preserved exactly, or every first write after the upgrade produces a large diff.
+- The deferred-state path reads raw content without parsing; it must keep working.
+
+
+### Plan
+
+Done. The parser gained a second, boundaries-only pass; its existing loop is untouched, so warning
+text and line numbers are unchanged.
+
+- `segmentBoard` (`src/core/parser/boardSegments.ts`) splits raw content into `text` and `task`
+  segments using the parser's own `taskHeadingIdOf` and `isSectionSeparatorLine`. A section ends at
+  its separator, the next task heading, or EOF.
+- `ParseResult.segments` carries them with the parsed `Task` attached. `tasks` and `warnings` are
+  unchanged, so every existing caller compiled untouched.
+- `serializeBoard(segments, tasks)` walks the new task list: preamble verbatim, then each task's
+  leading text plus either its **original bytes** when `sameTask` says nothing changed, or a fresh
+  section when it did, then the trailing text.
+- `FileStore.prepareState` reads the file it is about to overwrite and writes through
+  `serializeBoard`. An absent or empty file still goes through `serializeStateFile`, which stays for
+  building a file from nothing — initialization and archive writes.
+
+**Interior text is anchored to the task that follows it**, so a comment above a task travels with it
+through a reorder and goes with it on delete. Text before the first task belongs to the file, not to
+the first task, so deleting the first task does not take the file heading with it.
+
+**Proved, not asserted.** Two invariants are tested directly rather than by example: `segmentBoard`
+concatenates back to the exact input, and `serializeBoard` of an unmodified parse returns the input
+byte for byte — both parameterised over every board file in this repository plus CRLF, no trailing
+newline, unterminated final task, a section the parser refuses, and empty. 268 tests.
+
+The BOM is the one thing still dropped on write, as it was before.
+
+---
+
+## TASK-063: An attribute TaskPlanner does not recognise is still an attribute
+**Priority:** P1 | **Tags:** core
+**Updated:** 2026-09-19 09:10
+
+The third finding from Isotopy's adoption, after `TASK-060` and `TASK-062`.
+
+### An unrecognised metadata attribute is demoted to prose
+
+The metadata loop matches six known keys. A `**Key:** value` line it does not recognise falls through
+to `inMetadata = false` and is pushed onto `descriptionLines`. Measured: a board carrying
+`**Isotopy source:** milestone m1 · feature f1` in its metadata block parses to a task whose
+**description begins with that line**. No warning; the attribute is simply no longer an attribute.
+
+So a host with metadata of its own has nowhere to put it. Isotopy needed a durable per-task marker to
+keep follow-up creation idempotent across re-runs, found no field for it, and now writes
+`<!-- ISOTOPY-FINDING:<sha256-16> -->` **into the task body a human reads and edits**. A load-bearing
+identifier living in free text is not a design anyone chose; it is what the format left available.
+
+**The rule:** an attribute the parser does not know is still an attribute. Parse unrecognised
+`**Key:** value` metadata into the task as data, and serialize it back. This is not a new format —
+it makes the format already in use lossless for lines people already write.
+
+An attribute that cannot be read back unchanged is refused by name rather than written: the metadata
+line separates fields on `|`, and an attribute named after a built-in field would overwrite it.
+`isReservedAttributeKey` asks the parser's own patterns rather than restating their names, so a field
+added later is reserved automatically.
+
+### The second half became TASK-064
+
+This task originally also covered `serializeStateFile` rebuilding a file and dropping everything it
+did not parse. The first attempt at that was `upsertTask`/`removeTask` — raw-content section
+splicing — and review found it cutting into the neighbouring task, because a section whose separator
+is missing has no end to find. It was removed before merge rather than published.
+
+The loss happens at **parse** time, not at write time: `ParseResult` carries only `tasks` and
+`warnings`, so the serializer cannot restore what it was never given. Fixing the round-trip is
+`TASK-064`, and no section editor is needed once it is lossless.
+
+### Evidence
+
+Failing-first: an unknown attribute survives parse as data and serialize re-emits it, in both the
+pipe-joined segment and on its own line; a description is unchanged by an attribute above it; ten
+cases covering refused delimiters, refused reserved names and a value that merely looks like a field.
+
+---
+
+## TASK-062: A serialized task round-trips, and a host can ask which ids a board holds
+**Priority:** P0 | **Tags:** core
+**Updated:** 2026-09-18 12:57
+
+Found the way `TASK-060` was: Isotopy adopted the library as its one board reader, and its own review
+then caught something every consumer inherits. It is being worked around in Isotopy today, which is
+the wrong place — the format's invariants belong to the library that defines the format.
+
+### `serializeTask` does not round-trip
+
+`serializeTask` builds its heading and metadata line from bare template literals — `## ${task.id}:
+${task.title}`, then `**Priority:** … | **Tags:** ${task.tags.join(', ')} | **Epic:** … |
+**Assignee:** …`. There is **no guard on any of them**, and `serializer.test.ts` only asserts
+rendering, so the serialize-then-parse round-trip is never closed.
+
+Measured against 2.3.0: a task whose title is `Safe title`, a newline, then `## TASK-999: Injected`
+serialises and parses back as **two tasks** — the second one fabricated, with no error anywhere.
+
+That matters because these values are routinely model output. A host handing `serializeTask` an
+agent-written title gets an extra task on its board and no way to know. Isotopy's pre-adoption writer
+collapsed whitespace through every single-line field for exactly this reason; adopting the library
+silently dropped that protection.
+
+**The invariant to hold:** `parseTasks(serializeTask(task))` yields exactly one task, whatever a
+caller passes.
+
+- **Single-line fields — normalise.** `id`, `title`, `tags`, `epic`, `assignee`, `updatedAt` and
+  `waitingUntil` collapse internal whitespace to single spaces. Lossless for every legitimate value,
+  and the same rule the parser already applies when it trims what it reads back.
+- **Body fields — refuse, do not mangle.** A `description` or `plan` holding a line that is exactly
+  `---`, or that matches a task heading, cannot be escaped without changing what its author wrote.
+  Throw a named error identifying the field, so a caller finds out at the boundary rather than
+  corrupting a board. Silently emitting it is today's behaviour and is the worse of the two.
+
+### `taskIdsIn` is not reachable from the package root
+
+It exists in `src/core/parser/taskParser.ts` and is declared in `dist/parser/taskParser.d.ts`; the
+root `index.ts` just does not re-export it beside `parseTasks`, `findTaskLineNumber` and
+`countTaskHeadings`.
+
+A host that needs to know whether an id is already on a board — before deciding a task is absent —
+cannot reach the function that answers it, so it writes its own. Isotopy did, and matched
+`[A-Za-z]+-\d+` where the format matches `[A-Z]+-\d+`: **a laxer definition of a task id than the
+format has**, invented only because the strict one was unreachable.
+
+**`maxTaskIdNumber` stays internal.** `TASK-061` is deliberately moving ID allocation onto the
+persisted `nextId` and away from routine board scans, so exporting a scanner would invite exactly the
+pattern that task removes. A host allocates from `nextId` and advances it, as the tools do.
+
+### Evidence
+
+Failing-first: `parseTasks(serializeTask(task))` returns one task for a title, a tag, an epic and an
+assignee each carrying a heading; a description holding a separator line is refused by name rather
+than written; and `taskIdsIn` is importable from the package root.
+
+Cross-platform: n/a — pure string handling over already-read content, no filesystem or process
+surface.
+
+---
+
 ## TASK-060: A CRLF board parses as an empty one, and a read rewrites config.json
 **Priority:** P0 | **Tags:** core, mcp
 **Updated:** 2026-09-11 07:12

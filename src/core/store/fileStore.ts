@@ -6,7 +6,7 @@ import { TaskState } from '../model/state.js';
 import { TaskPlannerConfig } from '../model/config.js';
 import { ParseResult } from '../model/parseResult.js';
 import { parseTasks } from '../parser/taskParser.js';
-import { serializeStateFile, serializeTask } from '../parser/taskSerializer.js';
+import { serializeBoard, serializeStateFile, serializeTask } from '../parser/taskSerializer.js';
 import { DEFAULT_WORK_LOG_CONTENT } from '../ai/aiInstructions.js';
 
 function writeFileAtomic(filePath: string, content: string): void {
@@ -15,21 +15,41 @@ function writeFileAtomic(filePath: string, content: string): void {
   fs.renameSync(tempPath, filePath);
 }
 
+export interface PreparedWrite {
+  filePath: string;
+  content: string;
+}
+
 export class FileStore {
   constructor(private tasksDir: string) {}
 
   readState(state: TaskState): ParseResult {
     const filePath = path.join(this.tasksDir, state.fileName);
     if (!fs.existsSync(filePath)) {
-      return { tasks: [], warnings: [] };
+      return { tasks: [], warnings: [], segments: [] };
     }
     const content = fs.readFileSync(filePath, 'utf-8');
     return parseTasks(content);
   }
 
-  writeState(state: TaskState, tasks: Task[]): void {
+  prepareState(state: TaskState, tasks: Task[]): PreparedWrite {
     const filePath = path.join(this.tasksDir, state.fileName);
-    writeFileAtomic(filePath, serializeStateFile(state.name, tasks));
+    const original = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+    const content =
+      original.trim().length > 0
+        ? serializeBoard(parseTasks(original).segments, tasks)
+        : serializeStateFile(state.name, tasks);
+    return { filePath, content };
+  }
+
+  commitWrites(writes: PreparedWrite[]): void {
+    for (const write of writes) {
+      writeFileAtomic(write.filePath, write.content);
+    }
+  }
+
+  writeState(state: TaskState, tasks: Task[]): void {
+    this.commitWrites([this.prepareState(state, tasks)]);
   }
 
   readAllStates(config: TaskPlannerConfig): Map<string, ParseResult> {
@@ -48,7 +68,7 @@ export class FileStore {
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       if (code === 'ENOENT') {
-        return { tasks: [], warnings: [] };
+        return { tasks: [], warnings: [], segments: [] };
       }
       throw e;
     }

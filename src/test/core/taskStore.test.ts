@@ -259,3 +259,55 @@ describe('TaskStore', () => {
     expect(task.id).toBe('TASK-200');
   });
 });
+
+// moveTask writes two files. Serializing can refuse a task, and a refusal after the source
+// file was written left the task in neither state — the one failure mode on this path that
+// destroys work rather than reporting an error.
+describe('TaskStore.moveTask writes both states or neither', () => {
+  let tmpDir: string;
+  let configManager: ConfigManager;
+  let fileStore: FileStore;
+  let taskStore: TaskStore;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'taskplanner-move-'));
+    configManager = new ConfigManager(tmpDir);
+    configManager.load();
+    configManager.save();
+    fileStore = new FileStore(tmpDir);
+    fileStore.initializeStateFiles(configManager.get());
+    taskStore = new TaskStore(configManager, fileStore);
+    taskStore.reload();
+    taskStore.createTask(
+      { title: 'Movable', priority: Priority.P1, tags: [], description: 'Body.' },
+      'Backlog',
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const read = (file: string) => fs.readFileSync(path.join(tmpDir, file), 'utf8');
+
+  it('leaves both files untouched when the destination cannot be serialized', () => {
+    // An unserializable body reaches memory the same way: updateTask sets the map, then throws.
+    expect(() => taskStore.updateTask('TASK-001', { description: 'a\n---\nb' })).toThrow();
+    const backlogBefore = read('BACKLOG.md');
+    const nextBefore = read('NEXT.md');
+
+    expect(() => taskStore.moveTask('TASK-001', 'Next')).toThrow();
+
+    expect(read('BACKLOG.md')).toBe(backlogBefore);
+    expect(read('NEXT.md')).toBe(nextBefore);
+    expect(backlogBefore).toContain('TASK-001');
+  });
+
+  it('still moves a task it can serialize', () => {
+    const moved = taskStore.moveTask('TASK-001', 'Next');
+
+    expect(moved?.id).toBe('TASK-001');
+    expect(read('NEXT.md')).toContain('TASK-001');
+    expect(read('BACKLOG.md')).not.toContain('TASK-001');
+  });
+});
