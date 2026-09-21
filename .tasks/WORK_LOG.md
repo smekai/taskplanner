@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-066 - 2026-09-21
+**What:** Cleared `npm audit` before publishing 2.4.x - `js-yaml` 4.3.2 (dev-only) and `qs` 6.16.0 in the lockfile.
+**Decisions:** Plain `npm audit fix`; no `overrides` entry needed since both parents accept the patched ranges.
+**Outcome:** 0 vulnerabilities; `npm run release:check` green, including the published-package smoke test.
+
+---
+
 ## TASK-065 — 2026-09-21
 **What:** Big cleanup for 2.4.0 — archived old Done/Work Log, compressed agent instructions, removed dead code and duplicate tests.
 **Decisions:** Archive at 14 days; compress via the generated template (not hand-edits alone); leave TASK-064 and other backlog tasks untouched.

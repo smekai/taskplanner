@@ -1,5 +1,26 @@
 # Done
 
+## TASK-066: Clear npm audit before publishing 2.4.x
+**Priority:** P1 | **Tags:** setup, ci
+**Updated:** 2026-09-21 13:47
+
+`npm install` reports 2 vulnerabilities (1 high, 1 moderate) from transitive dependencies:
+
+- **js-yaml 4.3.1** (high, GHSA-2883-xcg3-v3hh) — dev-only, via `eslint` and `@vscode/vsce`.
+- **qs 6.15.3** (moderate, GHSA-x5fp-wj9c-mxmx + GHSA-4mjr-xmp4-gh2g) — via `@modelcontextprotocol/ext-apps` → `@modelcontextprotocol/sdk` → `express`; not present in the shipped MCP bundle.
+
+Bring the lockfile to the fixed versions so a release publishes from a clean audit.
+
+### Plan
+
+- `npm audit fix` updated the lockfile only: `js-yaml 4.3.1 → 4.3.2` (dev-only, via eslint and @vscode/vsce), `qs 6.15.3 → 6.16.0` (via @modelcontextprotocol/ext-apps → sdk → express).
+- No `overrides` entry was needed — both parents accept the patched ranges, so no direct dependency changed.
+- `npm audit` now reports 0 vulnerabilities; `npm run release:check` is green end to end, including the packed-tarball MCP smoke test.
+- The `plugins/taskplanner/dist/mcp-server.js` diff is minified-identifier churn from rebuilding against the refreshed tree; both bundle copies stay byte-identical, as `validate:versions` confirms.
+- Shipped artifacts were never exposed: `express`/`qs` are not bundled and `js-yaml` is dev tooling.
+
+---
+
 ## TASK-065: Big cleanup for 2.4.0: compress board markdown, agent template, dead code and duplicate tests
 **Priority:** P1 | **Tags:** refactor, docs, testing
 **Updated:** 2026-09-21 13:20

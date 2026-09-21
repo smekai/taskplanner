@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- Dependency audit is clean again: `js-yaml` 4.3.2 (dev-only, GHSA-2883-xcg3-v3hh) and `qs` 6.16.0 (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g) (TASK-066).
+
 ## [2.4.0] - 2026-09-21
 
 ### Added
