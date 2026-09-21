@@ -1,5 +1,68 @@
 # Backlog
 
+## TASK-064: Write only the part of a state file that changed
+**Priority:** P2 | **Tags:** core
+**Updated:** 2026-09-21 10:28
+
+Every board write rewrites the whole state file. `serializeBoard` copies the bytes of unchanged tasks verbatim, but it still copies them, and `writeFileAtomic` then writes the file from scratch.
+
+Real sizes, which is what settles this:
+
+    this repository   .tasks/DONE.md      84 KB
+    isotopy           .tasks/DONE.md     336 KB, growing per completed task
+    isotopy           .tasks/NEXT.md      33 KB
+
+I underestimated this earlier by reasoning about a 40 KB file. Moving one task to Done in Isotopy rewrites 336 KB to add about 2 KB, and the file only grows.
+
+## Three parts, increasing in cost and risk
+
+### 1. Do not write when nothing changed
+
+`serializeBoard` always returns a string and `commitWrites` always writes it, even when the result is byte-identical to what is on disk. Comparing and skipping is a few lines, changes no behaviour, and removes a write plus a rename from every operation that turned out to be a no-op — `updateTask` with identical values, a reorder that resolves to the same index, `archiveCompleted` when nothing is old enough.
+
+No trade-off. Do this first and independently.
+
+### 2. Append a section instead of rewriting the file
+
+Adding a task to a state file needs no cut: the section is not in the file yet. `createTask`, and a `moveTask` into its destination, are pure appends. Open the file, seek to the end, write the section.
+
+This is where the 336 KB lives: **an append that writes 2 KB instead of 336 KB**, with no change to the order of anything and nothing to decide. It is the largest win in the task and the cheapest to reason about.
+
+### 3. Cut and append for an edited section
+
+Proposed: to change a task, remove its section and write the new version at the end of the file.
+
+This removes the problem that blocks a naive in-place patch — a new section is almost never the same length as the old one, so patching in place would mean shifting the whole tail. Appending sidesteps the length entirely.
+
+A regular file still cannot have bytes removed from the middle, so the cut costs a write of everything after the section plus a truncate. Average saving is about half the file; a task at the end saves nearly all of it, a task at the top saves nothing.
+
+**The good part, which is the point of the design:** after one edit the task sits at the end, so every further edit to it is cheap. That matches how the board is actually used — an agent touches one task repeatedly (move to In Progress, add a plan, update, move to Done) while everything else stays still.
+
+## What this costs, and the decision it needs
+
+**The order of tasks in the file changes on every edit.** That is invisible under the default `priority` sort, but two things do depend on file order:
+
+- `sortBy: 'file'` is a real option in `taskFilter.ts` and means "show them in the order the file has them"
+- drag-and-drop in the task list calls `reorderTaskToIndex`, which exists only to let someone choose that order
+
+So a person could drag a task into place, edit it, and watch it jump to the bottom. `CLAUDE.md` already says order within a file carries no meaning beyond the insertion point, which argues the other way. Deciding this is the first step of part 3, not an implementation detail of it.
+
+**Atomicity.** `writeFileAtomic` writes a temporary file and renames it, so a crash leaves either the old file or the new one. Appending and truncating in place give that up: an interruption can leave a half-written section, and a board is edited by a person and an agent at the same time. Mitigations to weigh: append the new section before cutting the old one, so an interruption leaves a duplicate id — which the duplicate detector already handles — rather than a lost task.
+
+## Groundwork already in place
+
+- `splitSections` computes each section's byte offsets and currently throws them away. Carrying `[start, end)` on `RawSection` is a small change.
+- `sameTask` already answers which tasks did not change.
+- `FileStore.prepareState` / `commitWrites` already separate deciding what to write from writing it, which is where an append or a partial write would slot in.
+
+## Verification
+
+- The byte-identity invariant in `roundTrip.test.ts` must keep passing: whatever the write path does, reading a board and writing it back unchanged returns the same bytes.
+- A test that an unchanged write touches the file's mtime not at all.
+- For part 3, if it is taken: a test that an interruption between the append and the cut leaves the task findable rather than lost.
+
+---
+
 ## TASK-062: Run the published-artifact smoke test under Vitest instead of a hand-rolled script
 **Priority:** P3 | **Tags:** testing
 **Updated:** 2026-09-21 09:21
