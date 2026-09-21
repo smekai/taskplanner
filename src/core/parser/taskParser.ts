@@ -43,13 +43,12 @@ export function parseTasks(rawContent: string): ParseResult {
     const parsed = parseTaskSection(section.raw, section.line);
     errors.push(...parsed.errors);
     warnings.push(...parsed.warnings);
-    if (parsed.task) {
-      tasks.push(parsed.task);
-      segments.push({ kind: 'task', task: parsed.task, raw: section.raw });
-      continue;
+    // WHY: splitSections only emits kind:'task' when taskHeadingIdOf matches, and parseTaskSection uses the same grammar on that first line.
+    if (!parsed.task) {
+      throw new Error(`task section at line ${section.line} produced no task`);
     }
-    errors.push(...brokenHeadings(section));
-    segments.push({ kind: 'text', raw: section.raw });
+    tasks.push(parsed.task);
+    segments.push({ kind: 'task', task: parsed.task, raw: section.raw });
   }
 
   return { tasks, errors, warnings, segments };

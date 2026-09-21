@@ -1,40 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
 import { splitSections } from '../../core/parser/boardSections.js';
 
-// The invariant every later layer rests on. If the sections do not concatenate back to the file,
-// no write path built on them can be lossless, and no amount of testing above it would say so.
-const coversEveryByte = (content: string) =>
-  splitSections(content).reduce((acc, section) => acc + section.raw, '') === content;
-
-const BOARDS = fs
-  .readdirSync(path.join(process.cwd(), '.tasks'))
-  .filter((name) => name.endsWith('.md'))
-  .map((name) => path.join(process.cwd(), '.tasks', name));
-
-describe('splitSections covers every byte', () => {
-  it.each(BOARDS)('%s', (file) => {
-    expect(coversEveryByte(fs.readFileSync(file, 'utf8'))).toBe(true);
-  });
-
-  it.each([
-    ['empty file', ''],
-    ['heading only', '# Backlog\n'],
-    ['no trailing newline', '# B\n\n## TASK-001: T\n**Priority:** P1\n\n---'],
-    ['CRLF', '# B\r\n\r\n## TASK-001: T\r\n**Priority:** P1\r\n\r\n---\r\n'],
-    ['BOM', '﻿# B\n\n## TASK-001: T\n\n---\n'],
-    ['unterminated final task', '# B\n\n## TASK-001: T\n**Priority:** P1\n'],
-    ['missing middle separator', '# B\n\n## TASK-001: A\n\n## TASK-002: B\n\n---\n'],
-    ['prose and comments', '# B\n\nProse.\n\n<!-- keep -->\n## TASK-001: A\n\n---\n\nTail.\n'],
-    ['a section the parser refuses', '# B\n\n## task-002: lowercase\n**Priority:** P2\n\n---\n'],
-    ['no tasks at all', '# B\n\nJust prose.\n'],
-    ['consecutive separators', '# B\n\n---\n---\n\n## TASK-001: A\n\n---\n'],
-  ])('%s', (_name, content) => {
-    expect(coversEveryByte(content)).toBe(true);
-  });
-});
-
+// Byte-cover over real boards and the synthetic invert set lives in roundTrip.test.ts.
+// This file keeps boundary behaviour that the invert alone does not spell out.
 describe('section boundaries', () => {
   it('an unterminated task ends where the next one begins', () => {
     const sections = splitSections('# B\n\n## TASK-001: A\nbody\n\n## TASK-002: B\n\n---\n');
@@ -74,5 +42,12 @@ describe('section boundaries', () => {
     );
 
     expect(task.raw.endsWith('---\n')).toBe(true);
+  });
+
+  it('consecutive separators stay as text sections', () => {
+    const sections = splitSections('# B\n\n---\n---\n\n## TASK-001: A\n\n---\n');
+
+    expect(sections.filter((s) => s.kind === 'task')).toHaveLength(1);
+    expect(sections.some((s) => s.kind === 'text' && s.raw.includes('---'))).toBe(true);
   });
 });

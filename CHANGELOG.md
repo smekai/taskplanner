@@ -6,26 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-09-21
+
 ### Added
 
-- **The tools now tell you when your board did not read cleanly.** A section TaskPlanner cannot read is reported as an error naming the file and line, and carrying the text it could not read, so an agent can repair the markdown instead of silently working with fewer tasks than you have. A missing `**Priority:**` line is reported as a warning. Both reach `taskplanner_list`, `taskplanner_get` and the board tools, which reported nothing at all before (TASK-063).
-- **An attribute TaskPlanner does not recognise is still an attribute.** A `**Key:** value` line in a task's metadata used to become the first line of its description, so a tool with metadata of its own had nowhere to keep it. Unknown attributes are read into the task and written back, whether on their own line or sharing the grouped one (TASK-063).
-- **Library API:** `parseTasks` returns the file as ordered `segments` alongside `tasks`, and `serializeBoard(segments, tasks)` writes them back; together they are exact inverses, so a host can change one task and keep every other byte. `taskIdsIn` is exported (TASK-063).
+- MCP read tools report parse **errors** and **warnings** (with raw text for unread sections); unknown `**Key:**` attributes round-trip; `parseTasks` returns `segments` and `serializeBoard` is its inverse; `taskIdsIn` exported (TASK-063).
+
+### Changed
+
+- Generated agent instructions are shorter — same tools and workflow, less repeated prose (TASK-065).
+- This repository sets `archiveDoneAfterDays: 14` and archives older Done / Work Log under `.tasks/archive/` (TASK-065).
+- Allocate task IDs from persisted `nextId` without routine board/archive scans (TASK-061).
 
 ### Fixed
 
-- **A misspelled priority no longer silently becomes the lowest one.** `**Priority:** p0` read as **P4**, with no warning — so a task you marked most urgent became one an agent would never pick up. Any capitalisation and surrounding space is now accepted, and a value that is not a priority at all is reported instead of guessed (TASK-063).
-- **A write no longer throws away the parts of a board file TaskPlanner does not parse.** Saving a task rebuilt its whole state file from the tasks the parser recognised, so prose above the first task, a comment between two tasks, a section whose heading the parser refuses, and the file's own CRLF line endings all disappeared on the next write. Reading a board and writing it back unchanged now returns the same bytes, and a task nobody edited is written from its original bytes, so a save no longer produces diff noise for untouched work (TASK-063).
-- **A task can no longer smuggle a second task onto your board.** A newline in a title, tag, epic, assignee or date closed the task section and opened another, so one task serialized and parsed back as two. These values are routinely written by agents. Single-line fields are collapsed, and a description or plan holding a line that would end the section is refused by name instead of corrupting the file (TASK-063).
-- **Moving a task writes both files or neither.** A failure while serializing the destination left the task removed from the source and never written to the destination (TASK-063).
-- A section missing its closing `---` no longer swallows the task that follows it (TASK-063).
+- Misspelled priorities are reported instead of becoming P4; board writes preserve unread prose, CRLF, and BOM; single-line fields cannot smuggle a second task; moves write both files or neither (TASK-063).
+- CRLF boards parse correctly; MCP reads no longer rewrite `config.json` (TASK-060).
 
-### Fixed
+### Removed
 
-- Preserve task ID counters across migrated-state moves and allocate new IDs without routine board/archive scans; MCP creation loads only its destination state (TASK-061).
-
-- A board checked out with **CRLF line endings** is read correctly instead of coming back empty. Git for Windows converts line endings by default, and every task heading in such a file failed to match — so the board parsed to zero tasks with "Invalid task heading" warnings nobody surfaced, which is indistinguishable from a board that genuinely has no tasks. Where a task did parse, its title, tags, epic and assignee also kept a trailing carriage return. Affects the extension, the MCP tools and the library equally (TASK-060).
-- **A read no longer rewrites your `config.json`.** Every MCP tool loaded the config through the same path the extension uses, which migrates and saves — so `taskplanner_list` added a Rejected state, added `order` to every state and injected six more fields into the caller's file. A host that validates its own board config then rejected what the read had produced. Reads leave the file untouched; the migration still reaches disk on the next write, and the extension is unchanged (TASK-060).
+- Unused webview message contract, never-posted `ready` handlers, and `TaskStore.deleteTask` (TASK-065).
+- Duplicate/obsolete parser tests subsumed by round-trip invariants (TASK-065).
 
 ## [2.3.0] - 2026-08-28
 
@@ -79,162 +80,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [2.1.4] - 2026-08-03
 
-### Added
-
-- Tag filter in the sidebar task list filter bar to show tasks matching a selected tag (TASK-044).
-- Labeled read-only task ID field at the top of the task edit detail view (TASK-045).
-
-### Fixed
-
-- Task list sorting now tie-breaks by task ID (ascending) when priority or name sort keys match, giving stable ordering within groups (TASK-043).
+- Tag filter, labeled task ID in detail view, stable priority→ID sort (TASK-043–045).
 
 ## [2.1.2] - 2026-07-24
 
-### Changed
-
-- “Implement with AI” now opens a reviewable planning phase by default (when AI Planning is enabled), including Codex `/plan` and best-effort Cursor Plan mode, before implementation begins (TASK-042).
-
-### Fixed
-
-- Restored the simple checkmark selector in the VS Code and Cursor Activity Bar while retaining the branded marketplace logo (TASK-041).
+- Plan-first Implement with AI; restored checkmark Activity Bar icon (TASK-041–042).
 
 ## [2.1.1] - 2026-07-22
 
-### Changed
-
-- Adopted the approved graphite TaskPlanner identity across the extension marketplace, Activity Bar, README, and bundled Cursor/Codex plugin assets.
-- Simplified local Cursor plugin testing to use Cursor's supported local plugin directory instead of legacy Claude plugin registration files.
-- Kept repository-only build, validation, and release scripts out of the published VSIX.
-- Replaced the Codex continuation starter prompt with a guided new-task creation prompt.
-
-### Fixed
-
-- Packaged the public Codex skills-only release as a valid plugin root with its manifest, skills, and referenced brand asset.
-- Generated the Codex upload ZIP with portable `/` entry paths accepted by the OpenAI plugin portal.
-- Replaced the retired VS Code Marketplace version badge with the supported marketplace badge provider.
-- Updated the transitive Hono server dependency to the patched release while retaining the MCP SDK used by TaskPlanner's stdio server.
+- Graphite branding, local plugin testing path, Codex skills packaging fixes.
 
 ## [2.0.1] - 2026-07-21
 
-### Changed
-
-- Repository guidance now requires every commit to carry a synchronized patch version bump across the app, MCP server, plugins, lockfile, and skills.
+- Every commit must carry a synchronized patch version bump.
 
 ## [2.0.0] - 2026-07-21
 
-### Added
-
-- TaskPlanner now synchronizes owned project instructions by installed version, supports voluntary README attribution, and includes initialize/update skills with a public skills-only Codex submission package (TASK-040).
-
-### Changed
-
-- TaskPlanner is now licensed under MIT; README attribution is optional and not a license requirement (TASK-040).
-
-- Development and CI now use Node.js 24 LTS, and unused VS Code integration-test tooling has been removed.
-
-### Fixed
-
-- Updated build, test, and packaging dependencies to patched releases so the complete npm dependency graph audits cleanly.
-- Codex TaskPlanner tools now receive the active repository path explicitly, so installed plugin MCP servers no longer search their cache directory for `.tasks/` (TASK-039).
+- MIT license; version-aware project sync and skills; Node 24; Codex workspace_root (TASK-039–040).
 
 ## [1.8.0] - 2026-07-20
 
-### Added
-
-- Codex app/CLI support through a shared installable plugin, repository marketplace, workflow skills, structured MCP tools, `AGENTS.md` synchronization, and a Codex “Implement with AI” provider (TASK-038).
-- Rolling work log at `.tasks/WORK_LOG.md` — agents append a short What/Decisions/Outcome entry when moving tasks to Done; seeded on project init (TASK-037).
-- Interactive task board inside Cursor agent chats via MCP Apps — invoke `taskplanner_board_visual` (requires a host that supports the MCP Apps extension, e.g. Cursor 2.6+). Shows columns with drag-to-move and click-to-view-details (TASK-033).
-
-### Changed
-
-- Internal refactor: removed duplicated BOM stripping, pagination slicing, and sync/async reload scaffolding in core; centralized VS Code extension settings access behind typed getters/setters. No user-visible behavior change (TASK-020).
-
-### Fixed
-
-- Task IDs no longer collide after a merge: `nextId` is reconciled against the highest ID actually present in the task files on activate and before every create, so a stale or merged `config.json` never re-issues an existing ID (TASK-034).
+- Codex plugin, WORK_LOG, MCP Apps board, ID reconcile on create, core cleanup (TASK-020, 033–038).
 
 ## [1.4.2] - 2026-04-09
 
-### Added
-
-- **(Beta)** Cursor plugin bundled with the extension: MCP server (stdio) with task-oriented tools, slash commands `/list-tasks`, `/next-task`, `/continue-task`, a TaskPlanner **skill**, and a workflow **rule**; intended for agent use alongside `.tasks/` (now located at `plugins/taskplanner/README.md`).
-
-### Changed
-
-- Large **Done** / **Rejected** files: heading-only counts on load, full parse when you expand those groups, use **Show all**, open the Kanban completed section, or when a command needs those tasks; reload uses async I/O. Scalability timing tests added (TASK-024).
-- Generated AI instructions (`Initialize AI Instructions`) and **Implement with AI** prompts no longer tell agents to create a git branch; branching remains optional for the user.
-- Activity bar, sidebar views, and settings section title use **Task → Plan → AI** (arrow styling) instead of **Task. Plan. AI.**
-
-### Fixed
-
-- Sidebar task list: **Next** group could not be collapsed in some cases.
+- Bundled Cursor plugin; deferred Done/Rejected load; Task → Plan → AI naming (TASK-024).
 
 ## [1.3.0] - 2026-04-02
 
-### Added
-
-- **(Beta)** Prompt to **Initialize AI Instructions** on activation when the workspace has `.tasks/` but neither `CLAUDE.md` nor `.cursorrules` contains the TaskPlanner marker block; dismissible per workspace (TASK-032)
-- **(Beta)** Stronger generated AI workflow text: mandatory In Progress → Done checklist, CHANGELOG reminder, and short **### Plan** guidance (TASK-032)
-- Sidebar task list: drag-and-drop reorder and cross-state moves when grouped by **Status** (Kanban-style feedback); drop on **folded** group headers; optional **File order** sort so order matches markdown (TASK-031)
-- Parse warnings for malformed task markdown: dismissible banner in the task list and Kanban with jump-to-file; reload errors log to the **TaskPlanner** output channel (TASK-017)
-- **(Beta)** Cursor Tier 1 chat failure logs to **TaskPlanner AI** output and shows a warning before the Agent Chat paste fallback (TASK-030)
-- **(Beta)** Optional `taskplanner.cursorPlanAndSubmitAfterOpen` — after Cursor Tier 1 succeeds, best-effort plan/submit commands (TASK-030)
-- **(Beta)** AI providers for **Implement with AI**: `vscode-chat`, `claude-cli` (terminal + `taskplanner.claudeCliCommand`, default `claude {{file}}`); optional first-run prompt and **TaskPlanner: Configure AI Provider** command (TASK-030)
-- **(Beta)** Cursor "Implement with AI" uses tiered delivery: native chat open, then Agent Chat paste workaround, then clipboard (TASK-030)
-- **(Beta)** AI prompts include a plan-mode instruction when project config requires an agent plan (TASK-030)
-- **(Beta)** "Implement with AI" button on task detail view and kanban cards — auto-detects Cursor or Claude Code, with clipboard fallback (TASK-026)
-- **(Beta)** `taskplanner.aiTool` setting to choose preferred AI tool (window-scoped; includes auto/cursor/claude-code/vscode-chat/claude-cli/clipboard) (TASK-026)
-- Changelog for VS Code marketplace with retrospective entries and auto-update rule in CLAUDE.md (TASK-029)
-
-### Fixed
-
-- Task detail **Status** and **Priority** pickers use theme-colored popup menus instead of native `<select>` lists, so options stay readable in dark themes and match VS Code styling.
-
-### Changed
-
-- **(Beta)** Claude Code integration simplified to URI handler — removed intermediate QuickPick menu (TASK-026)
+- AI onboarding, list DnD, parse warnings, Implement with AI providers, changelog (TASK-017, 026, 029–032).
 
 ## [1.2.0] - 2026-03-22
 
-### Added
-
-- Search/filter on Kanban board with debounced input (TASK-028)
-- AI plan persistence — plans saved as `### Plan` subsections when tasks move through the workflow (TASK-016)
-- Auto-increment patch version on every commit via git pre-commit hook (TASK-018)
-
-### Changed
-
-- Kanban board columns restructured: Backlog | Active (Next + In Progress) | Completed (Done + Rejected) (TASK-025)
-- README split into developer docs and user-facing marketplace page (TASK-022)
+- Kanban search, plan persistence, version bump hook, column restructure (TASK-016, 018, 022, 025, 028).
 
 ## [1.1.0] - 2026-03-20
 
-### Added
-
-- Filtered task list as main view — grouped by status, searchable across all fields (TASK-013)
-- Assignee and Updated datetime fields on tasks (TASK-013)
-- Grouping controls: by status, assignee, date, or none (TASK-013)
-- Duplicate task conflict detection with auto-fix (TASK-014)
-- Sort/group icon-button dropdowns with VS Code native styling (TASK-015)
-
-### Fixed
-
-- Save button now closes the edit form and returns to list view (TASK-027)
+- Filtered list, assignee/updated, grouping, duplicate fix, save closes form (TASK-013–015, 027).
 
 ## [1.0.0] - 2026-03-18
 
-### Added
-
-- Project scaffolding: TypeScript + esbuild + Vitest + VS Code extension shell (TASK-001)
-- Regex-based markdown parser and serializer for task files (TASK-002)
-- Extension icon and activity bar branding (TASK-003)
-- Kanban board with drag-and-drop between columns (TASK-004)
-- Filtered task list with status dropdown and search (TASK-004)
-- AI instruction generation — auto-generates `CLAUDE.md` and `.cursorrules` (TASK-006)
-- Setup menu: Initialize Project, AI Instructions, Planning toggle, Sort By (TASK-007)
-- Compact tree view with priority-colored icons and task count badges (TASK-008)
-- Example `.tasks/` folder with sample tasks (TASK-005)
-- README with features, quick start, format spec, AI workflow docs (TASK-011)
-- Rejected state, config migration v1 to v2, insert position setting (TASK-012)
-- GitHub community files and CI rules (TASK-010)
-- Overview screenshots for README and marketplace (TASK-009)
+- Initial release: parser, kanban, list, AI instructions, setup, example board (TASK-001–012).

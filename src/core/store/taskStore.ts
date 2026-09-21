@@ -424,15 +424,6 @@ export class TaskStore {
     return moved;
   }
 
-  deleteTask(taskId: string): boolean {
-    const found = this.locate(taskId);
-    if (!found) return false;
-
-    const tasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
-    this.commit({ state: found.state, tasks });
-    return true;
-  }
-
   updateTask(taskId: string, updates: Partial<Omit<Task, 'id'>>): Task | null {
     const found = this.locate(taskId);
     if (!found) return null;

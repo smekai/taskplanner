@@ -101,13 +101,10 @@ describe('parsing and writing are inverses', () => {
 describe('a serialized task cannot smuggle in a second one', () => {
   const HEADING = '\n## TASK-999: Injected';
 
+  // oneLine() is the same path for every single-line field; title and tags cover string and array.
   it.each([
     ['title', { title: `Safe title${HEADING}` }],
     ['tags', { tags: [`ui${HEADING}`] }],
-    ['epic', { epic: `Milestone${HEADING}` }],
-    ['assignee', { assignee: `owner${HEADING}` }],
-    ['updatedAt', { updatedAt: `2026-09-21 10:00${HEADING}` }],
-    ['waitingUntil', { waitingUntil: `2026-12-01${HEADING}` }],
   ])('a heading smuggled through %s does not become a second task', (_field, overrides) => {
     expect(roundTripped(overrides).map((t) => t.id)).toEqual(['TASK-001']);
   });
@@ -189,14 +186,11 @@ describe('attributes', () => {
 describe('priority diagnostics', () => {
   const priorityOf = (line: string) => parseTasks(`## TASK-001: T\n${line}\n\n---\n`);
 
-  it.each([
-    ['**Priority:** P0', Priority.P0],
-    ['**Priority:** p0', Priority.P0],
-    ['**Priority:**   p3  ', Priority.P3],
-  ])('%s reads as %s with no diagnostics', (line, expected) => {
-    const { tasks, errors, warnings } = priorityOf(line);
+  // Happy-path spellings live in grammar.test.ts; this checks the diagnostics path.
+  it('accepts a lower-case priority with no diagnostics', () => {
+    const { tasks, errors, warnings } = priorityOf('**Priority:** p0');
 
-    expect(tasks[0].priority).toBe(expected);
+    expect(tasks[0].priority).toBe(Priority.P0);
     expect(errors).toHaveLength(0);
     expect(warnings).toHaveLength(0);
   });

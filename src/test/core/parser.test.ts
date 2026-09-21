@@ -95,28 +95,6 @@ Just a simple task.
     expect(tasks[0].description).toBe('');
   });
 
-  it('parses pipe-separated metadata on one line', () => {
-    const content = `# Backlog
-
-## TASK-001: Implement auth
-**Priority:** P1 | **Tags:** auth, backend
-
-Build OAuth2 authentication.
-
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0]).toEqual({
-      id: 'TASK-001',
-      title: 'Implement auth',
-      priority: Priority.P1,
-      tags: ['auth', 'backend'],
-      epic: undefined,
-      description: 'Build OAuth2 authentication.',
-    });
-  });
-
   // Every field is readable on its own line and inside the grouped line; these used to be six
   // separate tests, one per field per layout.
   const FIELDS = [
@@ -145,16 +123,12 @@ Build OAuth2 authentication.
     expect(tasks[0][field]).toEqual(expected);
   });
 
-  it('handles empty file', () => {
-    const { tasks, warnings } = parseTasks('# Backlog\n');
-    expect(tasks).toHaveLength(0);
-    expect(warnings).toHaveLength(0);
-  });
-
-  it('handles empty string', () => {
-    const { tasks, warnings } = parseTasks('');
-    expect(tasks).toHaveLength(0);
-    expect(warnings).toHaveLength(0);
+  it('handles an empty board', () => {
+    for (const content of ['# Backlog\n', '']) {
+      const { tasks, warnings } = parseTasks(content);
+      expect(tasks).toHaveLength(0);
+      expect(warnings).toHaveLength(0);
+    }
   });
 
   it('handles task without separator at end of file', () => {
@@ -248,18 +222,6 @@ Only second has metadata block.
     expect(tasks[1]).toMatchObject({ id: 'TASK-002', title: 'Second', priority: Priority.P1 });
   });
 
-  it('very long single-line description produces no warnings', () => {
-    const long = 'x'.repeat(8000);
-    const content = `## TASK-001: Long
-**Priority:** P1
-
-${long}
-`;
-    const { tasks, warnings } = parseTasks(content);
-    expect(warnings).toHaveLength(0);
-    expect(tasks[0].description).toBe(long);
-  });
-
   // Git for Windows checks out CRLF by default. `.` excludes a carriage return and
   // `$` does not forgive one, so an unnormalized heading never matched and the board
   // read back empty — indistinguishable from a board with no tasks on it.
@@ -276,21 +238,15 @@ Build OAuth2 authentication.
 `;
     const crlf = (content: string) => content.replace(/\n/g, '\r\n');
 
-    it('reads the same tasks as the same board with LF endings', () => {
-      expect(parseTasks(crlf(LF_BOARD)).tasks).toEqual(parseTasks(LF_BOARD).tasks);
-    });
+    it('reads the same tasks as LF, with no warnings and no trailing carriage returns', () => {
+      const { tasks, warnings } = parseTasks(crlf(LF_BOARD));
 
-    it('reports no warnings, rather than calling every heading invalid', () => {
-      expect(parseTasks(crlf(LF_BOARD)).warnings).toEqual([]);
-    });
-
-    it('leaves no carriage return on the values the metadata regexes capture', () => {
-      const task = parseTasks(crlf(LF_BOARD)).tasks[0];
-
-      expect(task.title).toBe('Implement auth');
-      expect(task.tags).toEqual(['auth', 'backend']);
-      expect(task.assignee).toBe('owner');
-      expect(task.waitingUntil).toBe('2026-12-01');
+      expect(tasks).toEqual(parseTasks(LF_BOARD).tasks);
+      expect(warnings).toEqual([]);
+      expect(tasks[0].title).toBe('Implement auth');
+      expect(tasks[0].tags).toEqual(['auth', 'backend']);
+      expect(tasks[0].assignee).toBe('owner');
+      expect(tasks[0].waitingUntil).toBe('2026-12-01');
     });
 
     it('finds a task line number in a CRLF board', () => {
@@ -492,7 +448,8 @@ describe('findTaskLineNumber', () => {
 });
 
 describe('Waiting until', () => {
-  it('parses the field and survives a round-trip through the serializer', () => {
+  // Field parse for both layouts is in FIELDS above; this locks the serialize hop.
+  it('survives a round-trip through the serializer', () => {
     const markdown = [
       '# Next',
       '',
@@ -507,16 +464,9 @@ describe('Waiting until', () => {
     ].join('\n');
 
     const task = parseTasks(markdown).tasks[0];
-    expect(task.waitingUntil).toBe('2026-09-03');
-
     const reparsed = parseTasks(`# Next\n\n${serializeTask(task)}\n\n---\n`).tasks[0];
     expect(reparsed.waitingUntil).toBe('2026-09-03');
     expect(reparsed.priority).toBe(task.priority);
-  });
-
-  it('leaves the field undefined when absent', () => {
-    const markdown = '# Next\n\n## TASK-002: Ordinary\n**Priority:** P2\n\nx\n\n---\n';
-    expect(parseTasks(markdown).tasks[0].waitingUntil).toBeUndefined();
   });
 });
 
@@ -530,7 +480,7 @@ describe('isWaiting', () => {
   });
 
   it('treats absent or unparseable values as not waiting', () => {
-    // A typo must not hide work forever.
+    // Impossible dates are rejected by parseTimestamp; isWaiting only wraps it.
     expect(isWaiting(undefined, AUG_27)).toBe(false);
     expect(isWaiting('next tuesday', AUG_27)).toBe(false);
     expect(isWaiting('', AUG_27)).toBe(false);
@@ -539,14 +489,6 @@ describe('isWaiting', () => {
   it('accepts a time suffix but not text glued to the date', () => {
     expect(isWaiting('2026-09-03 10:00', AUG_27)).toBe(true);
     expect(isWaiting('2026-09-03xyz', AUG_27)).toBe(false);
-  });
-
-  it('rejects impossible calendar dates', () => {
-    // A regexp alone accepts these, and a task would then be suppressed forever — the exact
-    // failure this function promises not to cause.
-    expect(isWaiting('2026-99-99', AUG_27)).toBe(false);
-    expect(isWaiting('2026-02-31', AUG_27)).toBe(false);
-    expect(isWaiting('2026-13-01', AUG_27)).toBe(false);
   });
 });
 

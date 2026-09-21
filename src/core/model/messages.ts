@@ -41,13 +41,3 @@ export interface GroupViewData {
   hasMore: boolean;
   collapsed?: boolean;
 }
-
-export type WebviewMessage =
-  | { type: 'ready' }
-  | { type: 'moveTask'; taskId: string; targetState: string; targetIndex?: number }
-  | { type: 'reorderTask'; taskId: string; newIndex: number }
-  | { type: 'deleteTask'; taskId: string }
-  | { type: 'openTask'; taskId: string }
-  | { type: 'applyFilter'; filter: TaskFilter }
-  | { type: 'showAll'; stateName?: string }
-  | { type: 'expandGroup'; groupLabel: string };

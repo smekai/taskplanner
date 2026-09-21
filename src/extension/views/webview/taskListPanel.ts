@@ -84,9 +84,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
 
   private handleMessage(msg: { type: string; [key: string]: unknown }): void {
     switch (msg.type) {
-      case 'ready':
-        this.update();
-        break;
       case 'applyFilter':
         {
           const prevGroupBy = this.filter.groupBy ?? 'status';
