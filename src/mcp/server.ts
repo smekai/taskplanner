@@ -138,7 +138,6 @@ function boardIssues(taskStore: TaskStore): { errors: BoardIssue[]; warnings: Bo
   };
 }
 
-// WHY: a board that fails to parse reads as a board with fewer tasks, so the count alone can never tell a caller that something is missing.
 function issueReport(issues: { errors: BoardIssue[]; warnings: BoardIssue[] }): string {
   const lines: string[] = [];
   for (const error of issues.errors) {
@@ -210,7 +209,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.3.11',
+  version: '2.3.12',
 });
 
 server.registerTool(

@@ -335,7 +335,6 @@ export class TaskStore {
     this.configManager.reconcileNextId(floor);
   }
 
-  // WHY: serializing a task can fail, and failing on the second file after the first has landed would leave a moved task in neither state.
   private commit(...writes: { state: TaskState; tasks: Task[] }[]): void {
     this.syncCounter();
     const prepared = writes.map(({ state, tasks }) => this.fileStore.prepareState(state, tasks));

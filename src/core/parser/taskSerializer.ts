@@ -10,7 +10,6 @@ import {
 const GROUP_JOIN = ' | ';
 const UNUSABLE_KEY_CHARACTERS = /[|:*]/;
 
-// WHY: these values are often model output, and a newline in one closes the section and opens a second task on the line after it.
 function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -147,27 +146,20 @@ function originalSections(
   return originals;
 }
 
-function lastTaskIndex(segments: BoardSegment[]): number {
-  for (let i = segments.length - 1; i >= 0; i--) {
-    if (segments[i].kind === 'task') return i;
-  }
-  return -1;
-}
-
-// WHY: only the tasks in a state file are parsed, so writing through the segments is what keeps prose, comments and refused sections on disk.
 export function serializeBoard(segments: BoardSegment[], tasks: Task[]): string {
   const whole = segments.map((segment) => segment.raw).join('');
   const lineEnding = lineEndingOf(whole);
-  const firstTaskAt = segments.findIndex((segment) => segment.kind === 'task');
+  const taskIndexes = segments.flatMap((segment, i) => (segment.kind === 'task' ? [i] : []));
 
-  if (firstTaskAt === -1) {
+  if (taskIndexes.length === 0) {
     return tasks.reduce(
       (acc, task) => afterBlankLine(acc, lineEnding) + freshSection(task, lineEnding),
       whole,
     );
   }
 
-  const lastTaskAt = lastTaskIndex(segments);
+  const firstTaskAt = taskIndexes[0];
+  const lastTaskAt = taskIndexes[taskIndexes.length - 1];
   const join = (from: number, to: number) =>
     segments
       .slice(from, to)

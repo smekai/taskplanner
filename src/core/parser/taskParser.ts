@@ -48,7 +48,6 @@ export function parseTasks(rawContent: string): ParseResult {
       segments.push({ kind: 'task', task: parsed.task, raw: section.raw });
       continue;
     }
-    // WHY: splitSections and parseTaskSection ask the same grammar, so disagreeing here would drop a section silently.
     errors.push(...brokenHeadings(section));
     segments.push({ kind: 'text', raw: section.raw });
   }

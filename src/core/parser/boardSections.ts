@@ -30,7 +30,6 @@ function lineSpans(content: string): LineSpan[] {
   return spans;
 }
 
-// WHY: a task section runs to its separator, but one that is missing its separator ends where the next task begins, or an edit reaches into the neighbour.
 function sectionEnd(spans: LineSpan[], from: number): number {
   for (let i = from; i < spans.length; i++) {
     if (isSectionSeparatorLine(spans[i].text)) return i + 1;
