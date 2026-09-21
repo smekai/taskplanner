@@ -66,6 +66,16 @@ describe('TaskStore', () => {
     expect(taskStore.getTasksByState('In Progress')).toHaveLength(1);
   });
 
+  it('deletes a task', () => {
+    taskStore.createTask(
+      { title: 'Delete me', priority: Priority.P3, tags: [], description: '' },
+      'Backlog',
+    );
+
+    expect(taskStore.deleteTask('TASK-001')).toBe(true);
+    expect(taskStore.getTasksByState('Backlog')).toHaveLength(0);
+  });
+
   it('updates a task', () => {
     taskStore.createTask(
       { title: 'Original', priority: Priority.P3, tags: [], description: 'Old.' },

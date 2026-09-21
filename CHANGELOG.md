@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-- Unused webview message contract, never-posted `ready` handlers, and `TaskStore.deleteTask` (TASK-065).
+- Unused webview message contract and never-posted `ready` handlers (TASK-065).
 - Duplicate/obsolete parser tests subsumed by round-trip invariants (TASK-065).
 
 ## [2.3.0] - 2026-08-28
