@@ -23,7 +23,7 @@ Supersedes closed PR #12. Grammar lived in several places that disagreed; the pa
 
 ### Plan
 
-- Layered parser: `grammar.ts` → `boardSections.ts` → `taskSection.ts` → `taskParser.ts`; serializer asks the same grammar.
+- Layered parser: `grammar.ts` → `fileSections.ts` → `taskSection.ts` → `taskParser.ts`; serializer asks the same grammar.
 - Errors and warnings are separate; MCP read tools report both, errors carrying the unread section's raw text.
 - Writing is the inverse of reading (`serializeBoard`); a task nobody edited keeps its original bytes; CRLF and BOM preserved.
 - Move writes both states or neither. Tests 210 → 323.

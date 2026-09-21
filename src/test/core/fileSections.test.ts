@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { splitSections } from '../../core/parser/boardSections.js';
+import { splitSections } from '../../core/parser/fileSections.js';
 
-// Byte-cover over real boards and the synthetic invert set lives in roundTrip.test.ts.
-// This file keeps boundary behaviour that the invert alone does not spell out.
-describe('section boundaries', () => {
+describe('file section boundaries', () => {
   it('an unterminated task ends where the next one begins', () => {
     const sections = splitSections('# B\n\n## TASK-001: A\nbody\n\n## TASK-002: B\n\n---\n');
     const tasks = sections.filter((s) => s.kind === 'task');
