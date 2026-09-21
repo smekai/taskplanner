@@ -10,6 +10,7 @@ export {
   countTaskHeadings,
   taskIdsIn,
 } from './parser/taskParser.js';
+export { endsTaskSection } from './parser/grammar.js';
 export { serializeTask, serializeStateFile, serializeBoard } from './parser/taskSerializer.js';
 export { IdGenerator } from './id/idGenerator.js';
 export { FileStore } from './store/fileStore.js';

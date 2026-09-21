@@ -1,5 +1,33 @@
 # Done
 
+## TASK-067: Export the rule a consumer has to duplicate, and stop publishing deleted modules
+**Priority:** P1 | **Tags:** core, setup
+**Updated:** 2026-09-21 22:20
+
+Both found by Isotopy consuming 2.4.1 as a library rather than as an extension.
+
+**The serializer's rule was private, so a consumer had to copy it.** `serializeTask` throws when a
+description or plan holds a line that would end the task section, which is right — but the predicate
+behind it was a local function, so a consumer validating model-written text before handing it over
+had to re-derive `/^(?:---\s*|## [A-Z]+-\d+:\s*\S.*)$/` from the thrown message. A copy of a
+grammar rule drifts the moment the grammar moves, and nothing fails loudly when it does.
+
+`endsTaskSection(text)` now lives in `parser/grammar.ts` beside the predicates it composes, is what
+`bodyOrThrow` calls, and is exported from the package. One rule, one owner, and a caller can ask
+before it throws.
+
+**The published package carried declarations for modules that no longer exist.** `dist/` is
+gitignored and the build only ever overwrote it, so `boardEditor.d.ts`, `boardSections.d.ts` and
+`boardSegments.d.ts` — `upsertTask`, `removeTask`, `splitSections`, all deleted in the 2.4 cleanup —
+were still in the 2.4.1 tarball, since `files` ships `dist/` wholesale. A consumer reading the types
+found an API that was not there. `scripts/clean-dist.js` now clears both output directories before
+`build`, and the rebuilt tree no longer contains them.
+
+Evidence: `npm run lint` clean, `npm test` 306 passing, `npm run build` produces a `dist/parser/`
+holding only the five modules that exist.
+
+---
+
 ## TASK-066: Clear npm audit before publishing 2.4.x
 **Priority:** P1 | **Tags:** setup, ci
 **Updated:** 2026-09-21 13:47
