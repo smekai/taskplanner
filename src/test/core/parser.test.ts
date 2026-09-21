@@ -409,72 +409,78 @@ Build OAuth2 authentication.
 });
 
 describe('parseTasks malformed input', () => {
-  it('warns on random text without task headings', () => {
-    const { tasks, warnings } = parseTasks('not a task\nstill garbage\n');
+  // Text outside a task used to be a warning, which fired on every file heading and on any
+  // prose a human wrote. It is preserved now, so there is nothing to report; the two tests
+  // that asserted those warnings were deleted rather than rewritten.
+  it('says nothing about prose it cannot read as a task', () => {
+    const { tasks, errors, warnings } = parseTasks('# Backlog\n\nProse a human wrote.\n');
+
     expect(tasks).toHaveLength(0);
-    expect(warnings.length).toBeGreaterThanOrEqual(2);
-    expect(warnings[0].line).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
-  it('warns on ## line that is not a valid task heading', () => {
-    const { tasks, warnings } = parseTasks('## TASK-001 Missing colon syntax\n');
+  it('keeps prose between two tasks without reporting it', () => {
+    const content = [
+      '## TASK-001: A',
+      '**Priority:** P1',
+      '',
+      '---',
+      '',
+      'this is orphaned',
+      '',
+      '## TASK-002: B',
+      '**Priority:** P2',
+      '',
+      '---',
+      '',
+    ].join('\n');
+
+    const { tasks, errors, warnings } = parseTasks(content);
+
+    expect(tasks.map((t) => t.id)).toEqual(['TASK-001', 'TASK-002']);
+    expect(errors).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
+  });
+
+  // A line a human reads as a task but the format refuses is an error, not a warning: a whole
+  // section is being dropped, and the raw text is handed back so a caller can repair it.
+  it.each([
+    ['a missing colon', '## TASK-001 Missing colon syntax'],
+    ['a lowercase prefix', '## task-001: lower'],
+    ['a space where the dash belongs', '## TASK 001: spaced'],
+    ['a title that is only whitespace', '## TASK-001:     '],
+  ])('reports %s as an error', (_name, heading) => {
+    const { tasks, errors } = parseTasks(`${heading}\n**Priority:** P1\n\nBody.\n`);
+
     expect(tasks).toHaveLength(0);
-    expect(warnings.some((w) => w.message.includes('Invalid task heading'))).toBe(true);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].line).toBe(1);
+    expect(errors[0].raw).toContain(heading.trim());
+    expect(errors[0].raw).toContain('Body.');
   });
 
-  it('warns on lowercase id prefix', () => {
-    const { tasks, warnings } = parseTasks('## task-001: lower\n');
-    expect(tasks).toHaveLength(0);
-    expect(warnings.some((w) => w.message.includes('Invalid task heading'))).toBe(true);
-  });
+  it('reads the good tasks around a broken heading and reports only the broken one', () => {
+    const content = [
+      '## TASK-001: Good',
+      '**Priority:** P1',
+      '',
+      '---',
+      '',
+      '## not a valid task heading',
+      '',
+      '## TASK-002: Also good',
+      '**Priority:** P2',
+      '',
+      '---',
+      '',
+    ].join('\n');
 
-  it('warns on task heading with only whitespace as title', () => {
-    const { tasks, warnings } = parseTasks('## TASK-001:     \n');
-    expect(tasks).toHaveLength(0);
-    expect(warnings.some((w) => w.message.includes('no title'))).toBe(true);
-  });
+    const { tasks, errors } = parseTasks(content);
 
-  it('warns on orphaned content between tasks', () => {
-    const content = `## TASK-001: A
-**Priority:** P1
-
----
-
-this is orphaned
-
-## TASK-002: B
-**Priority:** P2
-
----
-
-`;
-    const { tasks, warnings } = parseTasks(content);
-    expect(tasks).toHaveLength(2);
-    expect(warnings.some((w) => w.message.includes('not part of any task'))).toBe(true);
-  });
-
-  it('parses valid tasks and warns on invalid heading in between', () => {
-    const content = `## TASK-001: Good
-**Priority:** P1
-
----
-
-## not a valid task heading
-
-## TASK-002: Also good
-**Priority:** P2
-
----
-
-`;
-    const { tasks, warnings } = parseTasks(content);
-    expect(tasks).toHaveLength(2);
-    expect(
-      warnings.some(
-        (w) =>
-          w.message.includes('Invalid task heading') || w.message.includes('not part of any task'),
-      ),
-    ).toBe(true);
+    expect(tasks.map((t) => t.id)).toEqual(['TASK-001', 'TASK-002']);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].raw).toContain('## not a valid task heading');
   });
 
   it('allows file with only separators and no tasks', () => {

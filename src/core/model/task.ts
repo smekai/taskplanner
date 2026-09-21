@@ -17,6 +17,7 @@ export interface Task {
   updatedAt?: string;
   waitingUntil?: string;
   plan?: string;
+  attributes?: Record<string, string>;
 }
 
 export function isPriority(value: string): value is Priority {

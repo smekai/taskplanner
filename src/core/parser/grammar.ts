@@ -27,13 +27,16 @@ const BUILT_IN_FIELD_RES = {
 
 export type BuiltInField = keyof typeof BUILT_IN_FIELD_RES;
 
-export function taskHeadingIdOf(line: string): string | undefined {
-  return line.match(TASK_HEADING_RE)?.[1];
-}
-
+// WHY: `\s*(.+)` backtracks onto a single space, so a heading whose title is only whitespace has to be rejected here rather than by the pattern.
 export function taskHeadingOf(line: string): { id: string; title: string } | undefined {
   const match = line.match(TASK_HEADING_RE);
-  return match ? { id: match[1], title: match[2].trim() } : undefined;
+  if (!match) return undefined;
+  const title = match[2].trim();
+  return title.length > 0 ? { id: match[1], title } : undefined;
+}
+
+export function taskHeadingIdOf(line: string): string | undefined {
+  return taskHeadingOf(line)?.id;
 }
 
 export function looksLikeTaskHeading(line: string): boolean {
