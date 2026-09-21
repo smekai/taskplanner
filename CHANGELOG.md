@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **The tools now tell you when your board did not read cleanly.** A section TaskPlanner cannot read is reported as an error naming the file and line, and carrying the text it could not read, so an agent can repair the markdown instead of silently working with fewer tasks than you have. A missing `**Priority:**` line is reported as a warning. Both reach `taskplanner_list`, `taskplanner_get` and the board tools, which reported nothing at all before (TASK-063).
+- **An attribute TaskPlanner does not recognise is still an attribute.** A `**Key:** value` line in a task's metadata used to become the first line of its description, so a tool with metadata of its own had nowhere to keep it. Unknown attributes are read into the task and written back, whether on their own line or sharing the grouped one (TASK-063).
+- **Library API:** `parseTasks` returns the file as ordered `segments` alongside `tasks`, and `serializeBoard(segments, tasks)` writes them back; together they are exact inverses, so a host can change one task and keep every other byte. `taskIdsIn` is exported (TASK-063).
+
+### Fixed
+
+- **A misspelled priority no longer silently becomes the lowest one.** `**Priority:** p0` read as **P4**, with no warning — so a task you marked most urgent became one an agent would never pick up. Any capitalisation and surrounding space is now accepted, and a value that is not a priority at all is reported instead of guessed (TASK-063).
+- **A write no longer throws away the parts of a board file TaskPlanner does not parse.** Saving a task rebuilt its whole state file from the tasks the parser recognised, so prose above the first task, a comment between two tasks, a section whose heading the parser refuses, and the file's own CRLF line endings all disappeared on the next write. Reading a board and writing it back unchanged now returns the same bytes, and a task nobody edited is written from its original bytes, so a save no longer produces diff noise for untouched work (TASK-063).
+- **A task can no longer smuggle a second task onto your board.** A newline in a title, tag, epic, assignee or date closed the task section and opened another, so one task serialized and parsed back as two. These values are routinely written by agents. Single-line fields are collapsed, and a description or plan holding a line that would end the section is refused by name instead of corrupting the file (TASK-063).
+- **Moving a task writes both files or neither.** A failure while serializing the destination left the task removed from the source and never written to the destination (TASK-063).
+- A section missing its closing `---` no longer swallows the task that follows it (TASK-063).
+
 ### Fixed
 
 - Preserve task ID counters across migrated-state moves and allocate new IDs without routine board/archive scans; MCP creation loads only its destination state (TASK-061).

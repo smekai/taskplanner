@@ -1,233 +1,91 @@
-import { Task, Priority, isPriority } from '../model/task.js';
-import { ParseResult, ParseWarning } from '../model/parseResult.js';
+import { Task } from '../model/task.js';
+import { BoardSegment, ParseIssue, ParseResult } from '../model/parseResult.js';
+import { LINE_BREAK, looksLikeTaskHeading, taskHeadingIdOf } from './grammar.js';
+import { RawSection, splitSections } from './boardSections.js';
+import { parseTaskSection } from './taskSection.js';
 
-const TASK_HEADING_RE = /^## ([A-Z]+-\d+):\s*(.+)$/;
-const PRIORITY_RE = /^\*\*Priority:\*\*\s*(\S+)/;
-const TAGS_RE = /^\*\*Tags?:\*\*\s*(.+)/;
-const EPIC_RE = /^\*\*Epic:\*\*\s*(.+)/;
-const ASSIGNEE_RE = /^\*\*Assignee:\*\*\s*(.+)/;
-const UPDATED_RE = /^\*\*Updated:\*\*\s*(.+)/;
-const WAITING_UNTIL_RE = /^\*\*Waiting until:\*\*\s*(.+)/;
-const SEPARATOR_RE = /^---\s*$/;
-// WHY: `.` excludes a carriage return and `$` does not forgive a trailing one, so an unsplit CRLF board matched no heading and read back as empty rather than as broken.
-const LINE_BREAK = /\r?\n/;
-const PLAN_HEADING_RE = /^### Plan\s*$/;
+const BOM = '﻿';
 
 function stripBom(content: string): string {
-  return content.length > 0 && content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  return content.startsWith(BOM) ? content.slice(1) : content;
+}
+
+function brokenHeadings(section: RawSection): ParseIssue[] {
+  const lines = section.raw.split(LINE_BREAK);
+  const starts = lines
+    .map((line, index) => (looksLikeTaskHeading(line) ? index : -1))
+    .filter((index) => index !== -1);
+
+  return starts.map((start, nth) => ({
+    line: section.line + start,
+    message: `"${lines[start].trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
+    raw: lines.slice(start, starts[nth + 1] ?? lines.length).join('\n'),
+  }));
 }
 
 export function parseTasks(rawContent: string): ParseResult {
   const content = stripBom(rawContent);
-  const lines = content.split(LINE_BREAK);
   const tasks: Task[] = [];
-  const warnings: ParseWarning[] = [];
-
-  let current: Partial<Task> | null = null;
-  let currentHeadingLine = 0;
-  let descriptionLines: string[] = [];
-  let planLines: string[] = [];
-  let inMetadata = true;
-  let inPlan = false;
-
-  function flushTask() {
-    if (current?.id && current?.title) {
-      const plan = planLines.join('\n').trim();
-      tasks.push({
-        id: current.id,
-        title: current.title,
-        description: descriptionLines.join('\n').trim(),
-        priority: current.priority ?? Priority.P4,
-        tags: current.tags ?? [],
-        epic: current.epic,
-        assignee: current.assignee,
-        updatedAt: current.updatedAt,
-        waitingUntil: current.waitingUntil,
-        ...(plan ? { plan } : {}),
-      });
-    } else if (current) {
-      warnings.push({
-        line: currentHeadingLine,
-        message: 'Incomplete task section could not be parsed (invalid or empty title)',
-      });
-    }
-    current = null;
-    descriptionLines = [];
-    planLines = [];
-    inMetadata = true;
-    inPlan = false;
+  const errors: ParseIssue[] = [];
+  const warnings: ParseIssue[] = [];
+  const segments: BoardSegment[] = [];
+  if (rawContent.startsWith(BOM)) {
+    segments.push({ kind: 'text', raw: BOM });
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineNum = i + 1;
-    const headingMatch = line.match(TASK_HEADING_RE);
-
-    if (headingMatch) {
-      flushTask();
-      const title = headingMatch[2].trim();
-      if (!title) {
-        warnings.push({
-          line: lineNum,
-          message: 'Task heading has no title',
-        });
-        current = null;
-        continue;
-      }
-      current = {
-        id: headingMatch[1],
-        title,
-        tags: [],
-      };
-      currentHeadingLine = lineNum;
-      inMetadata = true;
+  for (const section of splitSections(content)) {
+    if (section.kind === 'text') {
+      errors.push(...brokenHeadings(section));
+      segments.push({ kind: 'text', raw: section.raw });
       continue;
     }
 
-    if (!current) {
-      const t = line.trim();
-      if (t === '') continue;
-      if (SEPARATOR_RE.test(line)) continue;
-      if (/^#\s/.test(line) && !line.startsWith('##')) continue;
-      if (/^##\s/.test(line)) {
-        warnings.push({
-          line: lineNum,
-          message:
-            'Invalid task heading (use ## PREFIX-NNN: Title with uppercase prefix and digits)',
-        });
-        continue;
-      }
-      warnings.push({
-        line: lineNum,
-        message: 'Content is not part of any task (expected a ## TASK-NNN: Title heading)',
-      });
+    const parsed = parseTaskSection(section.raw, section.line);
+    errors.push(...parsed.errors);
+    warnings.push(...parsed.warnings);
+    if (parsed.task) {
+      tasks.push(parsed.task);
+      segments.push({ kind: 'task', task: parsed.task, raw: section.raw });
       continue;
     }
-
-    if (SEPARATOR_RE.test(line)) {
-      flushTask();
-      continue;
-    }
-
-    if (inMetadata) {
-      const segments = line.includes('|') ? line.split('|').map((s) => s.trim()) : [line];
-      let matchedAny = false;
-
-      for (const segment of segments) {
-        const priorityMatch = segment.match(PRIORITY_RE);
-        if (priorityMatch) {
-          const val = priorityMatch[1].trim();
-          current.priority = isPriority(val) ? val : Priority.P4;
-          matchedAny = true;
-          continue;
-        }
-
-        const tagsMatch = segment.match(TAGS_RE);
-        if (tagsMatch) {
-          current.tags = tagsMatch[1]
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter(Boolean);
-          matchedAny = true;
-          continue;
-        }
-
-        const epicMatch = segment.match(EPIC_RE);
-        if (epicMatch) {
-          current.epic = epicMatch[1].trim();
-          matchedAny = true;
-          continue;
-        }
-
-        const assigneeMatch = segment.match(ASSIGNEE_RE);
-        if (assigneeMatch) {
-          current.assignee = assigneeMatch[1].trim();
-          matchedAny = true;
-          continue;
-        }
-
-        const updatedMatch = segment.match(UPDATED_RE);
-        if (updatedMatch) {
-          current.updatedAt = updatedMatch[1].trim();
-          matchedAny = true;
-          continue;
-        }
-
-        const waitingMatch = segment.match(WAITING_UNTIL_RE);
-        if (waitingMatch) {
-          current.waitingUntil = waitingMatch[1].trim();
-          matchedAny = true;
-          continue;
-        }
-      }
-
-      if (matchedAny) {
-        continue;
-      }
-
-      if (line.trim() === '') {
-        inMetadata = false;
-        continue;
-      }
-
-      inMetadata = false;
-      descriptionLines.push(line);
-    } else if (PLAN_HEADING_RE.test(line)) {
-      inPlan = true;
-    } else if (inPlan) {
-      planLines.push(line);
-    } else {
-      descriptionLines.push(line);
-    }
+    errors.push(...brokenHeadings(section));
+    segments.push({ kind: 'text', raw: section.raw });
   }
 
-  flushTask();
-  return { tasks, warnings };
+  return { tasks, errors, warnings, segments };
 }
 
 export function findTaskLineNumber(content: string, taskId: string): number {
-  const lines = content.split(LINE_BREAK);
-  for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(TASK_HEADING_RE);
-    if (match && match[1] === taskId) {
-      return i + 1;
-    }
-  }
-  return 1;
+  const lines = stripBom(content).split(LINE_BREAK);
+  const at = lines.findIndex((line) => taskHeadingIdOf(line) === taskId);
+  return at === -1 ? 1 : at + 1;
+}
+
+function headingIds(rawContent: string): string[] {
+  return stripBom(rawContent)
+    .split(LINE_BREAK)
+    .map(taskHeadingIdOf)
+    .filter((id): id is string => id !== undefined);
 }
 
 export function countTaskHeadings(rawContent: string): number {
-  const content = stripBom(rawContent);
-  let n = 0;
-  for (const line of content.split(LINE_BREAK)) {
-    if (TASK_HEADING_RE.test(line)) {
-      n++;
-    }
-  }
-  return n;
+  return headingIds(rawContent).length;
 }
 
 export function taskIdsIn(rawContent: string): Set<string> {
-  const ids = new Set<string>();
-  for (const line of stripBom(rawContent).split(LINE_BREAK)) {
-    const match = line.match(TASK_HEADING_RE);
-    if (match) ids.add(match[1]);
-  }
-  return ids;
+  return new Set(headingIds(rawContent));
 }
 
 export function maxTaskIdNumber(rawContent: string, prefix: string): number {
-  const content = stripBom(rawContent);
-  const re = new RegExp(`^## ${prefix}-(\\d+):`);
   let max = 0;
-  for (const line of content.split(LINE_BREAK)) {
-    const m = line.match(re);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (n > max) {
-        max = n;
-      }
-    }
+  for (const id of headingIds(rawContent)) {
+    const [idPrefix, digits] = [
+      id.slice(0, id.lastIndexOf('-')),
+      id.slice(id.lastIndexOf('-') + 1),
+    ];
+    if (idPrefix !== prefix) continue;
+    const n = parseInt(digits, 10);
+    if (n > max) max = n;
   }
   return max;
 }

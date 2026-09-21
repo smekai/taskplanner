@@ -360,6 +360,67 @@ function checkBinLauncher(installDir, scratch) {
   );
 }
 
+/** A board that fails to parse reads as a board with fewer tasks unless the tools say otherwise. */
+async function checkDiagnostics(serverPath, installDir, tempRoot) {
+  const workspace_root = path.join(tempRoot, 'broken-board');
+  const tasksDir = path.join(workspace_root, '.tasks');
+  fs.mkdirSync(tasksDir, { recursive: true });
+  fs.writeFileSync(path.join(tasksDir, 'config.json'), JSON.stringify({
+    version: 3,
+    idPrefix: 'TASK',
+    nextId: 4,
+    states: [{ name: 'Backlog', fileName: 'BACKLOG.md', order: 0 }],
+    priorities: ['P0', 'P1', 'P2', 'P3', 'P4'],
+  }));
+  fs.writeFileSync(path.join(tasksDir, 'BACKLOG.md'), [
+    '# Backlog',
+    '',
+    '## TASK-001: Readable',
+    '**Priority:** P1',
+    '',
+    '---',
+    '',
+    '## TASK 002: a space where the dash belongs',
+    '**Priority:** P0',
+    '',
+    'Work that matters.',
+    '',
+    '---',
+    '',
+    '## TASK-003: Unreadable priority',
+    '**Priority:** Critical',
+    '',
+    '---',
+    '',
+  ].join('\n'));
+
+  await withServer({ args: [serverPath], cwd: installDir, label: 'diagnostics' }, async (c) => {
+    const listed = await c.callTool(tool('list'), { workspace_root });
+    const { errors, warnings, totalCount } = listed.structuredContent;
+
+    expect(totalCount === 2, `Expected the two readable tasks, got ${totalCount}.`);
+    expect(Array.isArray(errors), "taskplanner_list returned no errors array.");
+    expect(errors.length === 2, `Expected two errors, got ${JSON.stringify(errors)}.`);
+
+    const broken = errors.find((issue) => (issue.raw || '').includes('TASK 002'));
+    expect(broken, 'The unreadable heading was not reported.');
+    expect(broken.raw.includes('Work that matters.'), 'The error did not carry the section text.');
+    expect(broken.file === 'BACKLOG.md', `Error named ${broken.file}, not the file it came from.`);
+
+    const priority = errors.find((issue) => (issue.message || '').includes('Critical'));
+    expect(priority, 'An unreadable priority was not reported.');
+
+    const text = listed.content[0].text;
+    expect(text.includes('did not read cleanly'), 'The text response hid the errors.');
+    expect(text.includes('TASK 002'), 'The text response did not name the broken section.');
+
+    const board = await c.callTool(tool('board'), { workspace_root });
+    expect(board.structuredContent.errors.length === 2, 'taskplanner_board hid the errors.');
+
+    log(`diagnostics OK (${errors.length} errors, ${warnings.length} warnings, raw text carried).`);
+  });
+}
+
 async function checkCounterAllocation(serverPath, installDir, tempRoot) {
   const workspace_root = path.join(tempRoot, 'counter-board');
   const tasksDir = path.join(workspace_root, '.tasks');
@@ -456,6 +517,7 @@ async function main() {
     await checkEnvVarRoot(serverPath, installDir);
     await checkToolInputRootAndAssignee(serverPath, installDir, scratch);
     await checkCounterAllocation(serverPath, installDir, tempRoot);
+    await checkDiagnostics(serverPath, installDir, tempRoot);
     if (!inPlace) {
       await checkBinLauncher(installDir, scratch);
       checkLibraryEntry(installDir, scratch);

@@ -1,7 +1,7 @@
 import { Task } from '../model/task.js';
 import { TaskState } from '../model/state.js';
 import { TaskPlannerConfig } from '../model/config.js';
-import { ParseWarning } from '../model/parseResult.js';
+import { ParseIssue } from '../model/parseResult.js';
 import { ConfigManager } from '../config/configManager.js';
 import { FileStore } from './fileStore.js';
 import { IdGenerator } from '../id/idGenerator.js';
@@ -30,7 +30,8 @@ export function isDeferredStateName(stateName: string): boolean {
 export class TaskStore {
   private tasksByState: Map<string, Task[]> = new Map();
   private observedNextIds = new Map<string, number>();
-  private parseWarningsByFile: Map<string, ParseWarning[]> = new Map();
+  private parseWarningsByFile: Map<string, ParseIssue[]> = new Map();
+  private parseErrorsByFile: Map<string, ParseIssue[]> = new Map();
   private deferredUnloadedStates: Set<string> = new Set();
   private deferredSectionCounts: Map<string, number> = new Map();
   private listeners: TaskStoreListener[] = [];
@@ -56,6 +57,7 @@ export class TaskStore {
   private resetReloadState(): void {
     this.tasksByState = new Map();
     this.parseWarningsByFile = new Map();
+    this.parseErrorsByFile = new Map();
     this.deferredUnloadedStates.clear();
     this.deferredSectionCounts.clear();
   }
@@ -68,13 +70,21 @@ export class TaskStore {
 
   private applyParsedState(
     state: TaskState,
-    pr: { tasks: Task[]; warnings: ParseWarning[] },
+    pr: { tasks: Task[]; errors: ParseIssue[]; warnings: ParseIssue[] },
   ): void {
     this.observeTaskIds(pr.tasks);
     this.tasksByState.set(state.name, pr.tasks);
-    if (pr.warnings.length > 0) {
-      this.parseWarningsByFile.set(state.fileName, pr.warnings);
-    }
+    this.recordIssues(state.fileName, pr);
+  }
+
+  private recordIssues(
+    fileName: string,
+    pr: { errors: ParseIssue[]; warnings: ParseIssue[] },
+  ): void {
+    this.parseWarningsByFile.delete(fileName);
+    this.parseErrorsByFile.delete(fileName);
+    if (pr.warnings.length > 0) this.parseWarningsByFile.set(fileName, pr.warnings);
+    if (pr.errors.length > 0) this.parseErrorsByFile.set(fileName, pr.errors);
   }
 
   private reloadBoard(): void {
@@ -111,10 +121,7 @@ export class TaskStore {
     this.tasksByState.set(stateName, pr.tasks);
     this.deferredUnloadedStates.delete(stateName);
     this.deferredSectionCounts.set(stateName, pr.tasks.length);
-    this.parseWarningsByFile.delete(state.fileName);
-    if (pr.warnings.length > 0) {
-      this.parseWarningsByFile.set(state.fileName, pr.warnings);
-    }
+    this.recordIssues(state.fileName, pr);
   }
 
   reloadState(stateName: string): void {
@@ -162,10 +169,16 @@ export class TaskStore {
     return this.deferredUnloadedStates.has(stateName);
   }
 
-  getWarnings(): { fileName: string; warnings: ParseWarning[] }[] {
+  getWarnings(): { fileName: string; warnings: ParseIssue[] }[] {
     return [...this.parseWarningsByFile.entries()]
       .filter(([, w]) => w.length > 0)
       .map(([fileName, warnings]) => ({ fileName, warnings }));
+  }
+
+  getErrors(): { fileName: string; errors: ParseIssue[] }[] {
+    return [...this.parseErrorsByFile.entries()]
+      .filter(([, e]) => e.length > 0)
+      .map(([fileName, errors]) => ({ fileName, errors }));
   }
 
   getTasksByState(stateName: string): Task[] {
@@ -324,9 +337,10 @@ export class TaskStore {
 
   private commit(...writes: { state: TaskState; tasks: Task[] }[]): void {
     this.syncCounter();
+    const prepared = writes.map(({ state, tasks }) => this.fileStore.prepareState(state, tasks));
+    this.fileStore.commitWrites(prepared);
     for (const { state, tasks } of writes) {
       this.tasksByState.set(state.name, tasks);
-      this.fileStore.writeState(state, tasks);
     }
     this.notifyListeners();
   }

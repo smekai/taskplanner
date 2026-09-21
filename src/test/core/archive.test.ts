@@ -185,12 +185,12 @@ describe('TaskStore.archiveCompleted', () => {
     setup(90);
     writeDone(`# Done\n\n${done('T-002', '2026-01-15')}`);
 
-    const realWriteState = fileStore.writeState.bind(fileStore);
-    fileStore.writeState = () => {
+    const realCommitWrites = fileStore.commitWrites.bind(fileStore);
+    fileStore.commitWrites = () => {
       throw new Error('interrupted after the archive was written');
     };
     expect(() => store.archiveCompleted(NOW)).toThrow('interrupted');
-    fileStore.writeState = realWriteState;
+    fileStore.commitWrites = realCommitWrites;
 
     store.reload();
     store.ensureStateLoaded('Done');
