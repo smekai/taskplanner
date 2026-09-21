@@ -13,9 +13,9 @@ import {
   taskHeadingOf,
 } from './grammar.js';
 
-export const MISSING_PRIORITY = Priority.P4;
+const MISSING_PRIORITY = Priority.P4;
 
-export interface SectionParse {
+interface SectionParse {
   task?: Task;
   errors: ParseIssue[];
   warnings: ParseIssue[];

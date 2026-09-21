@@ -79,9 +79,6 @@ export class KanbanPanel {
 
   private handleMessage(msg: { type: string; [key: string]: unknown }): void {
     switch (msg.type) {
-      case 'ready':
-        this.update();
-        break;
       case 'showAll':
         if (msg.stateName) {
           this.showAllForState.add(msg.stateName as string);

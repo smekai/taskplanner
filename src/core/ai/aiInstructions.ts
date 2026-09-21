@@ -57,72 +57,46 @@ function buildInstructionContent(config: TaskPlannerConfig): string {
     .join('\n');
 
   const idExample = `${config.idPrefix}-001`;
+  const tagsHint =
+    config.tags.length > 0 ? config.tags.join(', ') : '(none configured)';
 
   const planSection = config.aiPlanRequired
     ? `
 ### Planning Requirement
 
-Before writing any code, you MUST add a \`### Plan\` subsection under the task heading in IN_PROGRESS.md:
-
-\`\`\`markdown
-## ${idExample}: Example task title
-**Priority:** P1
-
-Description of the task.
-
-### Plan
-
-- Step 1: ...
-- Step 2: ...
-- Key files: ...
-\`\`\`
-
-Keep the plan **short** (about 3–7 bullets): intended changes, key files or modules, and notable risks or edge cases. Expand only when the task is large.
-
-The plan is free-form markdown. Write it **before** you start coding.
-
-### Plan Persistence
-
-When moving a completed task to DONE.md, **keep the \`### Plan\` section** with a condensed summary of what was done. This preserves the implementation history for future reference.`
+Before coding, add a short \`### Plan\` (3–7 bullets: changes, key files, risks) under the task in IN_PROGRESS.md. Write it **before** you start. When moving to Done, **trim \`### Plan\` to a done-summary** — keep the section.
+`
     : '';
 
   const workLogSection = `
-
 ### Work Log
 
-When moving a task to DONE.md, if \`.tasks/WORK_LOG.md\` exists, append **one short entry at the top** (after the header, before older entries):
+If \`.tasks/WORK_LOG.md\` exists, append one short entry at the top when moving to Done:
 
 \`\`\`markdown
 ## ${idExample} — YYYY-MM-DD
-**What:** One-line summary of what was delivered.
-**Decisions:** Key choices made and why (skip if none).
-**Outcome:** Result or follow-ups (skip if obvious from What).
+**What:** One-line summary.
+**Decisions:** Key choices (skip if none).
+**Outcome:** Result or follow-ups (skip if obvious).
 
 ---
 \`\`\`
 
-Keep it to 3–5 lines total. Skip empty fields rather than writing "N/A".${config.aiPlanRequired ? " Detailed steps belong in the task's `### Plan`, not here." : ''}`;
+3–5 lines; skip empty fields.${config.aiPlanRequired ? " Detail belongs in the task's `### Plan`." : ''}
+`;
 
   return `# TaskPlanner — AI Agent Instructions
 
-This project uses [TaskPlanner](https://github.com/smekai/taskplanner) for task management.
-Tasks are stored as markdown files in the \`.tasks/\` directory.
+Tasks live as markdown under \`.tasks/\`. Prefer the MCP tools over hand-editing whenever they are available.
 
-## Task File Structure
+## States
 
-Each state has its own file:
 ${stateList}
 
-Auxiliary file (optional rolling log, not a task state):
-- **Work Log** → \`WORK_LOG.md\`
+- **Work Log** → \`WORK_LOG.md\` (optional; not a task state)
+- Archived Done tasks may live under \`.tasks/archive/\` when \`archiveDoneAfterDays\` is set — grep there before concluding a task never existed.
 
-Completed work may be archived out of \`DONE.md\` into \`.tasks/archive/\` once a project sets
-\`archiveDoneAfterDays\`. Those files are plain markdown in the same format but are not board states —
-if a task is not in \`DONE.md\`, grep the archive before concluding it never existed.
-
-## Task Format
-
-Each task is a \`## \` heading section separated by \`---\`:
+## Format
 
 \`\`\`markdown
 ## ${idExample}: Task title here
@@ -133,65 +107,43 @@ Description text in markdown.
 ---
 \`\`\`
 
-- **ID prefix:** \`${config.idPrefix}\`
-- **Priorities:** ${config.priorities.join(', ')}
+ID prefix: \`${config.idPrefix}\`. Priorities: ${config.priorities.join(', ')}.
 
 ## Tools
 
-TaskPlanner ships an MCP server. If your host exposes these tools, **use them instead of editing the
-task files by hand** — they allocate IDs, keep \`nextId\` and timestamps correct, and rewrite the
-markdown without touching its encoding:
-
 | Tool | Use for |
 | --- | --- |
-| \`taskplanner_list\` / \`taskplanner_board\` | Find work and see the current state. |
-| \`taskplanner_get\` | Read one task in full. |
-| \`taskplanner_create\` | Create a task; the ID is allocated for you. |
-| \`taskplanner_move\` | Move a task between states. |
-| \`taskplanner_update\` | Change title, description, priority, tags, epic, assignee, waiting-until, or plan. |
+| \`taskplanner_list\` / \`taskplanner_board\` | Find work / board overview |
+| \`taskplanner_get\` | Full task |
+| \`taskplanner_create\` | Create (allocates ID) |
+| \`taskplanner_move\` | Change state |
+| \`taskplanner_update\` | Title, description, priority, tags, epic, assignee, waiting-until, plan |
 
-Check once at the start of a session whether the tools are available, and say which way you are
-working. **If they are available, do not hand-edit these files.** Every instruction below that
-describes editing markdown directly is the fallback for when they are not.
+Check once per session whether the tools are available, and say which way you are working. **If they are available, do not hand-edit these files.** Instructions below that describe editing markdown are the fallback only.
 
-If your host reads \`${MCP_CONFIG_FILE}\` and this repository has none, the tools can be wired up by
-adding a \`taskplanner\` server that runs \`npx -y ${MCP_SERVER_PACKAGE}\`. Ask the user before
-creating that file — it tells an agent what to execute. TaskPlanner's **Setup** menu writes it too.
+If the host reads \`${MCP_CONFIG_FILE}\` and this repo has none, ask before adding a \`taskplanner\` server with \`npx -y ${MCP_SERVER_PACKAGE}\` (Setup menu can write it too). Humans may edit the markdown freely; agents with working tools must not — hand-edits desynchronise \`nextId\` and corrupt encodings.
 
-The files stay plain markdown on purpose, and a human is free to edit them in any editor at any
-time. That freedom is not an invitation for an agent with working tools to do the same: hand-edits
-are what desynchronise \`nextId\` and corrupt encodings.
+## Workflow
 
-## Workflow for Implementing a Task
-
-When asked to implement a task:
-
-1. **Pick the task** from BACKLOG.md or NEXT.md (highest priority first, or as specified by the user). Skip any task carrying a \`**Waiting until:**\` date that has not arrived — it is blocked on something outside the repository and cannot be started, whatever its priority. The tools mark these for you.
-2. **Move the task** to IN_PROGRESS.md — \`taskplanner_move\` if it is available, otherwise cut the section from the source file and paste it into IN_PROGRESS.md.${config.aiPlanRequired ? '\n3. **Write a plan** — add a `### Plan` subsection under the task heading (see below).' : ''}
-${config.aiPlanRequired ? '4' : '3'}. **Implement** the task.
-${config.aiPlanRequired ? '5' : '4'}. **Move the task** to DONE.md when complete — ${config.aiPlanRequired ? 'trim `### Plan` to a done-summary, append' : 'append'} a short entry to \`.tasks/WORK_LOG.md\` if that file exists, and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
+1. **Pick** from Backlog/Next (highest priority, or as specified). Skip any task whose \`**Waiting until:**\` date has not arrived.
+2. **Move** to In Progress — \`taskplanner_move\`, otherwise cut the section from the source file and paste it into IN_PROGRESS.md.${config.aiPlanRequired ? '\n3. **Write a plan** — `### Plan` under the task heading (see below).' : ''}
+${config.aiPlanRequired ? '4' : '3'}. **Implement.**
+${config.aiPlanRequired ? '5' : '4'}. **Move** to Done — ${config.aiPlanRequired ? 'trim `### Plan` to a done-summary, append' : 'append'} a short WORK_LOG entry if that file exists, and a CHANGELOG entry under \`## [Unreleased]\` if the project uses that rule.
 ${planSection}${workLogSection}
+## Mandatory checklist
 
-## Mandatory checklist (do not skip)
+- **In Progress:** The task must actually **move** into IN_PROGRESS.md before substantive work — not only be described as moving. Use \`taskplanner_move\`; without it, cut the whole \`##\` section and its \`---\` by hand.
+- **Done:** Move the task into DONE.md; add CHANGELOG under \`## [Unreleased]\` when the project uses that rule.
+${config.aiPlanRequired ? '- **Plan:** The `### Plan` block must exist in IN_PROGRESS **before** coding, and should be **trimmed to a short done-summary** when you move the task to DONE.\n' : ''}- **Work log:** If WORK_LOG.md exists, one short entry at the top on Done.
 
-These steps are **part of the work**, not optional housekeeping:
+## Creating a task
 
-- **In Progress:** The task must actually **move** out of BACKLOG/NEXT into **IN_PROGRESS.md** before substantive implementation — not only be described as moving. Use \`taskplanner_move\`; without it, cut the whole \`##\` section and its \`---\` across by hand.
-- **Done:** When the implementation is finished, **move** the same task section from IN_PROGRESS.md into **DONE.md** and add a **CHANGELOG.md** entry under \`## [Unreleased]\` if the project uses this changelog rule.
-${config.aiPlanRequired ? '- **Plan:** The `### Plan` block must exist in IN_PROGRESS **before** coding, and should be **trimmed to a short done-summary** when you move the task to DONE.\n' : ''}
-- **Work log:** If \`.tasks/WORK_LOG.md\` exists, append one short entry at the top when moving a task to Done (see **Work Log** above).
+Prefer \`taskplanner_create\` (it allocates the ID). Fallback without tools:
 
-## Creating a New Task
-
-When the user asks you to create a task, call \`taskplanner_create\` if it is available. It allocates
-the ID and advances \`nextId\` itself, so neither is yours to manage.
-
-Without the tools, do it by hand:
-
-1. **Read** \`.tasks/config.json\` to get the current \`nextId\` and \`idPrefix\`.
-2. **Generate the ID** — format: \`{idPrefix}-{nextId padded to 3 digits}\` (e.g. \`${config.idPrefix}-015\`).
-3. **Increment \`nextId\`** in \`.tasks/config.json\` and save the file.
-4. **Write the task** into \`BACKLOG.md\` (or the file the user specifies) using this format:
+1. Read \`.tasks/config.json\` for \`nextId\` / \`idPrefix\`.
+2. ID = \`{idPrefix}-{nextId padded to 3 digits}\` (e.g. \`${config.idPrefix}-015\`).
+3. Increment \`nextId\` and save.
+4. Write into BACKLOG.md (or the file the user names):
 
 \`\`\`markdown
 ## ${idExample}: Task title
@@ -199,27 +151,18 @@ Without the tools, do it by hand:
 **Tags:** tag1, tag2
 **Updated:** YYYY-MM-DD HH:mm
 
-Description of the task in markdown.
+Description.
 
 ---
 \`\`\`
 
-Rules for new tasks:
-- **Priority** is required. If not specified by the user, default to \`P2\`.
-- **Waiting until** is optional — \`**Waiting until:** YYYY-MM-DD\` on its own line marks a task that cannot start before that date. Use it when work is blocked on something outside the repository, rather than lowering its priority.
-- **Tags** are optional. Pick from the project's tag list if relevant: ${config.tags.length > 0 ? config.tags.join(', ') : '(none configured)'}.
-- **Updated** — set to the current date/time.
-- Add the task at the **${config.insertPosition}** of the file (after the \`# Heading\` line). Beyond that, the order of tasks within a file carries no meaning — never reorder a file to match priority.
-- Always end the task section with a \`---\` separator.
-- If the user asks to create multiple tasks at once, increment the ID for each one.
+- Priority required (default P2). Optional \`**Waiting until:** YYYY-MM-DD\` for externally blocked work.
+- Tags optional: ${tagsHint}. Set **Updated**. Insert at the **${config.insertPosition}** after the \`# Heading\`. Order within a file carries no meaning — never reorder to match priority. End with \`---\`. Multiple creates: bump the ID each time.
 
-## Important Rules
+## Rules
 
-- Prefer the TaskPlanner tools over editing these files by hand whenever they are available.
-- Do NOT change task IDs.
-- Do NOT modify tasks you are not working on.
-- Keep the \`---\` separator between tasks.
-- When moving a task by hand, remove it entirely from the source file (including the trailing \`---\`), and read and write the file as UTF-8 so dashes and quotes survive the round-trip.
+- Prefer tools over hand-edits. Do not change task IDs or touch tasks you are not working on.
+- Keep \`---\` between tasks. Hand-moves: remove the whole section (including \`---\`) from the source; read/write UTF-8.
 `;
 }
 

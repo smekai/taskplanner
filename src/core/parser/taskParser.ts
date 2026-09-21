@@ -1,7 +1,7 @@
 import { Task } from '../model/task.js';
 import { BoardSegment, ParseIssue, ParseResult } from '../model/parseResult.js';
 import { LINE_BREAK, looksLikeTaskHeading, taskHeadingIdOf } from './grammar.js';
-import { RawSection, splitSections } from './boardSections.js';
+import { RawSection, splitSections } from './fileSections.js';
 import { parseTaskSection } from './taskSection.js';
 
 const BOM = '﻿';

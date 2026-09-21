@@ -10,7 +10,7 @@ const ATTRIBUTE_RE = /^\*\*(.+?):\*\*\s*(.*)$/;
 
 const SEPARATOR_BEFORE_NEXT_FIELD = /\s\|\s(?=\*\*)/;
 
-export interface FieldMatch {
+interface FieldMatch {
   key: string;
   value: string;
 }
