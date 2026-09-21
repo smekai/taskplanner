@@ -50,7 +50,7 @@ export class TaskStore {
   }
 
   reload(): void {
-    this.reloadSync();
+    this.reloadBoard();
   }
 
   private resetReloadState(): void {
@@ -77,7 +77,7 @@ export class TaskStore {
     }
   }
 
-  private reloadSync(): void {
+  private reloadBoard(): void {
     this.resetReloadState();
     for (const state of this.config.states) {
       if (isDeferredStateName(state.name)) {
@@ -215,7 +215,6 @@ export class TaskStore {
     this.ensureStateLoaded(doneState.name);
     const { keep, byFile } = planArchive(this.getTasksByState(doneState.name), afterDays, now);
 
-    if (byFile.size > 0) this.prepareWrite();
     let archived = 0;
     for (const [fileName, moving] of byFile) {
       const alreadyArchived = taskIdsIn(this.fileStore.readArchiveRaw(fileName));
@@ -227,9 +226,7 @@ export class TaskStore {
     }
 
     if (byFile.size > 0) {
-      this.tasksByState.set(doneState.name, keep);
-      this.fileStore.writeState(doneState, keep);
-      this.notifyListeners();
+      this.commit({ state: doneState, tasks: keep });
     }
 
     const log = this.archiveWorkLog(afterDays, now);
@@ -314,16 +311,47 @@ export class TaskStore {
     }
   }
 
-  private prepareWrite(): void {
+  // WHY: a file mtime cannot tell a same-tick write apart, so the counter is re-read rather than guarded by one.
+  private syncCounter(): void {
     const previous = this.config;
-    if (this.configManager.hasExternalChange()) {
-      this.configManager.load({ persistMigration: false });
-    }
+    this.configManager.load({ persistMigration: false });
     const floor = Math.max(
       previous.idPrefix === this.config.idPrefix ? previous.nextId : 1,
       this.observedNextIds.get(this.config.idPrefix) ?? 1,
     );
     this.configManager.reconcileNextId(floor);
+  }
+
+  private commit(...writes: { state: TaskState; tasks: Task[] }[]): void {
+    this.syncCounter();
+    for (const { state, tasks } of writes) {
+      this.tasksByState.set(state.name, tasks);
+      this.fileStore.writeState(state, tasks);
+    }
+    this.notifyListeners();
+  }
+
+  private locate(taskId: string): { task: Task; stateName: string; state: TaskState } | null {
+    const found = this.findTask(taskId);
+    if (!found) return null;
+    const state = this.findState(found.stateName);
+    return state ? { ...found, state } : null;
+  }
+
+  private positionOf(taskId: string): { state: TaskState; tasks: Task[]; index: number } | null {
+    const found = this.locate(taskId);
+    if (!found) return null;
+    const tasks = [...this.getTasksByState(found.stateName)];
+    const index = tasks.findIndex((t) => t.id === taskId);
+    return index === -1 ? null : { state: found.state, tasks, index };
+  }
+
+  private applyReorder(state: TaskState, tasks: Task[], from: number, to: number): boolean {
+    if (from === to) return true;
+    const [item] = tasks.splice(from, 1);
+    tasks.splice(to, 0, item);
+    this.commit({ state, tasks });
+    return true;
   }
 
   createTask(task: Omit<Task, 'id'>, stateName: string): Task {
@@ -333,9 +361,12 @@ export class TaskStore {
     }
     this.ensureStateLoaded(stateName);
 
-    this.prepareWrite();
-    const id = this.idGenerator.next();
-    const newTask: Task = { ...task, id, updatedAt: currentTimestamp() };
+    this.syncCounter();
+    const newTask: Task = {
+      ...task,
+      id: this.idGenerator.next(),
+      updatedAt: currentTimestamp(),
+    };
 
     const tasks = this.getTasksByState(stateName);
     if (this.config.insertPosition === 'top') {
@@ -344,88 +375,55 @@ export class TaskStore {
       tasks.push(newTask);
     }
 
-    this.tasksByState.set(stateName, tasks);
-    this.fileStore.writeState(state, tasks);
-    this.notifyListeners();
+    this.commit({ state, tasks });
     return newTask;
   }
 
   moveTask(taskId: string, targetStateName: string, targetIndex?: number): Task | null {
-    const found = this.findTask(taskId);
-    if (!found) {
-      return null;
-    }
+    const found = this.locate(taskId);
+    if (!found) return null;
     this.ensureStateLoaded(targetStateName);
 
-    const sourceState = this.findState(found.stateName);
     const targetState = this.findState(targetStateName);
-    if (!sourceState || !targetState) {
-      return null;
-    }
+    if (!targetState) return null;
 
     if (targetIndex !== undefined && found.stateName === targetStateName) {
       return this.reorderTaskToIndex(taskId, targetIndex) ? found.task : null;
     }
 
-    this.prepareWrite();
     const sourceTasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
-    this.tasksByState.set(found.stateName, sourceTasks);
-    this.fileStore.writeState(sourceState, sourceTasks);
-
-    found.task.updatedAt = currentTimestamp();
+    const moved: Task = { ...found.task, updatedAt: currentTimestamp() };
     const targetTasks = [...this.getTasksByState(targetStateName)].filter((t) => t.id !== taskId);
     if (targetIndex !== undefined) {
-      const clamped = Math.max(0, Math.min(targetIndex, targetTasks.length));
-      targetTasks.splice(clamped, 0, found.task);
+      targetTasks.splice(Math.max(0, Math.min(targetIndex, targetTasks.length)), 0, moved);
     } else if (this.config.insertPosition === 'top') {
-      targetTasks.unshift(found.task);
+      targetTasks.unshift(moved);
     } else {
-      targetTasks.push(found.task);
+      targetTasks.push(moved);
     }
-    this.tasksByState.set(targetStateName, targetTasks);
-    this.fileStore.writeState(targetState, targetTasks);
 
+    this.commit(
+      { state: found.state, tasks: sourceTasks },
+      { state: targetState, tasks: targetTasks },
+    );
     if (targetStateName === 'Done') this.archiveCompleted();
-
-    this.notifyListeners();
-    return found.task;
+    return moved;
   }
 
   deleteTask(taskId: string): boolean {
-    const found = this.findTask(taskId);
-    if (!found) {
-      return false;
-    }
+    const found = this.locate(taskId);
+    if (!found) return false;
 
-    const state = this.findState(found.stateName);
-    if (!state) {
-      return false;
-    }
-
-    this.prepareWrite();
     const tasks = this.getTasksByState(found.stateName).filter((t) => t.id !== taskId);
-    this.tasksByState.set(found.stateName, tasks);
-    this.fileStore.writeState(state, tasks);
-    this.notifyListeners();
+    this.commit({ state: found.state, tasks });
     return true;
   }
 
   updateTask(taskId: string, updates: Partial<Omit<Task, 'id'>>): Task | null {
-    const found = this.findTask(taskId);
-    if (!found) {
-      return null;
-    }
+    const found = this.locate(taskId);
+    if (!found) return null;
+    if (!TaskStore.hasChanges(found.task, updates)) return found.task;
 
-    const state = this.findState(found.stateName);
-    if (!state) {
-      return null;
-    }
-
-    if (!TaskStore.hasChanges(found.task, updates)) {
-      return found.task;
-    }
-
-    this.prepareWrite();
     const updatedTask: Task = {
       ...found.task,
       ...updates,
@@ -435,9 +433,7 @@ export class TaskStore {
     const tasks = this.getTasksByState(found.stateName).map((t) =>
       t.id === taskId ? updatedTask : t,
     );
-    this.tasksByState.set(found.stateName, tasks);
-    this.fileStore.writeState(state, tasks);
-    this.notifyListeners();
+    this.commit({ state: found.state, tasks });
     return updatedTask;
   }
 
@@ -457,64 +453,20 @@ export class TaskStore {
   }
 
   reorderTaskToIndex(taskId: string, newIndex: number): boolean {
-    const found = this.findTask(taskId);
-    if (!found) {
-      return false;
-    }
+    const at = this.positionOf(taskId);
+    if (!at) return false;
 
-    const state = this.findState(found.stateName);
-    if (!state) {
-      return false;
-    }
-
-    const tasks = [...this.getTasksByState(found.stateName)];
-    const from = tasks.findIndex((t) => t.id === taskId);
-    if (from === -1) {
-      return false;
-    }
-
-    const to = Math.max(0, Math.min(newIndex, tasks.length - 1));
-    if (from === to) {
-      return true;
-    }
-
-    this.prepareWrite();
-    const [item] = tasks.splice(from, 1);
-    tasks.splice(to, 0, item);
-    this.tasksByState.set(found.stateName, tasks);
-    this.fileStore.writeState(state, tasks);
-    this.notifyListeners();
-    return true;
+    const to = Math.max(0, Math.min(newIndex, at.tasks.length - 1));
+    return this.applyReorder(at.state, at.tasks, at.index, to);
   }
 
   reorderTask(taskId: string, direction: 'up' | 'down'): boolean {
-    const found = this.findTask(taskId);
-    if (!found) {
-      return false;
-    }
+    const at = this.positionOf(taskId);
+    if (!at) return false;
 
-    const state = this.findState(found.stateName);
-    if (!state) {
-      return false;
-    }
-
-    const tasks = [...this.getTasksByState(found.stateName)];
-    const index = tasks.findIndex((t) => t.id === taskId);
-    if (index === -1) {
-      return false;
-    }
-
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= tasks.length) {
-      return false;
-    }
-
-    this.prepareWrite();
-    [tasks[index], tasks[newIndex]] = [tasks[newIndex], tasks[index]];
-    this.tasksByState.set(found.stateName, tasks);
-    this.fileStore.writeState(state, tasks);
-    this.notifyListeners();
-    return true;
+    const to = direction === 'up' ? at.index - 1 : at.index + 1;
+    if (to < 0 || to >= at.tasks.length) return false;
+    return this.applyReorder(at.state, at.tasks, at.index, to);
   }
 
   onDidChange(listener: TaskStoreListener): { dispose: () => void } {
@@ -545,8 +497,8 @@ export class TaskStore {
       }
     }
 
-    if (resolutions.length > 0) this.prepareWrite();
     let removedCount = 0;
+    const pruned: { state: TaskState; tasks: Task[] }[] = [];
     const removalsByState = new Map<string, Set<number>>();
 
     for (const resolution of resolutions) {
@@ -572,11 +524,12 @@ export class TaskStore {
         }
       }
 
-      this.tasksByState.set(stateName, tasks);
-      this.fileStore.writeState(state, tasks);
+      pruned.push({ state, tasks });
     }
 
-    if (removedCount > 0 || loadedDeferred) {
+    if (pruned.length > 0) {
+      this.commit(...pruned);
+    } else if (loadedDeferred) {
       this.notifyListeners();
     }
 

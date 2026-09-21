@@ -1,5 +1,37 @@
 # Backlog
 
+## TASK-062: Run the published-artifact smoke test under Vitest instead of a hand-rolled script
+**Priority:** P3 | **Tags:** testing
+**Updated:** 2026-09-21 09:21
+
+`scripts/smoke-test-mcp-server.js` is ~475 lines of plain CJS: a hand-rolled `expect()` (line 29), a hand-rolled `log()` for progress, and a 110-line `McpClient` implementing JSON-RPC over stdout (lines 39–110). Raised in review of PR #11: should it be TypeScript, or component-style tests instead of a script?
+
+**The existing framework can run it.** Vitest has no trouble with a file that spawns children. The constraint is not the framework: the test packs the package, installs the tarball into an empty temp directory and starts processes — 30–60 seconds, and it requires `npm run build` to have run first. The unit suite is 209 tests in well under a second and runs on every commit; putting this in the same run would slow every commit and make unit tests depend on whether the project is built.
+
+So the question is not "Vitest or not" but "which Vitest project", and TypeScript comes free either way: making it TS and moving it to Vitest are the same decision, not two.
+
+### Option 1 — a separate Vitest project
+
+`vitest.config.smoke.ts`, run from `npm run smoke:mcp-server`, excluded from `npm test`. Real `expect()` with proper diffs on failure, named cases instead of `log()` lines, per-case isolation. TypeScript follows from the move rather than being the goal.
+
+### Option 2 — leave it a Node script
+
+All ten files in `scripts/` are plain CJS Node scripts, and this one validates the build, so it should not depend on the build. Converting only this one is inconsistent. If this is the answer, reply on the review thread and close it.
+
+### Option 3 — independent of the above: drop the hand-rolled client
+
+Replace `McpClient` with `Client` + `StdioClientTransport` from `@modelcontextprotocol/sdk`, already in `devDependencies`. That is the single biggest simplification available here, roughly 110 lines deleted.
+
+The package is ESM-only (`"type": "module"`), which is exactly why today's CJS script does not use it. Under Vitest the constraint disappears, so Option 3 is easiest alongside Option 1 — though a CJS script could also reach it through a dynamic `import()`.
+
+### What must not be lost in any move
+
+- **The `bin` check** (lines 343–348): `npm publish` silently drops a `bin` path starting with `./` while `npm pack` keeps it, so the tarball under test passes while the published package ships with no `bin`. This was a real incident; it is the reason the check exists.
+- **`childEnv()`** (lines 112–118): strips `TASKPLANNER_WORKSPACE_ROOT`, `CURSOR_WORKSPACE_ROOT`, `VSCODE_WORKSPACE_ROOT`, `PWD` and `INIT_CWD` so that a passing run proves the variable under test is what located `.tasks/`. Without it a green run proves nothing.
+- Running against the **packed and installed tarball**, not the working tree.
+
+---
+
 ## TASK-059: Move date handling to Luxon
 **Priority:** P2 | **Tags:** core, refactor
 **Updated:** 2026-08-28 07:52

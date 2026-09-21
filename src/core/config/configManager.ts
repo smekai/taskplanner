@@ -84,7 +84,6 @@ export class ConfigManager {
   private configPath: string;
   private diagnostics: ConfigDiagnostic[] = [];
   private unreadableRaw: string | null = null;
-  private lastSyncedMtimeNs: bigint | null = null;
 
   constructor(private tasksDir: string) {
     this.configPath = path.join(tasksDir, 'config.json');
@@ -110,21 +109,8 @@ export class ConfigManager {
     this.config = this.readFromDisk();
   }
 
-  private currentMtimeNs(): bigint | null {
-    try {
-      return fs.statSync(this.configPath, { bigint: true }).mtimeNs;
-    } catch {
-      return null;
-    }
-  }
-
-  hasExternalChange(): boolean {
-    return this.currentMtimeNs() !== this.lastSyncedMtimeNs;
-  }
-
   private readFromDisk(): TaskPlannerConfig {
     this.unreadableRaw = null;
-    this.lastSyncedMtimeNs = this.currentMtimeNs();
     if (!fs.existsSync(this.configPath)) return createDefaultConfig();
 
     const report: Report = (message) => this.diagnostics.push({ message });
@@ -215,7 +201,6 @@ export class ConfigManager {
     }
     this.quarantineUnreadable();
     fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2) + '\n', 'utf-8');
-    this.lastSyncedMtimeNs = this.currentMtimeNs();
   }
 
   get(): TaskPlannerConfig {
