@@ -325,5 +325,17 @@ describe('ConfigManager', () => {
 
       expect(fs.readdirSync(tmpDir).filter((f) => f.startsWith('config.invalid-'))).toHaveLength(0);
     });
+
+    // A caller that writes to the board needs to refuse before it puts a default config
+    // where a broken one was, and a diagnostic message is not something to match on.
+    it('reports a config nobody could read apart from one it merely migrated', () => {
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), '{ broken but precious');
+      configManager.load({ persistMigration: false });
+      expect(configManager.isConfigUnreadable()).toBe(true);
+
+      write({ version: 1, idPrefix: 'OK' });
+      configManager.load({ persistMigration: false });
+      expect(configManager.isConfigUnreadable()).toBe(false);
+    });
   });
 });

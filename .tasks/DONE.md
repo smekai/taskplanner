@@ -23,7 +23,14 @@ were still in the 2.4.1 tarball, since `files` ships `dist/` wholesale. A consum
 found an API that was not there. `scripts/clean-dist.js` now clears both output directories before
 `build`, and the rebuilt tree no longer contains them.
 
-Evidence: `npm run lint` clean, `npm test` 306 passing, `npm run build` produces a `dist/parser/`
+**A config nobody could read was indistinguishable from one that was merely migrated.**
+`ConfigManager` quarantines an unreadable `config.json` as `config.invalid-<stamp>.json` and carries
+on with defaults, which is the right call for the extension and the wrong one for a consumer that is
+about to write: it would put a default board where a broken one was, and the only signal was a
+diagnostic *message*, which is not something a caller should match on. `isConfigUnreadable()` now
+reports it, so a writer can refuse before it writes.
+
+Evidence: `npm run lint` clean, `npm test` 307 passing, `npm run build` produces a `dist/parser/`
 holding only the five modules that exist.
 
 ---

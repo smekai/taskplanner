@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `endsTaskSection(text)` is exported, so a consumer can ask whether text would end a task section instead of copying the serializer's rule (TASK-067).
+- `ConfigManager.isConfigUnreadable()` distinguishes a `config.json` nobody could read from one that was merely migrated, so a consumer can refuse to write defaults over it (TASK-067).
 
 ### Fixed
 
