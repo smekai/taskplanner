@@ -9,6 +9,7 @@ import { FileStore } from '../core/store/fileStore.js';
 import { TaskStore } from '../core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../core/model/task.js';
 import { TaskState } from '../core/model/state.js';
+import { ParseIssue } from '../core/model/parseResult.js';
 import { buildBoardViewModel } from '../core/view/boardViewModel.js';
 import { isWaiting } from '../core/util/time.js';
 
@@ -115,6 +116,42 @@ async function freshStore(
   return { taskStore, configManager, workspaceRoot, targetState };
 }
 
+interface BoardIssue {
+  file: string;
+  line: number;
+  message: string;
+  raw?: string;
+}
+
+function boardIssues(taskStore: TaskStore): { errors: BoardIssue[]; warnings: BoardIssue[] } {
+  const flatten = <K extends string>(
+    groups: ({ fileName: string } & Record<K, ParseIssue[]>)[],
+    key: K,
+  ): BoardIssue[] =>
+    groups.flatMap(({ fileName, ...rest }) =>
+      (rest[key] as ParseIssue[]).map((issue) => ({ file: fileName, ...issue })),
+    );
+
+  return {
+    errors: flatten(taskStore.getErrors(), 'errors'),
+    warnings: flatten(taskStore.getWarnings(), 'warnings'),
+  };
+}
+
+// WHY: a board that fails to parse reads as a board with fewer tasks, so the count alone can never tell a caller that something is missing.
+function issueReport(issues: { errors: BoardIssue[]; warnings: BoardIssue[] }): string {
+  const lines: string[] = [];
+  for (const error of issues.errors) {
+    lines.push(`ERROR ${error.file}:${error.line} ${error.message}`);
+    if (error.raw) lines.push(error.raw);
+  }
+  for (const warning of issues.warnings) {
+    lines.push(`WARNING ${warning.file}:${warning.line} ${warning.message}`);
+  }
+  if (lines.length === 0) return '';
+  return `\n\nThe board did not read cleanly:\n${lines.join('\n')}`;
+}
+
 function formatTask(task: Task, stateName: string): string {
   const lines: string[] = [];
   lines.push(`## ${task.id}: ${task.title}`);
@@ -173,7 +210,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.3.9',
+  version: '2.3.10',
 });
 
 server.registerTool(
@@ -214,9 +251,10 @@ server.registerTool(
       }
     }
 
+    const issues = boardIssues(taskStore);
     return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: { states, includeTasks: include_tasks === true },
+      content: [{ type: 'text', text: `${lines.join('\n')}${issueReport(issues)}` }],
+      structuredContent: { states, includeTasks: include_tasks === true, ...issues },
     };
   },
 );
@@ -283,20 +321,35 @@ server.registerTool(
       totalCount += tasks.length;
     }
 
+    const issues = boardIssues(taskStore);
     if (totalCount === 0) {
       return {
-        content: [{ type: 'text', text: 'No tasks found matching the criteria.' }],
-        structuredContent: { tasks: [], totalCount: 0, state: state ?? null, query: query ?? null },
+        content: [
+          { type: 'text', text: `No tasks found matching the criteria.${issueReport(issues)}` },
+        ],
+        structuredContent: {
+          tasks: [],
+          totalCount: 0,
+          state: state ?? null,
+          query: query ?? null,
+          ...issues,
+        },
       };
     }
 
     return {
-      content: [{ type: 'text', text: `${totalCount} task(s) found\n\n${lines.join('\n')}` }],
+      content: [
+        {
+          type: 'text',
+          text: `${totalCount} task(s) found\n\n${lines.join('\n')}${issueReport(issues)}`,
+        },
+      ],
       structuredContent: {
         tasks: structuredTasks,
         totalCount,
         state: state ?? null,
         query: query ?? null,
+        ...issues,
       },
     };
   },
@@ -321,9 +374,15 @@ server.registerTool(
         isError: true,
       };
     }
+    const issues = boardIssues(taskStore);
     return {
-      content: [{ type: 'text', text: formatTask(found.task, found.stateName) }],
-      structuredContent: { task: structuredTask(found.task, found.stateName) },
+      content: [
+        {
+          type: 'text',
+          text: `${formatTask(found.task, found.stateName)}${issueReport(issues)}`,
+        },
+      ],
+      structuredContent: { task: structuredTask(found.task, found.stateName), ...issues },
     };
   },
 );
@@ -542,9 +601,10 @@ server.registerTool(
       searchQuery: query,
       limit,
     });
+    const issues = boardIssues(taskStore);
     return {
-      content: [{ type: 'text', text: JSON.stringify(viewModel) }],
-      structuredContent: { board: viewModel, workspaceRoot },
+      content: [{ type: 'text', text: `${JSON.stringify(viewModel)}${issueReport(issues)}` }],
+      structuredContent: { board: viewModel, workspaceRoot, ...issues },
     };
   },
 );
@@ -598,11 +658,12 @@ server.registerTool(
     const { taskStore, configManager, workspaceRoot } = await freshStore(workspace_root);
     const viewModel = buildBoardViewModel(taskStore, configManager, {});
     const totals = viewModel.states.map((s) => `${s.name}: ${s.totalCount}`).join(' | ');
+    const issues = boardIssues(taskStore);
     return {
       content: [
         {
           type: 'text',
-          text: `TaskPlanner board requested (${totals}). If no interactive view appears, call taskplanner_board_data.`,
+          text: `TaskPlanner board requested (${totals}). If no interactive view appears, call taskplanner_board_data.${issueReport(issues)}`,
         },
       ],
       structuredContent: {
@@ -610,6 +671,7 @@ server.registerTool(
         workspaceRoot,
         renderMode: 'mcp-app',
         fallbackTool: 'taskplanner_board_data',
+        ...issues,
       },
     };
   },
