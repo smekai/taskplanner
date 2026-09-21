@@ -5,7 +5,7 @@ import {
   countTaskHeadings,
   maxTaskIdNumber,
 } from '../../core/parser/taskParser.js';
-import { serializeStateFile, serializeTask } from '../../core/parser/taskSerializer.js';
+import { serializeTask } from '../../core/parser/taskSerializer.js';
 import {
   isWaiting,
   currentDate,
@@ -14,7 +14,6 @@ import {
   daysSince,
 } from '../../core/util/time.js';
 import { Priority } from '../../core/model/task.js';
-import type { Task } from '../../core/model/task.js';
 
 describe('parseTasks', () => {
   it('parses a single task', () => {
@@ -65,23 +64,6 @@ Description two.
     expect(tasks[0].id).toBe('TASK-001');
     expect(tasks[1].id).toBe('TASK-002');
     expect(tasks[1].tags).toEqual(['tag2']);
-  });
-
-  it('parses task with epic', () => {
-    const content = `# Next
-
-## TASK-005: Setup CI
-**Priority:** P2
-**Tags:** devops
-**Epic:** infrastructure
-
-Configure GitHub Actions.
-
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].epic).toBe('infrastructure');
   });
 
   it('parses task with no tags', () => {
@@ -135,19 +117,32 @@ Build OAuth2 authentication.
     });
   });
 
-  it('parses pipe-separated metadata with epic', () => {
-    const content = `## TASK-003: Setup CI
-**Priority:** P2 | **Tag:** devops | **Epic:** infrastructure
+  // Every field is readable on its own line and inside the grouped line; these used to be six
+  // separate tests, one per field per layout.
+  const FIELDS = [
+    ['Tags', 'a, b', 'tags', ['a', 'b']],
+    ['Tag', 'solo', 'tags', ['solo']],
+    ['Epic', 'infrastructure', 'epic', 'infrastructure'],
+    ['Assignee', 'alice', 'assignee', 'alice'],
+    ['Updated', '2026-03-22 19:14', 'updatedAt', '2026-03-22 19:14'],
+    ['Waiting until', '2026-12-01', 'waitingUntil', '2026-12-01'],
+  ] as const;
 
-Configure GitHub Actions.
+  it.each(FIELDS)('**%s:** on its own line', (label, raw, field, expected) => {
+    const { tasks } = parseTasks(
+      `## TASK-001: T\n**Priority:** P1\n**${label}:** ${raw}\n\nBody.\n\n---\n`,
+    );
 
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].priority).toBe(Priority.P2);
-    expect(tasks[0].tags).toEqual(['devops']);
-    expect(tasks[0].epic).toBe('infrastructure');
+    expect(tasks[0][field]).toEqual(expected);
+  });
+
+  it.each(FIELDS)('**%s:** inside the grouped line', (label, raw, field, expected) => {
+    const { tasks } = parseTasks(
+      `## TASK-001: T\n**Priority:** P1 | **${label}:** ${raw}\n\nBody.\n\n---\n`,
+    );
+
+    expect(tasks[0].priority).toBe(Priority.P1);
+    expect(tasks[0][field]).toEqual(expected);
   });
 
   it('handles empty file', () => {
@@ -160,16 +155,6 @@ Configure GitHub Actions.
     const { tasks, warnings } = parseTasks('');
     expect(tasks).toHaveLength(0);
     expect(warnings).toHaveLength(0);
-  });
-
-  it('defaults to P4 for unknown priority', () => {
-    const content = `## TASK-001: Bad priority
-**Priority:** CRITICAL
-
-Some description.
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks[0].priority).toBe(Priority.P4);
   });
 
   it('handles task without separator at end of file', () => {
@@ -234,90 +219,6 @@ Line two with **bold**.
     expect(tasks[0].description).toContain('Line one.');
     expect(tasks[0].description).toContain('Line two with **bold**.');
     expect(tasks[0].description).toContain('- List item');
-  });
-
-  it('parses **Assignee:**', () => {
-    const content = `## TASK-001: Owned
-**Priority:** P1
-**Assignee:** alice
-
-Work.
-
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks[0].assignee).toBe('alice');
-  });
-
-  it('parses **Updated:**', () => {
-    const content = `## TASK-001: Recent
-**Priority:** P2
-**Updated:** 2026-03-22 19:14
-
-Done.
-
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks[0].updatedAt).toBe('2026-03-22 19:14');
-  });
-
-  it('parses all metadata fields together', () => {
-    const content = `## TASK-001: Full meta
-**Priority:** P1
-**Tags:** a, b
-**Epic:** epic1
-**Assignee:** bob
-**Updated:** 2026-01-01 12:00
-
-Body.
-
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks[0]).toMatchObject({
-      id: 'TASK-001',
-      title: 'Full meta',
-      priority: Priority.P1,
-      tags: ['a', 'b'],
-      epic: 'epic1',
-      assignee: 'bob',
-      updatedAt: '2026-01-01 12:00',
-      description: 'Body.',
-    });
-  });
-
-  it('parses pipe-separated line with assignee and updated', () => {
-    const content = `## TASK-001: Pipe
-**Priority:** P2 | **Assignee:** carol | **Updated:** 2026-02-02
-
-Text.
-
----
-`;
-    const { tasks } = parseTasks(content);
-    expect(tasks[0].assignee).toBe('carol');
-    expect(tasks[0].updatedAt).toBe('2026-02-02');
-  });
-
-  it('round-trips serializeStateFile then parseTasks', () => {
-    const original: Task[] = [
-      {
-        id: 'TASK-001',
-        title: 'Round trip',
-        description: 'Desc line.',
-        priority: Priority.P2,
-        tags: ['x'],
-        epic: 'My Epic',
-        assignee: 'dev',
-        updatedAt: '2026-03-01 10:00',
-        plan: '- Step one',
-      },
-    ];
-    const md = serializeStateFile('Backlog', original);
-    const { tasks, warnings } = parseTasks(md);
-    expect(warnings).toHaveLength(0);
-    expect(tasks).toEqual(original);
   });
 
   it('duplicate **Priority:** lines — last value wins', () => {

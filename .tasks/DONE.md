@@ -1,5 +1,147 @@
 # Done
 
+## TASK-063: Rewrite the parser in layers, with errors separate from warnings
+**Priority:** P1 | **Tags:** core, refactor
+**Updated:** 2026-09-21 10:00
+
+Supersedes PR #12 (closed). Three rounds of review there landed on one root cause: the grammar lives in several places that disagree, and the parser has no notion of failure — everything degrades silently.
+
+Measured on the current code:
+
+- `**Priority:** p0` silently becomes **P4**, the lowest, with zero warnings. A task an agent is told to prioritise becomes one it never picks up.
+- `## TASK 002:` (space instead of a dash) makes the task invisible. A warning exists, but **MCP surfaces no diagnostics at all** — `grep warning src/mcp/server.ts` returns nothing. An agent reads 3 tasks where there are 4 and cannot know.
+- Warnings have no severity, so `Invalid task heading` (a task is lost) sits in the same list as `Content is not part of any task` (that is the file heading, it is fine).
+
+Full rewrite is approved: back-compat is held by behaviour, not by code.
+
+## Parser architecture
+
+Layered, each layer tested on its own:
+
+    src/core/parser/
+      grammar.ts        the format vocabulary, one place
+      boardSections.ts  layer 1-2: raw text to sections
+      taskSection.ts    layer 3-4: one section to Task + diagnostics
+      taskParser.ts     orchestration, public parseTasks
+      taskSerializer.ts Task to markdown, sections + tasks to a file
+
+**`grammar.ts`** owns the heading, separator, attribute and `### Plan` patterns plus `taskHeadingIdOf`, `isSectionSeparatorLine`, `isReservedAttributeKey` and `parsePriority`. The serializer asks the same module — a guard drifting from the grammar it protects is what produced the P1 in PR #12.
+
+**`boardSections.ts`** — `splitSections(raw)` returning `task` or `text` sections. A section ends at its separator, **the next task heading**, or EOF. The middle case is not optional: without it a task missing its closing `---` has no end, and an edit reaches into its neighbour. Invariant: concatenating the sections returns the input byte for byte.
+
+**`taskSection.ts`** — splits one section into heading / metadata / body / plan, with `parseAttributeLine(line)` handling one attribute or a pipe-joined group.
+
+**Both metadata layouts are read; the grouped line is always written.** No setting.
+
+**Narrow the group delimiter.** Splitting on every `|` is why `**Source:** a | b` loses its tail and why PR #12 had to forbid `|` in values. Verified against the 60 pipe-joined lines in this repository's own board: `/\s\|\s(?=\*\*)/` splits real groups identically and leaves `a | b` intact. The value restriction goes; the reserved-name restriction stays.
+
+## Diagnostics
+
+    export interface ParseIssue { line: number; message: string; raw?: string }
+    export interface ParseResult {
+      tasks: Task[];
+      errors: ParseIssue[];
+      warnings: ParseIssue[];
+      segments: BoardSegment[];
+    }
+
+Two lists, no severity field, no info level.
+
+| case | today | after |
+| --- | --- | --- |
+| `## TASK 002:` looks like a task but is not | warning, task invisible | **error carrying the whole section as `raw`** |
+| `**Priority:** Critical` | silent P4 | **error** listing the valid values |
+| `**Priority:** p0` | silent P4 | **accepted as P0** |
+| no `**Priority:**` line | silent P4 | **warning**, P4 kept |
+| text outside any task | warning | **nothing** — it is preserved, there is nothing to report |
+
+That last row matters: once text stops being lost, the noisiest warning stops being a problem worth raising.
+
+**Delivery.** `taskplanner_list`, `taskplanner_board`, `taskplanner_board_data` and `taskplanner_get` report errors in their text (`4 tasks; 1 section could not be read, BACKLOG.md:8`) and in `structuredContent` with the raw text, so an agent can repair it. `ConfigDiagnostic` gets the same split.
+
+## Requirements carried from the closed PR
+
+This list is the whole inheritance; anything missing from it is lost when that branch is forgotten.
+
+**Round-trip safety**
+1. A newline in `title`, `tags`, `epic`, `assignee`, `updatedAt` or `waitingUntil` must not open a second task — single-line fields collapse to one line.
+2. A `description` or `plan` holding a separator line or a real task heading is refused **by field name**, not silently mangled.
+3. The refusal guard uses the parser's grammar: `## TASK-999:` with no title is body text, so refusing it would reject a task the parser produced.
+
+**Attributes**
+4. An unrecognised `**Key:** value` parses into `Task.attributes` and is written back, both in the grouped line and on its own.
+5. A name matching a built-in field is refused. `isReservedAttributeKey` asks the parser's own patterns rather than restating a list of names.
+
+**File integrity**
+6. Parsing and writing are inverses: writing an unmodified parse returns the input byte for byte.
+7. A task nobody edited is written from its original bytes, so a save produces no diff noise.
+8. CRLF is preserved.
+9. A section without a closing `---` ends at the next heading.
+
+**Store, independent of the parser — can be done first**
+10. `moveTask` and `fixDuplicates` serialize every state **before** any disk write. Otherwise a refusal mid-move leaves the task in neither file; this was reproduced.
+
+**Library**
+11. `taskIdsIn` is exported.
+
+**New here**
+12. The BOM is preserved on write (dropped today).
+13. Priority recognition is case- and whitespace-insensitive.
+14. `errors` and `warnings` are separate and reach MCP.
+
+## Tests
+
+Every failure is closed by a decision, never by adjusting an expectation: either it is a corner case that means nothing, and the test is deleted with the reason in the commit, or it is real backward compatibility, and the code is fixed.
+
+Cut: duplicates in `parser.test.ts` that check one field several ways; assertions on exact warning text; cases that have become instances of an invariant.
+
+Add: one test per layer, both invariants property-style over every board file in the repository, and a table of priority spellings.
+
+## Out of scope
+
+A local gitignored config for platform and per-developer settings, holding the line-ending preference and generating `.gitattributes` for `.tasks/`. Separate task.
+
+### Plan
+
+Done in six commits, each gated before the next.
+
+- **`grammar.ts`** owns every pattern and predicate: headings, separators, plan headings,
+  attributes, the group separator, priority. The serializer asks the same module, so the guard
+  that drifted from the parser and produced the P1 in the closed PR cannot drift again.
+- **`boardSections.ts`** splits raw content into task and text sections, bounded by the
+  separator, the next task heading, or EOF. Its invariant — the sections concatenate back to the
+  input byte for byte — landed with the layer, because nothing above it would notice if it broke.
+- **`taskSection.ts`** turns one section into a `Task` plus diagnostics, with
+  `readFieldOrFieldGroup` reading a single field or a grouped line.
+- **`taskParser.ts`** is orchestration. The single loop with `inMetadata`/`inPlan` flags is gone.
+- **`serializeBoard`** walks the segments a parse produced, so writing is the inverse of reading.
+  `FileStore.prepareState` reads the file it is about to overwrite and writes through it.
+- **MCP** reports both lists from all five read tools, errors carrying the raw text of the
+  section they could not read.
+
+**Found while rewriting, not reported before:** `## TASK-001:   ` parsed as a task with an empty
+title, because `\s*(.+)` backtracks onto a single space. `taskHeadingOf` now rejects an empty
+title and `taskHeadingIdOf` delegates to it, so the two cannot disagree about what a heading is.
+
+**Delimiter narrowed.** Splitting on every `|` is why a value was truncated at its first one, and
+why the closed PR had to forbid `|` in attribute values. Splitting on ` | ` only when another
+field follows leaves `a | b` intact and splits real groups identically — checked against the 60
+grouped lines in this repository's own board. The value restriction is gone; the reserved-name
+restriction stays.
+
+**Tests: 210 to 323.** Eight removed with reasons — two asserted warnings for text outside a task,
+which is no longer reported; three asserted warnings that are now errors; one asserted the
+whitespace-title bug above; one duplicated the empty-file case; one round-tripped through
+`serializeStateFile`, now an instance of the byte-identity invariant. Six field tests became one
+table covering every field in both layouts. One existing test was retargeted rather than weakened:
+the PR #8 archive regression injected its fault through `writeState`, and the write path no longer
+passes through that seam — it still fails when the idempotency guard is removed.
+
+**Requirement 10** (a move writes both states or neither) shipped first and independently; it is
+store-level and fixes a reproduced loss of a task between two files.
+
+---
+
 ## TASK-061: Allocate task IDs from persisted nextId without routine board scans
 **Priority:** P1 | **Tags:** core, refactor, testing
 **Updated:** 2026-09-11 09:35

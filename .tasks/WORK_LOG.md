@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-063 — 2026-09-21
+**What:** The parser is layered — grammar, sections, section, orchestration — and reports errors separately from warnings, with both reaching the MCP tools, which surfaced neither before.
+**Decisions:** Every pattern lives in `grammar.ts` and the serializer asks it, because a guard that restates the grammar drifts from it. Text outside a task reports nothing now that it survives a write. An unrecognised priority is an error rather than a silent P4; `p0` is simply accepted. Errors carry the raw text of the section they could not read, so an agent can repair it.
+**Outcome:** Supersedes the closed PR #12, whose fourteen requirements are all carried. 210 tests to 323; eight deleted with reasons, six field tests folded into one table. Found on the way: `## TASK-001:   ` parsed as a task with an empty title.
+
+---
+
 ## TASK-061 — 2026-09-11
 **What:** Allocate from persisted nextId without routine board/archive scans; MCP creation loads only its destination.
 **Decisions:** Raise the counter from already observed IDs on writes; manual additions must advance nextId.
