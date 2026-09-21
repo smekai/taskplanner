@@ -8,6 +8,7 @@ import { ConfigManager } from '../core/config/configManager.js';
 import { FileStore } from '../core/store/fileStore.js';
 import { TaskStore } from '../core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../core/model/task.js';
+import { TaskState } from '../core/model/state.js';
 import { buildBoardViewModel } from '../core/view/boardViewModel.js';
 import { isWaiting } from '../core/util/time.js';
 
@@ -80,10 +81,20 @@ async function findTasksDir(explicitRoot?: string): Promise<string> {
   );
 }
 
-async function freshStore(explicitRoot?: string): Promise<{
+function findStateByName(configManager: ConfigManager, name: string): TaskState | undefined {
+  return configManager
+    .get()
+    .states.find((state) => state.name.toLowerCase() === name.toLowerCase());
+}
+
+async function freshStore(
+  explicitRoot?: string,
+  targetStateName?: string,
+): Promise<{
   taskStore: TaskStore;
   configManager: ConfigManager;
   workspaceRoot: string;
+  targetState?: TaskState;
 }> {
   const tasksDir = await findTasksDir(explicitRoot);
   const configManager = new ConfigManager(tasksDir);
@@ -93,8 +104,15 @@ async function freshStore(explicitRoot?: string): Promise<{
   }
   const fileStore = new FileStore(tasksDir);
   const taskStore = new TaskStore(configManager, fileStore);
-  taskStore.reload();
-  return { taskStore, configManager, workspaceRoot: path.dirname(tasksDir) };
+  const workspaceRoot = path.dirname(tasksDir);
+  if (targetStateName === undefined) {
+    taskStore.reload();
+    return { taskStore, configManager, workspaceRoot };
+  }
+
+  const targetState = findStateByName(configManager, targetStateName);
+  if (targetState) taskStore.reloadState(targetState.name);
+  return { taskStore, configManager, workspaceRoot, targetState };
 }
 
 function formatTask(task: Task, stateName: string): string {
@@ -155,7 +173,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.3.1',
+  version: '2.3.4',
 });
 
 server.registerTool(
@@ -344,11 +362,8 @@ server.registerTool(
     waiting_until,
     state: targetState,
   }) => {
-    const { taskStore, configManager } = await freshStore(workspace_root);
     const stateName = targetState || 'Backlog';
-    const validState = configManager
-      .get()
-      .states.find((s) => s.name.toLowerCase() === stateName.toLowerCase());
+    const { taskStore, targetState: validState } = await freshStore(workspace_root, stateName);
     if (!validState) {
       return {
         content: [{ type: 'text', text: `Unknown state "${stateName}".` }],

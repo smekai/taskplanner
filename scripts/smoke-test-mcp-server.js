@@ -360,6 +360,58 @@ function checkBinLauncher(installDir, scratch) {
   );
 }
 
+async function checkCounterAllocation(serverPath, installDir, tempRoot) {
+  const workspace_root = path.join(tempRoot, 'counter-board');
+  const tasksDir = path.join(workspace_root, '.tasks');
+  fs.mkdirSync(tasksDir, { recursive: true });
+  const configPath = path.join(tasksDir, 'config.json');
+  const original = JSON.stringify({
+    version: 1,
+    idPrefix: 'TASK',
+    nextId: 1,
+    sortBy: 'priority',
+    states: [{ name: 'Backlog', fileName: 'BACKLOG.md', order: 0 }],
+  });
+  fs.writeFileSync(configPath, original);
+  fs.writeFileSync(
+    path.join(tasksDir, 'BACKLOG.md'),
+    '# Backlog\r\n\r\n## TASK-001: Existing\r\n**Priority:** P1\r\n\r\n---\r\n',
+  );
+  await withServer({ args: [serverPath], cwd: installDir, label: 'counter' }, async (c) => {
+    const listed = await c.callTool(tool('list'), { workspace_root });
+    expect(listed.structuredContent.totalCount === 1, 'CRLF task was not listed.');
+    expect(fs.readFileSync(configPath, 'utf8') === original, 'A read rewrote legacy config.');
+    await c.callTool(tool('move'), {
+      workspace_root,
+      task_id: 'TASK-001',
+      target_state: 'Rejected',
+    });
+    const migrated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    expect(
+      migrated.nextId === 2 && migrated.version === 3,
+      'Move did not persist the observed ID and migration.',
+    );
+    expect(migrated.sortBy === undefined, 'Move retained the legacy sort setting.');
+    const blockedState = path.join(tasksDir, 'UNREADABLE.md');
+    fs.mkdirSync(blockedState);
+    migrated.states.push({ name: 'Unrelated', fileName: 'UNREADABLE.md', order: 5 });
+    fs.writeFileSync(configPath, JSON.stringify(migrated));
+    const created = await c.callTool(tool('create'), {
+      workspace_root,
+      title: 'New',
+      state: 'backlog',
+    });
+    expect(created.structuredContent.task.id === 'TASK-002', 'Create reused the Rejected task ID.');
+    expect(
+      fs.readFileSync(path.join(tasksDir, 'REJECTED.md'), 'utf8').includes('TASK-001'),
+      'Create changed the rejected task.',
+    );
+    log(
+      'Counter OK (read-only CRLF read, migrated move, targeted create without unrelated reads).',
+    );
+  });
+}
+
 const LIBRARY_EXPORTS = ['parseTasks', 'serializeTask', 'TaskStore', 'FileStore', 'ConfigManager'];
 
 function checkLibraryEntry(installDir, scratch) {
@@ -403,6 +455,7 @@ async function main() {
     const scratch = createScratchWorkspace(tempRoot);
     await checkEnvVarRoot(serverPath, installDir);
     await checkToolInputRootAndAssignee(serverPath, installDir, scratch);
+    await checkCounterAllocation(serverPath, installDir, tempRoot);
     if (!inPlace) {
       await checkBinLauncher(installDir, scratch);
       checkLibraryEntry(installDir, scratch);

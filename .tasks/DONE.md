@@ -1,5 +1,21 @@
 # Done
 
+## TASK-061: Allocate task IDs from persisted nextId without routine board scans
+**Priority:** P1 | **Tags:** core, refactor, testing
+**Updated:** 2026-09-11 09:35
+
+Follow up PR #10: preserve migrations and observed task IDs on writes while allocating from nextId in .tasks/config.json. MCP creation loads only its destination state; no routine ID scan of other states or archives. Manual task additions must advance nextId; unread files are not searched to infer unrecorded allocations.
+
+Cross-platform: portable Node filesystem/path APIs; verified on Windows, macOS untested. Patch version 2.3.2.
+
+### Plan
+
+- Compare the latest saved counter with in-memory values from tasks already read; raise nextId only when behind, and persist migrations on writes.
+- Remove startup archive reconciliation and use a targeted MCP create load.
+- Verified 209 tests, lint, build, version/plugin/package validations, and packed-package MCP smoke including Rejected move -> create and an unreadable unrelated state.
+
+---
+
 ## TASK-060: A CRLF board parses as an empty one, and a read rewrites config.json
 **Priority:** P0 | **Tags:** core, mcp
 **Updated:** 2026-09-11 07:12

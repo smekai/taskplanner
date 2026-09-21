@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -257,5 +257,106 @@ describe('TaskStore', () => {
     );
 
     expect(task.id).toBe('TASK-200');
+  });
+
+  it('creates from the saved counter without reading unrelated states or archives', () => {
+    configManager.update({ nextId: 200 });
+    configManager.save();
+    const targeted = new TaskStore(configManager, fileStore);
+    targeted.reloadState('Backlog');
+    const stateRead = vi.spyOn(fileStore, 'readState');
+    const rawRead = vi.spyOn(fileStore, 'readRawContent');
+    const archiveList = vi.spyOn(fileStore, 'listArchiveFiles');
+    const archiveRead = vi.spyOn(fileStore, 'readArchiveRaw');
+
+    const task = targeted.createTask(
+      { title: 'New', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+
+    expect(task.id).toBe('TASK-200');
+    expect(stateRead).not.toHaveBeenCalled();
+    expect(rawRead).not.toHaveBeenCalled();
+    expect(archiveList).not.toHaveBeenCalled();
+    expect(archiveRead).not.toHaveBeenCalled();
+  });
+
+  it('preserves a task moved into the migrated Rejected state when allocating the next ID', () => {
+    const legacy = {
+      ...configManager.get(),
+      version: 1,
+      sortBy: 'priority',
+      states: configManager.get().states.filter((state) => state.name !== 'Rejected'),
+    };
+    fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify(legacy));
+    fs.writeFileSync(
+      path.join(tmpDir, 'BACKLOG.md'),
+      '# Backlog\n\n## TASK-001: Manually added\n**Priority:** P1\n\n---\n',
+    );
+    configManager.load({ persistMigration: false });
+    taskStore.reload();
+    taskStore.moveTask('TASK-001', 'Rejected');
+    const nextConfig = new ConfigManager(tmpDir);
+    nextConfig.load({ persistMigration: false });
+    const nextStore = new TaskStore(nextConfig, fileStore);
+    nextStore.reloadState('Backlog');
+
+    const created = nextStore.createTask(
+      { title: 'New', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+
+    expect(created.id).toBe('TASK-002');
+    expect(fs.readFileSync(path.join(tmpDir, 'REJECTED.md'), 'utf8')).toContain('TASK-001');
+    const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf8'));
+    expect(persisted.version).toBe(3);
+    expect(persisted.sortBy).toBeUndefined();
+    expect(persisted.states.some((state: { name: string }) => state.name === 'Rejected')).toBe(
+      true,
+    );
+  });
+
+  it('does not lower a counter already seen when another writer restores an older config', () => {
+    configManager.update({ nextId: 200 });
+    configManager.save();
+    const other = new ConfigManager(tmpDir);
+    other.load();
+    other.update({ nextId: 1 });
+    other.save();
+
+    const task = taskStore.createTask(
+      { title: 'New', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+
+    expect(task.id).toBe('TASK-200');
+  });
+
+  it('does not rewrite config on a move when the counter and schema already agree', () => {
+    taskStore.createTask(
+      { title: 'Existing', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+    const save = vi.spyOn(configManager, 'save');
+
+    taskStore.moveTask('TASK-001', 'Next');
+
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('uses the new prefix counter without inheriting the previous prefix high water mark', () => {
+    configManager.update({ nextId: 200 });
+    configManager.save();
+    const other = new ConfigManager(tmpDir);
+    other.load();
+    other.update({ idPrefix: 'NEW', nextId: 1 });
+    other.save();
+
+    const task = taskStore.createTask(
+      { title: 'New prefix', priority: Priority.P1, tags: [], description: '' },
+      'Backlog',
+    );
+
+    expect(task.id).toBe('NEW-001');
   });
 });
