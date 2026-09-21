@@ -15,6 +15,11 @@ function writeFileAtomic(filePath: string, content: string): void {
   fs.renameSync(tempPath, filePath);
 }
 
+export interface PreparedWrite {
+  filePath: string;
+  content: string;
+}
+
 export class FileStore {
   constructor(private tasksDir: string) {}
 
@@ -27,9 +32,21 @@ export class FileStore {
     return parseTasks(content);
   }
 
+  prepareState(state: TaskState, tasks: Task[]): PreparedWrite {
+    return {
+      filePath: path.join(this.tasksDir, state.fileName),
+      content: serializeStateFile(state.name, tasks),
+    };
+  }
+
+  commitWrites(writes: PreparedWrite[]): void {
+    for (const write of writes) {
+      writeFileAtomic(write.filePath, write.content);
+    }
+  }
+
   writeState(state: TaskState, tasks: Task[]): void {
-    const filePath = path.join(this.tasksDir, state.fileName);
-    writeFileAtomic(filePath, serializeStateFile(state.name, tasks));
+    this.commitWrites([this.prepareState(state, tasks)]);
   }
 
   readAllStates(config: TaskPlannerConfig): Map<string, ParseResult> {
