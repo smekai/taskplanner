@@ -30,7 +30,14 @@ about to write: it would put a default board where a broken one was, and the onl
 diagnostic *message*, which is not something a caller should match on. `isConfigUnreadable()` now
 reports it, so a writer can refuse before it writes.
 
-Evidence: `npm run lint` clean, `npm test` 307 passing, `npm run build` produces a `dist/parser/`
+**Review caught the half that made the flag a trap.** `reloadFromDisk()` returned early when
+`config.json` was missing, so a manager that had seen broken JSON kept reporting it as unreadable
+after the file was deleted — and a writer gating on the flag would have refused forever, because
+only `save()` cleared it. The early return was the whole defect: `readFromDisk()` already clears
+the flag and already returns defaults when the file is absent, so dropping it makes a reload of a
+vanished config mean the same as a load of one.
+
+Evidence: `npm run lint` clean, `npm test` 308 passing, `npm run build` produces a `dist/parser/`
 holding only the five modules that exist.
 
 ---

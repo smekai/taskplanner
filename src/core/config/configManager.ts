@@ -106,9 +106,6 @@ export class ConfigManager {
   }
 
   reloadFromDisk(): void {
-    if (!fs.existsSync(this.configPath)) {
-      return;
-    }
     this.diagnostics = [];
     this.config = this.readFromDisk();
   }

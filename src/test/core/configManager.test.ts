@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { ConfigManager } from '../../core/config/configManager.js';
+import { createDefaultConfig } from '../../core/model/config.js';
 
 describe('ConfigManager', () => {
   let tmpDir: string;
@@ -324,6 +325,21 @@ describe('ConfigManager', () => {
       configManager.save();
 
       expect(fs.readdirSync(tmpDir).filter((f) => f.startsWith('config.invalid-'))).toHaveLength(0);
+    });
+
+    // A writer gating on the flag would otherwise refuse forever, because the only path
+    // that cleared it was save() -> quarantineUnreadable().
+    it('stops reporting a config as unreadable once the file it could not read is gone', () => {
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), '{ broken but precious');
+      configManager.load({ persistMigration: false });
+      expect(configManager.isConfigUnreadable()).toBe(true);
+
+      fs.rmSync(path.join(tmpDir, 'config.json'));
+      configManager.reloadFromDisk();
+
+      expect(configManager.isConfigUnreadable()).toBe(false);
+      expect(configManager.getDiagnostics()).toEqual([]);
+      expect(configManager.get().idPrefix).toBe(createDefaultConfig().idPrefix);
     });
 
     // A caller that writes to the board needs to refuse before it puts a default config

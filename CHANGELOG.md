@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - The published package no longer ships type declarations for modules that were deleted, because the build now clears its output directories first (TASK-067).
+- `reloadFromDisk()` no longer keeps reporting a config as unreadable after the file it could not read is gone; a reload with no `config.json` now means the same as a load with none (TASK-067).
 
 ### Security
 
