@@ -8,6 +8,12 @@ import { ParseResult } from '../model/parseResult.js';
 import { parseTasks } from '../parser/taskParser.js';
 import { serializeBoard, serializeStateFile, serializeTask } from '../parser/taskSerializer.js';
 import { DEFAULT_WORK_LOG_CONTENT } from '../ai/aiInstructions.js';
+import {
+  joinWorkLog,
+  renderWorkLogEntry,
+  splitWorkLog,
+  type WorkLogEntryDraft,
+} from './archive.js';
 
 function writeFileAtomic(filePath: string, content: string): void {
   const tempPath = `${filePath}.tmp`;
@@ -148,6 +154,16 @@ export class FileStore {
   readWorkLog(): string {
     const filePath = path.join(this.tasksDir, 'WORK_LOG.md');
     return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  }
+
+  prependWorkLogEntry(draft: WorkLogEntryDraft): boolean {
+    const current = this.readWorkLog();
+    if (!current) return false;
+
+    const { header, entries } = splitWorkLog(current);
+    const entry = { id: draft.id, date: draft.date, text: renderWorkLogEntry(draft) };
+    this.writeWorkLog(joinWorkLog(header, [entry, ...entries]));
+    return true;
   }
 
   writeWorkLog(content: string): void {

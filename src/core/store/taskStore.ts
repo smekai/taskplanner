@@ -293,6 +293,33 @@ export class TaskStore {
     return null;
   }
 
+  findTaskByAttribute(key: string, value: string): { task: Task; stateName: string } | null {
+    this.ensureAllDeferredStatesLoaded();
+    for (const [stateName, tasks] of this.tasksByState) {
+      const task = tasks.find((candidate) => candidate.attributes?.[key] === value);
+      if (task) {
+        return { task, stateName };
+      }
+    }
+    return null;
+  }
+
+  knownTaskIds(): Set<string> {
+    this.ensureAllDeferredStatesLoaded();
+    const ids = new Set<string>();
+    for (const tasks of this.tasksByState.values()) {
+      for (const task of tasks) {
+        ids.add(task.id);
+      }
+    }
+    for (const fileName of this.fileStore.listArchiveFiles()) {
+      for (const id of taskIdsIn(this.fileStore.readArchiveRaw(fileName))) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }
+
   findTask(taskId: string): { task: Task; stateName: string } | null {
     let hit = this.findInMemory(taskId);
     if (hit) {

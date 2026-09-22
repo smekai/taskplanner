@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `openBoard(tasksDir, { initialize })` and `boardExists` open or create a board in one call, defaulting to a read that does not rewrite the owner's `config.json`. The MCP server now uses it too (TASK-069).
+- `TaskStore.findTaskByAttribute` finds a task by an attribute a consumer wrote, and `TaskStore.knownTaskIds` answers whether an id is spent across the board **and** the archive (TASK-069).
+- `renderWorkLogEntry` and `FileStore.prependWorkLogEntry` write a work-log entry in the shape the generated instructions have always described (TASK-069).
+- `renderBoardDigest` renders a board as text for an agent; `taskplanner_board` now uses it instead of its own copy (TASK-069).
+
 - `endsTaskSection(text)` is exported, so a consumer can ask whether text would end a task section instead of copying the serializer's rule (TASK-067).
 - `ConfigManager.isConfigUnreadable()` distinguishes a `config.json` nobody could read from one that was merely migrated, so a consumer can refuse to write defaults over it (TASK-067).
 
