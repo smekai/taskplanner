@@ -1,5 +1,24 @@
 # Done
 
+## TASK-068: npm run package fails: clean-dist wipes the VSIX destination
+**Priority:** P1 | **Tags:** setup, core
+**Updated:** 2026-09-22 10:59
+
+`npm run package` always fails with `ENOENT ... dist\vscode\taskplanner-<version>.vsix`. `scripts/package-vsix.js` creates `dist/vscode/` and then calls `createVSIX()`, which runs `vscode:prepublish` -> `npm run build` -> `scripts/clean-dist.js`, which removes the whole root `dist/` including the destination directory just created. vsce then cannot write the artifact.
+
+Regression from TASK-067 (commit 307274e), which added `clean-dist.js`. `npm run release:check` does not cover `npm run package`, so the gate stays green.
+
+Cleaning `packages/mcp-server/dist` is still needed (stale declarations of deleted modules get published through `files: ["dist/"]`), but the root `dist/vscode` and `dist/codex` hold packaged release artifacts, not build output, and `.vscodeignore` already excludes them from the VSIX.
+
+### Plan
+
+Done: `scripts/clean-dist.js` still removes `packages/mcp-server/dist` whole, but in the root `dist/` it now removes only the build output and keeps the packaged-artifact folders `vscode/` and `codex/`. No change to `scripts/package-vsix.js` — `createVSIX()` runs `vscode:prepublish` itself, so there is no point between build and write where the script could recreate the destination.
+
+Verified: `npm run package` writes `dist/vscode/taskplanner-2.4.4.vsix`; a second run with the artifact already present produces a VSIX whose only `dist` entry is `extension/dist/extension.js`; `dist/codex/` output survives a rebuild; a planted `packages/mcp-server/dist/stale-module.d.ts` is still cleared by `npm run build`; `npm run release:check` green.
+
+Follow-up: `release:check` does not run `npm run package`, so a break in the VSIX path stays invisible to the gate.
+
+---
 ## TASK-067: Export the rule a consumer has to duplicate, and stop publishing deleted modules
 **Priority:** P1 | **Tags:** core, setup
 **Updated:** 2026-09-21 22:20
