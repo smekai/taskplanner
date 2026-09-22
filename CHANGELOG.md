@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `endsTaskSection(text)` is exported, so a consumer can ask whether text would end a task section instead of copying the serializer's rule (TASK-067).
+- `ConfigManager.isConfigUnreadable()` distinguishes a `config.json` nobody could read from one that was merely migrated, so a consumer can refuse to write defaults over it (TASK-067).
+
+### Fixed
+
+- The published package no longer ships type declarations for modules that were deleted, because the build now clears its output directories first (TASK-067).
+- `reloadFromDisk()` no longer keeps reporting a config as unreadable after the file it could not read is gone; a reload with no `config.json` now means the same as a load with none (TASK-067).
+
 ### Security
 
 - Dependency audit is clean again: `js-yaml` 4.3.2 (dev-only, GHSA-2883-xcg3-v3hh) and `qs` 6.16.0 (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g) (TASK-066).

@@ -1,11 +1,6 @@
 import { Task } from '../model/task.js';
 import { BoardSegment } from '../model/parseResult.js';
-import {
-  LINE_BREAK,
-  isReservedAttributeKey,
-  isSectionSeparatorLine,
-  taskHeadingIdOf,
-} from './grammar.js';
+import { endsTaskSection, isReservedAttributeKey } from './grammar.js';
 
 const GROUP_JOIN = ' | ';
 const UNUSABLE_KEY_CHARACTERS = /[|:*]/;
@@ -14,13 +9,9 @@ function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function endsTheSection(line: string): boolean {
-  return isSectionSeparatorLine(line) || taskHeadingIdOf(line) !== undefined;
-}
-
 function bodyOrThrow(field: 'description' | 'plan', value: string): string {
   const body = value.trim();
-  if (body.split(LINE_BREAK).some(endsTheSection)) {
+  if (endsTaskSection(body)) {
     throw new Error(
       `Task ${field} contains a line that would end the task section; remove the separator or heading before serializing.`,
     );

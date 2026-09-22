@@ -47,6 +47,13 @@ export function isPlanHeadingLine(line: string): boolean {
   return PLAN_HEADING_RE.test(line);
 }
 
+export function endsTaskSection(text: string): boolean {
+  return text
+    .trim()
+    .split(LINE_BREAK)
+    .some((line) => isSectionSeparatorLine(line) || taskHeadingIdOf(line) !== undefined);
+}
+
 export function builtInFieldOf(
   segment: string,
 ): { field: BuiltInField; value: string } | undefined {

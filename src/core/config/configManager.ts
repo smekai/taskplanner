@@ -94,6 +94,10 @@ export class ConfigManager {
     return this.diagnostics;
   }
 
+  isConfigUnreadable(): boolean {
+    return this.unreadableRaw !== null;
+  }
+
   load(options: LoadOptions = {}): TaskPlannerConfig {
     this.diagnostics = [];
     this.config = this.readFromDisk();
@@ -102,9 +106,6 @@ export class ConfigManager {
   }
 
   reloadFromDisk(): void {
-    if (!fs.existsSync(this.configPath)) {
-      return;
-    }
     this.diagnostics = [];
     this.config = this.readFromDisk();
   }

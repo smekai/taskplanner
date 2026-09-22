@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   attributeOf,
   builtInFieldOf,
+  endsTaskSection,
   isReservedAttributeKey,
   isSectionSeparatorLine,
   looksLikeTaskHeading,
@@ -123,5 +124,31 @@ describe('priority is one token', () => {
 
   it('reports an empty value as empty rather than guessing', () => {
     expect(builtInFieldOf('**Priority:**')).toEqual({ field: 'priority', value: '' });
+  });
+});
+
+// The serializer throws on this, which leaves a consumer validating agent-written text
+// with a copy of the rule that drifts the moment the grammar moves. This is the rule.
+describe('text that would end a task section', () => {
+  it.each([
+    ['a separator on its own line', 'Before.\n---\nAfter.'],
+    ['a separator with trailing space', 'Before.\n--- \nAfter.'],
+    ['a separator the whole text trims down to', '  ---  '],
+    ['a separator across CRLF', 'Before.\r\n---\r\nAfter.'],
+    ['a task heading', 'Before.\n## TASK-009: Sneaky\nAfter.'],
+  ])('refuses %s', (_name, text) => {
+    expect(endsTaskSection(text)).toBe(true);
+  });
+
+  it.each([
+    ['plain prose', 'Just a description.'],
+    ['an indented separator', 'Before.\n  ---\nAfter.'],
+    ['four dashes', 'Before.\n----\nAfter.'],
+    ['a separator mid-line', 'Before --- after.'],
+    ['a lowercase prefix, which is not a task heading', 'Before.\n## task-009: Sneaky'],
+    ['an ordinary second-level heading', 'Before.\n## Just a heading'],
+    ['a plan heading', 'Before.\n### Plan\nAfter.'],
+  ])('allows %s', (_name, text) => {
+    expect(endsTaskSection(text)).toBe(false);
   });
 });

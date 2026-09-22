@@ -1,5 +1,47 @@
 # Done
 
+## TASK-067: Export the rule a consumer has to duplicate, and stop publishing deleted modules
+**Priority:** P1 | **Tags:** core, setup
+**Updated:** 2026-09-21 22:20
+
+Both found by Isotopy consuming 2.4.1 as a library rather than as an extension.
+
+**The serializer's rule was private, so a consumer had to copy it.** `serializeTask` throws when a
+description or plan holds a line that would end the task section, which is right — but the predicate
+behind it was a local function, so a consumer validating model-written text before handing it over
+had to re-derive `/^(?:---\s*|## [A-Z]+-\d+:\s*\S.*)$/` from the thrown message. A copy of a
+grammar rule drifts the moment the grammar moves, and nothing fails loudly when it does.
+
+`endsTaskSection(text)` now lives in `parser/grammar.ts` beside the predicates it composes, is what
+`bodyOrThrow` calls, and is exported from the package. One rule, one owner, and a caller can ask
+before it throws.
+
+**The published package carried declarations for modules that no longer exist.** `dist/` is
+gitignored and the build only ever overwrote it, so `boardEditor.d.ts`, `boardSections.d.ts` and
+`boardSegments.d.ts` — `upsertTask`, `removeTask`, `splitSections`, all deleted in the 2.4 cleanup —
+were still in the 2.4.1 tarball, since `files` ships `dist/` wholesale. A consumer reading the types
+found an API that was not there. `scripts/clean-dist.js` now clears both output directories before
+`build`, and the rebuilt tree no longer contains them.
+
+**A config nobody could read was indistinguishable from one that was merely migrated.**
+`ConfigManager` quarantines an unreadable `config.json` as `config.invalid-<stamp>.json` and carries
+on with defaults, which is the right call for the extension and the wrong one for a consumer that is
+about to write: it would put a default board where a broken one was, and the only signal was a
+diagnostic *message*, which is not something a caller should match on. `isConfigUnreadable()` now
+reports it, so a writer can refuse before it writes.
+
+**Review caught the half that made the flag a trap.** `reloadFromDisk()` returned early when
+`config.json` was missing, so a manager that had seen broken JSON kept reporting it as unreadable
+after the file was deleted — and a writer gating on the flag would have refused forever, because
+only `save()` cleared it. The early return was the whole defect: `readFromDisk()` already clears
+the flag and already returns defaults when the file is absent, so dropping it makes a reload of a
+vanished config mean the same as a load of one.
+
+Evidence: `npm run lint` clean, `npm test` 308 passing, `npm run build` produces a `dist/parser/`
+holding only the five modules that exist.
+
+---
+
 ## TASK-066: Clear npm audit before publishing 2.4.x
 **Priority:** P1 | **Tags:** setup, ci
 **Updated:** 2026-09-21 13:47
