@@ -14,7 +14,7 @@ export { endsTaskSection } from './parser/grammar.js';
 export { serializeTask, serializeStateFile, serializeBoard } from './parser/taskSerializer.js';
 export { IdGenerator } from './id/idGenerator.js';
 export { FileStore } from './store/fileStore.js';
-export { boardExists, initializeBoard, openBoard } from './store/openBoard.js';
+export { boardExists, openBoard } from './store/openBoard.js';
 export type { OpenBoardOptions, OpenedBoard } from './store/openBoard.js';
 export { renderWorkLogEntry } from './store/archive.js';
 export type { WorkLogEntryDraft } from './store/archive.js';

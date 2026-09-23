@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { boardExists, initializeBoard, openBoard } from '../../core/store/openBoard.js';
+import { boardExists, openBoard } from '../../core/store/openBoard.js';
 import { renderWorkLogEntry } from '../../core/store/archive.js';
 import { renderBoardDigest } from '../../core/ai/boardDigest.js';
 import { Priority, Task } from '../../core/model/task.js';
@@ -25,7 +25,7 @@ describe('library consumer surface', () => {
   describe('openBoard', () => {
     it('reports whether a board is there before opening one', () => {
       expect(boardExists(tasksDir)).toBe(false);
-      initializeBoard(tasksDir);
+      openBoard(tasksDir, { initialize: true });
       expect(boardExists(tasksDir)).toBe(true);
     });
 
@@ -89,6 +89,21 @@ describe('library consumer surface', () => {
 
       expect(known.has(live.id)).toBe(true);
       expect(known.has('TASK-900')).toBe(true);
+    });
+
+    // Whether an id is spent is a heading question, so it reads Done as text rather than
+    // pulling every task in it into memory to look at the ids it already had.
+    it('answers for a deferred state without loading it', () => {
+      const { taskStore } = openBoard(tasksDir, { initialize: true });
+      fs.writeFileSync(
+        path.join(tasksDir, 'DONE.md'),
+        '# Done\n\n## TASK-500: Finished\n**Priority:** P1\n\n---\n',
+      );
+      taskStore.reload();
+      expect(taskStore.isStateDeferredUnloaded('Done')).toBe(true);
+
+      expect(taskStore.knownTaskIds().has('TASK-500')).toBe(true);
+      expect(taskStore.isStateDeferredUnloaded('Done')).toBe(true);
     });
   });
 

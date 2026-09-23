@@ -31,7 +31,15 @@ option a prompt needs that a tool listing does not.
 
 Nothing new was invented: every piece is a lift of code that was already here.
 
-Evidence: `npm run lint` clean, `npm test` **320 passing**, `npm run build` clean, and a sentinel
+**Review cut two pieces back.** `initializeBoard` was a second public door onto the same thing
+`openBoard(dir, { initialize: true })` already did, and it loaded the config twice — the second load
+could not change the result, and the first was not needed at all, because `ConfigManager`'s
+constructor already holds the defaults a fresh board is written from. One door now, one load.
+`knownTaskIds` was parsing every deferred state to answer a question about headings; it now reads
+Done and Rejected as text, the way `getMaxTaskIdNumber` already answered the same files. A test
+holds that line: the id is found and the state stays unloaded.
+
+Evidence: `npm run lint` clean, `npm test` **321 passing**, `npm run build` clean, and a sentinel
 `.vsix` under `dist/vscode/` survives a build — the path `TASK-068` had to repair.
 
 ---

@@ -23,6 +23,12 @@ export type TaskStoreListener = () => void;
 
 const DEFERRED_STATE_NAMES = new Set(['Done', 'Rejected']);
 
+function addAll(target: Set<string>, values: Iterable<string>): void {
+  for (const value of values) {
+    target.add(value);
+  }
+}
+
 export function isDeferredStateName(stateName: string): boolean {
   return DEFERRED_STATE_NAMES.has(stateName);
 }
@@ -305,17 +311,21 @@ export class TaskStore {
   }
 
   knownTaskIds(): Set<string> {
-    this.ensureAllDeferredStatesLoaded();
     const ids = new Set<string>();
-    for (const tasks of this.tasksByState.values()) {
+    for (const [stateName, tasks] of this.tasksByState) {
+      if (this.deferredUnloadedStates.has(stateName)) {
+        const state = this.findState(stateName);
+        if (state) {
+          addAll(ids, taskIdsIn(this.fileStore.readRawContent(state)));
+        }
+        continue;
+      }
       for (const task of tasks) {
         ids.add(task.id);
       }
     }
     for (const fileName of this.fileStore.listArchiveFiles()) {
-      for (const id of taskIdsIn(this.fileStore.readArchiveRaw(fileName))) {
-        ids.add(id);
-      }
+      addAll(ids, taskIdsIn(this.fileStore.readArchiveRaw(fileName)));
     }
     return ids;
   }
