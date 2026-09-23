@@ -1,5 +1,49 @@
 # Done
 
+## TASK-069: The surface a program consumes this package through
+**Priority:** P1 | **Tags:** core, setup
+**Updated:** 2026-09-22 11:40
+
+Found by Isotopy driving the board from its own server rather than from the editor. Six things it
+had to write for itself already existed here, and one of them existed here **twice**.
+
+**Opening a board was everyone's problem.** The MCP server's `freshStore` and the extension's
+`initProject` each wired `ConfigManager` + `FileStore` + `TaskStore` by hand, and a consumer had to
+copy the same six lines — including remembering `persistMigration: false`, which is the difference
+between reading a board and rewriting the owner's `config.json`. `openBoard(tasksDir, { initialize })`
+and `boardExists` now do it once, with the read-only default the extension does not want and every
+other caller does. `freshStore` is now three lines and uses it.
+
+**`findTaskByAttribute` and `knownTaskIds`.** Attributes round-trip since 2.4.0, so a consumer marks
+its own tasks — and then had to walk every state to find one again. `knownTaskIds` answers "is this
+id spent" across the board **and the archive**, which is the question a consumer allocating ids
+actually has; the archive half was already inside `archiveCompleted` and is now shared.
+
+**The work log had a documented shape and no way to write one.** `aiInstructions.ts` has told agents
+the entry format since 2.2, `splitWorkLog`/`joinWorkLog` have parsed it since 2.3, and a consumer
+still had to render markdown and splice strings. `renderWorkLogEntry` and
+`FileStore.prependWorkLogEntry` close that, reusing the split/join that archiving already trusts.
+
+**The board digest was written twice.** `taskplanner_board` rendered a board to text inline in the
+MCP server; a consumer feeding a board to its own agent wrote a second one. `renderBoardDigest` in
+`core/ai/` is now the only one, and `taskplanner_board` calls it. `descriptionLimit` is the one
+option a prompt needs that a tool listing does not.
+
+Nothing new was invented: every piece is a lift of code that was already here.
+
+**Review cut two pieces back.** `initializeBoard` was a second public door onto the same thing
+`openBoard(dir, { initialize: true })` already did, and it loaded the config twice — the second load
+could not change the result, and the first was not needed at all, because `ConfigManager`'s
+constructor already holds the defaults a fresh board is written from. One door now, one load.
+`knownTaskIds` was parsing every deferred state to answer a question about headings; it now reads
+Done and Rejected as text, the way `getMaxTaskIdNumber` already answered the same files. A test
+holds that line: the id is found and the state stays unloaded.
+
+Evidence: `npm run lint` clean, `npm test` **321 passing**, `npm run build` clean, and a sentinel
+`.vsix` under `dist/vscode/` survives a build — the path `TASK-068` had to repair.
+
+---
+
 ## TASK-068: npm run package fails: clean-dist wipes the VSIX destination
 **Priority:** P1 | **Tags:** setup, core
 **Updated:** 2026-09-22 10:59

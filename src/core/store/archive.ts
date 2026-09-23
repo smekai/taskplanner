@@ -74,6 +74,22 @@ export interface WorkLogEntry {
   text: string;
 }
 
+export interface WorkLogEntryDraft {
+  id: string;
+  date: string;
+  what: string;
+  decisions?: string;
+  outcome?: string;
+}
+
+export function renderWorkLogEntry(draft: WorkLogEntryDraft): string {
+  const lines = [`## ${draft.id} — ${draft.date}`, `**What:** ${draft.what}`];
+  if (draft.decisions) lines.push(`**Decisions:** ${draft.decisions}`);
+  if (draft.outcome) lines.push(`**Outcome:** ${draft.outcome}`);
+  lines.push('', '---');
+  return lines.join('\n');
+}
+
 export function splitWorkLog(content: string): { header: string; entries: WorkLogEntry[] } {
   const lines = content.split('\n');
   const heading = /^## ([A-Z]+-\d+) — (\d{4}-\d{2}-\d{2})\s*$/;

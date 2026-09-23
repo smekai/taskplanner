@@ -5,12 +5,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { ConfigManager } from '../core/config/configManager.js';
-import { FileStore } from '../core/store/fileStore.js';
 import { TaskStore } from '../core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../core/model/task.js';
 import { TaskState } from '../core/model/state.js';
 import { ParseIssue } from '../core/model/parseResult.js';
 import { buildBoardViewModel } from '../core/view/boardViewModel.js';
+import { renderBoardDigest } from '../core/ai/boardDigest.js';
+import { openBoard } from '../core/store/openBoard.js';
 import { isWaiting } from '../core/util/time.js';
 
 function findExistingTasksDir(rootDir: string): string | null {
@@ -98,16 +99,12 @@ async function freshStore(
   targetState?: TaskState;
 }> {
   const tasksDir = await findTasksDir(explicitRoot);
-  const configManager = new ConfigManager(tasksDir);
-  configManager.load({ persistMigration: false });
+  const { configManager, taskStore } = openBoard(tasksDir);
   for (const diagnostic of configManager.getDiagnostics()) {
     console.error(`TaskPlanner config: ${diagnostic.message}`);
   }
-  const fileStore = new FileStore(tasksDir);
-  const taskStore = new TaskStore(configManager, fileStore);
   const workspaceRoot = path.dirname(tasksDir);
   if (targetStateName === undefined) {
-    taskStore.reload();
     return { taskStore, configManager, workspaceRoot };
   }
 
@@ -209,7 +206,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.4.5',
+  version: '2.4.7',
 });
 
 server.registerTool(
@@ -227,32 +224,20 @@ server.registerTool(
   },
   async ({ workspace_root, include_tasks }) => {
     const { taskStore } = await freshStore(workspace_root);
-    const config = taskStore.config;
-    const lines: string[] = ['# Task Board'];
-    const states: Record<string, unknown>[] = [];
-
-    for (const state of config.states) {
+    const digestStates = taskStore.config.states.map((state) => {
       taskStore.ensureStateLoaded(state.name);
-      const tasks = taskStore.getTasksByState(state.name);
-      states.push({
-        name: state.name,
-        count: tasks.length,
-        ...(include_tasks ? { tasks: tasks.map((task) => structuredTask(task, state.name)) } : {}),
-      });
-      lines.push(`\n## ${state.name} (${tasks.length})`);
-
-      if (include_tasks && tasks.length > 0) {
-        for (const task of tasks) {
-          lines.push(
-            `- **${task.id}**: ${task.title} [${task.priority}]${task.assignee ? ` @${task.assignee}` : ''}${isWaiting(task.waitingUntil) ? ` ⏳ waiting until ${task.waitingUntil}` : ''}`,
-          );
-        }
-      }
-    }
+      return { name: state.name, tasks: taskStore.getTasksByState(state.name) };
+    });
+    const states = digestStates.map(({ name, tasks }) => ({
+      name,
+      count: tasks.length,
+      ...(include_tasks ? { tasks: tasks.map((task) => structuredTask(task, name)) } : {}),
+    }));
 
     const issues = boardIssues(taskStore);
+    const digest = renderBoardDigest(digestStates, { includeTasks: include_tasks });
     return {
-      content: [{ type: 'text', text: `${lines.join('\n')}${issueReport(issues)}` }],
+      content: [{ type: 'text', text: `${digest}${issueReport(issues)}` }],
       structuredContent: { states, includeTasks: include_tasks === true, ...issues },
     };
   },

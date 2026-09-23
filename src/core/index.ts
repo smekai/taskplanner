@@ -14,6 +14,12 @@ export { endsTaskSection } from './parser/grammar.js';
 export { serializeTask, serializeStateFile, serializeBoard } from './parser/taskSerializer.js';
 export { IdGenerator } from './id/idGenerator.js';
 export { FileStore } from './store/fileStore.js';
+export { boardExists, openBoard } from './store/openBoard.js';
+export type { OpenBoardOptions, OpenedBoard } from './store/openBoard.js';
+export { renderWorkLogEntry } from './store/archive.js';
+export type { WorkLogEntryDraft } from './store/archive.js';
+export { renderBoardDigest } from './ai/boardDigest.js';
+export type { BoardDigestOptions, BoardDigestState } from './ai/boardDigest.js';
 export { TaskStore, isDeferredStateName } from './store/taskStore.js';
 export {
   currentTimestamp,
