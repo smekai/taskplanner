@@ -21,6 +21,9 @@ agent-transcripts/**
 packages/**
 scripts/**
 
-# Include the shared Cursor/Codex plugin and its built MCP server
+# Include the shared Cursor/Codex/Claude plugin and its built MCP server, minus mod tests and generated types
 !plugins/taskplanner/**
 !plugins/taskplanner/dist/**
+plugins/taskplanner/tests/**
+plugins/taskplanner/.claude-plugin/types/**
+plugins/taskplanner/tsconfig.json

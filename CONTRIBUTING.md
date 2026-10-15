@@ -40,6 +40,7 @@ npm run build        # Production build (esbuild)
 npm run watch        # Dev build with watch mode
 npm run validate:cursor-plugin  # Validate Cursor plugin manifest/artifacts
 npm run validate:codex-plugin   # Validate Codex plugin manifest/marketplace
+npm run validate:claude-plugin  # claude plugin validate + test (Claude Code 2.1.287+)
 npm run release:check # Build + plugin readiness checks
 npm run smoke:mcp-server        # Pack, install, and exercise the published npm package
 npm test             # Run unit tests (Vitest)
@@ -53,7 +54,7 @@ npm run package      # Create .vsix package
 TaskPlanner is distributed through three channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
-- **Plugin channel**: shared Cursor/Codex package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
+- **Plugin channel**: shared Cursor/Codex/Claude Code package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
 - **npm channel**: [`@smekai/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
 
 Every commit must include a patch version bump. The configured pre-commit hook runs `scripts/bump-version.js` and stages all synchronized version-bearing files. If an exact release version was set manually before committing, use `--no-verify` only after `npm run validate:versions` passes to avoid a second bump.
@@ -148,11 +149,12 @@ src/
 │                   # Models, parser, serializer, stores, config
 ├── extension/      # VS Code extension shell
 │                   # Commands, views, providers, watchers
+├── claude-mod/     # Claude Code mod (board pane), bundled to plugins/taskplanner/hooks/register.js
 ├── test/
 │   ├── core/       # Vitest unit tests for core library
 │   └── extension/  # VS Code integration tests
 resources/          # SVG icons and templates
-plugins/taskplanner/ # Shared Cursor/Codex plugin source and manifests
+plugins/taskplanner/ # Shared Cursor/Codex/Claude Code plugin source and manifests
 dist/               # Generated output (extension bundle and release packages)
 ```
 
@@ -170,7 +172,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 3,
-  "taskplannerVersion": "2.4.7",
+  "taskplannerVersion": "2.5.0",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [
@@ -210,7 +212,8 @@ cannot reveal tasks inserted into files that have not been read.
 
 ## Testing
 
-- **Unit tests** — run `npm test` (Vitest). Tests live in `src/test/core/`.
+- **Unit tests** — run `npm test` (Vitest). Tests live in `src/test/core/` and `src/test/claude-mod/`.
+- **Claude Code mod** — `src/claude-mod/register.ts` is the only file that touches the mods API (`$`). `boardModel.ts`, `boardReader.ts` and `paneView.ts` are pure, so Vitest covers them. The mod reads `.tasks/` itself with the core parser (`$.fs` needs no tool permission) and writes only through the MCP server's `taskplanner_move` and `taskplanner_create`, called from its `ui.press` and `ui.input` hooks: a `$` call from a timer or an `onPress` closure skips the mod's own `tool.check` hook, so it could not approve it there. `npm run build` bundles the mod unminified into `plugins/taskplanner/hooks/register.js`, so `claude plugin validate` can scan it and users can audit it. `npm run validate:claude-plugin` runs `claude plugin validate` and the kit tests in `plugins/taskplanner/tests/` against Claude Code itself (set `CLAUDE_BIN` if `claude` is not on PATH). To try the pane, run `claude --plugin-dir plugins/taskplanner` in this repository and then `/taskplanner:board` or `/taskboard`. For the Desktop Code tab, add the plugin folder to `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`'s `env`, or install from this repository as a local marketplace.
 
 ## Code Style
 

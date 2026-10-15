@@ -34,6 +34,7 @@ const versionTextPaths = [
 const pluginManifestPaths = [
   path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
   path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.codex-plugin', 'plugin.json'),
+  path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.claude-plugin', 'plugin.json'),
 ];
 const skillVersionPaths = [
   path.resolve(__dirname, '..', 'plugins', 'taskplanner', 'skills', 'taskplanner', 'SKILL.md'),

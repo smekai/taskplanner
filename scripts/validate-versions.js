@@ -18,6 +18,9 @@ function main() {
     path.join(root, 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
   );
   const codex = readJson(path.join(root, 'plugins', 'taskplanner', '.codex-plugin', 'plugin.json'));
+  const claude = readJson(
+    path.join(root, 'plugins', 'taskplanner', '.claude-plugin', 'plugin.json'),
+  );
   const mcpPackage = readJson(path.join(root, 'packages', 'mcp-server', 'package.json'));
   const expected = pkg.version;
 
@@ -26,6 +29,7 @@ function main() {
     ['package-lock.json root package', lock.packages?.['']?.version],
     ['Cursor plugin manifest', cursor.version],
     ['Codex plugin manifest', codex.version?.split('+')[0]],
+    ['Claude plugin manifest', claude.version],
     [`npm package ${mcpPackage.name}`, mcpPackage.version],
   ];
   for (const [label, actual] of versions) {

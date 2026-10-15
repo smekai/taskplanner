@@ -35,6 +35,7 @@ function candidateRoots(clientRoots: string[], explicitRoot?: string): string[] 
 
   push(explicitRoot);
   push(process.env.TASKPLANNER_WORKSPACE_ROOT);
+  push(process.env.CLAUDE_PROJECT_DIR);
   for (const root of clientRoots) push(root);
   push(process.cwd());
   push(process.env.CURSOR_WORKSPACE_ROOT);
@@ -206,7 +207,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.4.7',
+  version: '2.5.0',
 });
 
 server.registerTool(
