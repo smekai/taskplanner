@@ -20,7 +20,7 @@ export interface IndexedTask {
 
 export interface BoardRead {
   snapshot: BoardSnapshot;
-  tasks: Map<string, IndexedTask>;
+  tasks: Map<string, IndexedTask[]>;
   issueCount: number;
 }
 
@@ -39,38 +39,67 @@ export function readConfigStates(configText: string): TaskState[] {
   return states === undefined ? [...DEFAULT_STATES] : normalizeStates(states, () => undefined);
 }
 
+export interface BuildOptions {
+  loadCompleted: boolean;
+  expandedStates: ReadonlySet<string>;
+}
+
+function indexTask(index: Map<string, IndexedTask[]>, entry: IndexedTask): void {
+  const copies = index.get(entry.task.id);
+  if (copies) copies.push(entry);
+  else index.set(entry.task.id, [entry]);
+}
+
 export function buildBoard(
   states: readonly TaskState[],
   fileTexts: ReadonlyMap<string, string>,
-  loadCompleted: boolean,
+  options: BuildOptions,
   workspaceRoot: string | null,
 ): BoardRead {
   const tasksByState = new Map<string, Task[]>();
   const displayCounts = new Map<string, number>();
-  const tasks = new Map<string, IndexedTask>();
+  const tasks = new Map<string, IndexedTask[]>();
+  const deferredStates: string[] = [];
   let issueCount = 0;
   for (const state of states) {
     const text = fileTexts.get(state.fileName) ?? '';
-    if (isCompletedState(state.name) && !loadCompleted) {
+    if (isCompletedState(state.name) && !options.loadCompleted) {
       tasksByState.set(state.name, []);
       displayCounts.set(state.name, countTaskHeadings(text));
+      deferredStates.push(state.name);
       continue;
     }
     const parsed = parseTasks(text);
     issueCount += parsed.errors.length;
     tasksByState.set(state.name, parsed.tasks);
     displayCounts.set(state.name, parsed.tasks.length);
-    for (const task of parsed.tasks) tasks.set(task.id, { task, state: state.name });
+    for (const task of parsed.tasks) indexTask(tasks, { task, state: state.name });
   }
-  const view = filterAndPaginate(
-    tasksByState,
-    [...states],
-    undefined,
-    BOARD_TASK_LIMIT,
-    'priority',
-    displayCounts,
+  const viewStates = states.map(
+    (state) =>
+      filterAndPaginate(
+        tasksByState,
+        [state],
+        undefined,
+        options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
+        isCompletedState(state.name) ? 'file' : 'priority',
+        displayCounts,
+      ).states[0],
   );
-  return { snapshot: { states: view.states, workspaceRoot }, tasks, issueCount };
+  return {
+    snapshot: { states: viewStates, workspaceRoot, deferredStates },
+    tasks,
+    issueCount,
+  };
+}
+
+export function findTask(
+  index: ReadonlyMap<string, readonly IndexedTask[]>,
+  id: string,
+  state?: string,
+): IndexedTask | null {
+  const copies = index.get(id) ?? [];
+  return copies.find((copy) => copy.state === state) ?? copies[0] ?? null;
 }
 
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {

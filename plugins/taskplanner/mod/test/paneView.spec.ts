@@ -90,6 +90,7 @@ function actions(): PaneActions {
     move: vi.fn(),
     start: vi.fn(),
     refresh: vi.fn(),
+    showAll: vi.fn(),
     edit: vi.fn(),
     newTask: vi.fn(),
     cancelNew: vi.fn(),
@@ -129,7 +130,7 @@ describe('renderPane list view', () => {
     press(tree, 'task-TASK-001');
     press(tree, 'tab-backlog');
     press(tree, 'refresh');
-    expect(handlers.openTask).toHaveBeenCalledWith('TASK-001');
+    expect(handlers.openTask).toHaveBeenCalledWith('TASK-001', 'In Progress');
     expect(handlers.selectTab).toHaveBeenCalledWith('Backlog');
     expect(handlers.refresh).toHaveBeenCalled();
   });
@@ -139,7 +140,11 @@ describe('renderPane list view', () => {
     const label = byKey(tree, 'task-TASK-002')?.props.label as string;
     expect(label).toHaveLength(30);
     expect(label.endsWith('…')).toBe(true);
-    expect(texts(tree)).toContain('+3 more');
+    expect(texts(tree)).toContain('Showing 1 of 4.');
+    const handlers = actions();
+    press(renderPane(el, model({ tab: 'Backlog' }), handlers), 'show-all');
+    expect(handlers.showAll).toHaveBeenCalledWith('Backlog');
+    expect(byKey(tree, 'show-all')?.props.label).toBe('Show all 4');
   });
 
   it('says when a state is empty, and shows loading and errors with a retry', () => {
@@ -164,7 +169,7 @@ describe('renderPane list view', () => {
 
   it('explains a missing board instead of listing', () => {
     const tree = renderPane(el, model({ board: null, isMissingBoard: true }), actions());
-    expect(texts(tree)).toContain('No .tasks/ board in this folder.');
+    expect(texts(tree)).toContain('No .tasks/ board in this folder or above it.');
     expect(byKey(tree, 'tab-backlog')).toBeUndefined();
   });
 
@@ -357,5 +362,16 @@ describe('writing from the pane', () => {
     expect(byKey(tree, 'new-task')).toBeUndefined();
     expect(byKey(tree, 'new-title')).toBeUndefined();
     expect(byKey(tree, 'move-done')).toBeUndefined();
+    expect(byKey(tree, 'start')).toBeUndefined();
+    expect(byKey(tree, 'edit')).toBeUndefined();
+  });
+});
+
+describe('deferred states', () => {
+  it('says a counted but unread state is loading instead of empty', () => {
+    const deferred = { ...BOARD, deferredStates: ['Done'] };
+    const tree = renderPane(el, model({ board: deferred, tab: 'Done' }), actions());
+    expect(texts(tree)).toContain('Loading Done…');
+    expect(texts(tree)).not.toContain('No tasks in Done.');
   });
 });

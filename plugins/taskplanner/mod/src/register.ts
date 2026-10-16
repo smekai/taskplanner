@@ -1,60 +1,68 @@
-import type {
-  CommandRunResult,
-  Engine,
-  McpToolResult,
-  On,
-  Timer,
-  ToolCheckResult,
-} from './modApi.js';
+import type { CommandRunResult, Engine, McpToolResult, On, Timer } from './modApi.js';
 import {
   BOARD_FILE_PATTERN,
   BoardFileStat,
   BoardSnapshot,
   TaskDetail,
   TaskDraft,
-  createdTaskId,
-  editPrompt,
-  startDraft,
+  ancestorDirs,
   boardDigestText,
   boardSignature,
+  createdTaskId,
+  editPrompt,
   errorMessage,
   inProgressTask,
   isCompletedState,
   isOwnPlugin,
-  isPaneWriteByOwnPlugin,
   joinPath,
   moveTargetForKey,
+  paneCheckDecision,
   pickTab,
   resultText,
   shouldRefreshAfterTool,
+  startDraft,
   startPrompt,
   supportsTextScale,
 } from './boardModel.js';
-import { IndexedTask, buildBoard, readConfigStates, taskDetailOf } from './boardReader.js';
+import {
+  IndexedTask,
+  buildBoard,
+  findTask,
+  readConfigStates,
+  taskDetailOf,
+} from './boardReader.js';
 import { renderBand, renderPane } from './paneView.js';
 
 const PANE_ID = 'taskplanner';
 const PANE_TITLE = 'TaskPlanner';
 const SERVER_KEY = 'taskplanner';
 const POLL_INTERVAL_MS = 5000;
-const MISSING_BOARD_TEXT = 'No .tasks/ board in this folder.';
+const MISSING_BOARD_TEXT = 'No .tasks/ board in this folder or above it.';
+
+interface TaskRef {
+  id: string;
+  state: string;
+}
 
 let serverName: string | null = null;
+let boardRoot: string | null = null;
 let board: BoardSnapshot | null = null;
-let taskIndex = new Map<string, IndexedTask>();
+let taskIndex = new Map<string, IndexedTask[]>();
 let issueCount = 0;
 let activeTab: string | null = null;
 let detail: TaskDetail | null = null;
+let pendingDetail: TaskRef | null = null;
 let errorText: string | null = null;
 let isLoading = false;
 let isMissingBoard = false;
 let lastSignature: string | null = null;
 let pollTimer: Timer | null = null;
-let isRefreshing = false;
+let refreshRun: Promise<void> | null = null;
 let needsRefresh = false;
 let hasTextScale = false;
 let draft: TaskDraft | null = null;
 let notice: string | null = null;
+const expandedStates = new Set<string>();
 
 async function connectServer($: Engine): Promise<string> {
   if (serverName) return serverName;
@@ -64,19 +72,33 @@ async function connectServer($: Engine): Promise<string> {
   return connection.server;
 }
 
+async function hasBoardAt($: Engine, dir: string): Promise<boolean> {
+  return $.fs.exists(joinPath(dir, '.tasks', 'config.json'));
+}
+
+async function locateBoard($: Engine): Promise<string | null> {
+  if (boardRoot && (await hasBoardAt($, boardRoot))) return boardRoot;
+  const starts = [await $.session.cwd(), await $.session.root()];
+  for (const start of starts) {
+    for (const dir of ancestorDirs(start)) {
+      if (await hasBoardAt($, dir)) {
+        boardRoot = dir;
+        return dir;
+      }
+    }
+  }
+  boardRoot = null;
+  return null;
+}
+
 async function callTaskplanner(
   $: Engine,
   tool: string,
   args: Record<string, unknown>,
 ): Promise<McpToolResult> {
   const server = await connectServer($);
-  const root = await $.session.root();
+  const root = boardRoot ?? (await $.session.root());
   return $.mcp.call(server, tool, { workspace_root: root, ...args });
-}
-
-async function boardExists($: Engine): Promise<boolean> {
-  const root = await $.session.root();
-  return $.fs.exists(joinPath(root, '.tasks', 'config.json'));
 }
 
 async function readTextOrEmpty($: Engine, path: string): Promise<string> {
@@ -87,9 +109,7 @@ async function readTextOrEmpty($: Engine, path: string): Promise<string> {
   }
 }
 
-async function readSignature($: Engine): Promise<string> {
-  const root = await $.session.root();
-  const tasksDir = joinPath(root, '.tasks');
+async function readSignature($: Engine, tasksDir: string): Promise<string> {
   const entries = await $.fs.list(tasksDir);
   const files: BoardFileStat[] = [];
   for (const entry of entries) {
@@ -105,44 +125,53 @@ function forgetBoard(): void {
   taskIndex = new Map();
   issueCount = 0;
   detail = null;
+  pendingDetail = null;
   lastSignature = null;
 }
 
-function detailFor(id: string): TaskDetail | null {
-  const indexed = taskIndex.get(id);
+function detailFor(id: string, state?: string): TaskDetail | null {
+  const indexed = findTask(taskIndex, id, state);
   return indexed ? taskDetailOf(indexed) : null;
 }
 
+function reopenDetail(): void {
+  if (pendingDetail) {
+    const created = detailFor(pendingDetail.id, pendingDetail.state);
+    if (created) {
+      detail = created;
+      pendingDetail = null;
+    }
+  } else if (detail) {
+    detail = detailFor(detail.id, detail.state);
+  }
+}
+
 async function loadBoard($: Engine): Promise<void> {
-  if (!(await boardExists($))) {
+  const root = await locateBoard($);
+  if (!root) {
     isMissingBoard = true;
     forgetBoard();
     return;
   }
   isMissingBoard = false;
-  const root = await $.session.root();
   const tasksDir = joinPath(root, '.tasks');
-  const signature = await readSignature($);
+  const signature = await readSignature($, tasksDir);
   const states = readConfigStates(await $.fs.read(joinPath(tasksDir, 'config.json')));
   const texts = new Map<string, string>();
   for (const state of states) {
     texts.set(state.fileName, await readTextOrEmpty($, joinPath(tasksDir, state.fileName)));
   }
-  const read = buildBoard(states, texts, isCompletedState(activeTab) || detail !== null, root);
+  const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
+  const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
   board = read.snapshot;
   taskIndex = read.tasks;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastSignature = signature;
-  if (detail) detail = detailFor(detail.id);
+  reopenDetail();
 }
 
-async function refreshBoard($: Engine): Promise<void> {
-  if (isRefreshing) {
-    needsRefresh = true;
-    return;
-  }
-  isRefreshing = true;
+async function runRefresh($: Engine): Promise<void> {
   isLoading = true;
   $.ui.invalidate('ui.render');
   try {
@@ -156,15 +185,25 @@ async function refreshBoard($: Engine): Promise<void> {
       }
     } while (needsRefresh);
   } finally {
-    isRefreshing = false;
     isLoading = false;
+    refreshRun = null;
     $.ui.invalidate('ui.render');
   }
 }
 
+function refreshBoard($: Engine): Promise<void> {
+  if (refreshRun) {
+    needsRefresh = true;
+    return refreshRun;
+  }
+  refreshRun = runRefresh($);
+  return refreshRun;
+}
+
 async function syncIfChanged($: Engine): Promise<void> {
   try {
-    if (!(await boardExists($))) {
+    const root = await locateBoard($);
+    if (!root) {
       if (!isMissingBoard || board) {
         isMissingBoard = true;
         forgetBoard();
@@ -172,7 +211,7 @@ async function syncIfChanged($: Engine): Promise<void> {
       }
       return;
     }
-    if (board && (await readSignature($)) === lastSignature) return;
+    if (board && (await readSignature($, joinPath(root, '.tasks'))) === lastSignature) return;
   } catch (error) {
     errorText = errorMessage(error);
     $.ui.invalidate('ui.render');
@@ -206,16 +245,20 @@ async function resumeAfterLoad($: Engine): Promise<void> {
 }
 
 async function selectTab($: Engine, state: string): Promise<void> {
-  const needsCompleted = isCompletedState(state) && !isCompletedState(activeTab);
   activeTab = state;
   detail = null;
   $.ui.invalidate('ui.render');
-  if (needsCompleted) await refreshBoard($);
+  if (board?.deferredStates?.includes(state)) await refreshBoard($);
 }
 
-function openTask($: Engine, id: string): void {
+async function showAll($: Engine, state: string): Promise<void> {
+  expandedStates.add(state);
+  await refreshBoard($);
+}
+
+function openTask($: Engine, id: string, state: string): void {
   notice = null;
-  detail = detailFor(id);
+  detail = detailFor(id, state);
   errorText = detail ? null : `${id} is no longer on the board.`;
   $.ui.invalidate('ui.render');
 }
@@ -232,6 +275,7 @@ async function moveTask($: Engine, id: string, target: string): Promise<void> {
     $.ui.invalidate('ui.render');
     return;
   }
+  if (detail) detail = { ...detail, state: target };
   await refreshBoard($);
 }
 
@@ -251,8 +295,8 @@ async function createTask($: Engine): Promise<void> {
     draft = null;
     activeTab = state;
     notice = id ? `Created ${id} in ${state}.` : `Created the task in ${state}.`;
+    pendingDetail = id ? { id, state } : null;
     await refreshBoard($);
-    if (id) detail = detailFor(id);
   } catch (error) {
     errorText = errorMessage(error);
   }
@@ -273,12 +317,6 @@ async function boardDigest($: Engine): Promise<string> {
   if (isMissingBoard) return MISSING_BOARD_TEXT;
   if (!board) return `TaskPlanner: ${errorText ?? 'the board could not be read.'}`;
   return boardDigestText(board);
-}
-
-function paneApproval(origin: string, tool: string): ToolCheckResult | null {
-  return isPaneWriteByOwnPlugin(origin, tool)
-    ? { decision: 'allow', reason: 'Requested from the TaskPlanner board pane.' }
-    : null;
 }
 
 async function runBoardCommand($: Engine): Promise<CommandRunResult> {
@@ -338,7 +376,10 @@ export function register(on: On): void {
           notice = null;
           void selectTab($, state);
         },
-        openTask: (id) => openTask($, id),
+        openTask: (id, state) => openTask($, id, state),
+        showAll: (state) => {
+          void showAll($, state);
+        },
         back: () => {
           detail = null;
           notice = null;
@@ -357,7 +398,7 @@ export function register(on: On): void {
           void editTask($, task);
         },
         newTask: () => {
-          draft = startDraft(board, activeTab);
+          draft = startDraft(board);
           detail = null;
           notice = null;
           $.ui.invalidate('ui.render');
@@ -415,9 +456,8 @@ export function register(on: On): void {
     return { element: e.element, value: e.value };
   }).catch((_engine, e, next) => next(e));
 
-  on(
-    'tool.check',
-    async (_engine, e, next) => paneApproval(next.origin.plugin, e.tool) ?? next(e),
+  on('tool.check', async (_engine, e, next) =>
+    paneCheckDecision(next.origin.plugin, e.tool, await next(e)),
   ).catch((_engine, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {

@@ -5,7 +5,9 @@ import {
   boardSignature,
   describeError,
   inProgressTask,
+  ancestorDirs,
   isOwnPlugin,
+  paneCheckDecision,
   createdTaskId,
   editPrompt,
   isPaneWriteByOwnPlugin,
@@ -83,11 +85,35 @@ describe('taskMarkdown and taskBody', () => {
 });
 
 describe('own-plugin checks', () => {
-  it('recognises the plugin by name or by installed id', () => {
+  it('recognises only this plugin, by name or by its marketplace id', () => {
     expect(isOwnPlugin('taskplanner')).toBe(true);
     expect(isOwnPlugin('taskplanner@refined-taskplanner')).toBe(true);
+    expect(isOwnPlugin('taskplanner@some-other-market')).toBe(false);
     expect(isOwnPlugin('taskplanner-extra')).toBe(false);
     expect(isOwnPlugin('engine')).toBe(false);
+  });
+
+  it('turns only an ask on its own write into an allow, and keeps every other verdict', () => {
+    const move = 'mcp__plugin_taskplanner_taskplanner__taskplanner_move';
+    const create = 'mcp__plugin_taskplanner_taskplanner__taskplanner_create';
+    const ask = { decision: 'ask' as const, reason: 'rules say ask' };
+    const deny = { decision: 'deny' as const, reason: 'deny rule' };
+    const allow = { decision: 'allow' as const, reason: 'allow rule' };
+    expect(paneCheckDecision('taskplanner', move, ask).decision).toBe('allow');
+    expect(paneCheckDecision('taskplanner@refined-taskplanner', create, ask).decision).toBe(
+      'allow',
+    );
+    expect(paneCheckDecision('taskplanner', move, deny)).toBe(deny);
+    expect(paneCheckDecision('taskplanner', move, allow)).toBe(allow);
+    expect(paneCheckDecision('engine', move, ask)).toBe(ask);
+    expect(paneCheckDecision('taskplanner@some-other-market', move, ask)).toBe(ask);
+    expect(
+      paneCheckDecision(
+        'taskplanner',
+        'mcp__plugin_taskplanner_taskplanner__taskplanner_update',
+        ask,
+      ),
+    ).toBe(ask);
   });
 
   it('approves only a move this plugin makes', () => {
@@ -121,16 +147,11 @@ describe('own-plugin checks', () => {
 });
 
 describe('new tasks', () => {
-  it('offers only open states and starts the draft on the active open tab', () => {
+  it('offers only open states and starts the draft in Backlog', () => {
     expect(newTaskStates(board(STANDARD))).toEqual(['Backlog', 'Next', 'In Progress']);
     expect(newTaskStates(null)).toEqual([]);
-    expect(startDraft(board(STANDARD), 'Next')).toEqual({
-      title: '',
-      priority: 'P2',
-      state: 'Next',
-    });
-    expect(startDraft(board(STANDARD), 'Done').state).toBe('Backlog');
-    expect(startDraft(board({ Todo: 0 }), null).state).toBe('Todo');
+    expect(startDraft(board(STANDARD))).toEqual({ title: '', priority: 'P2', state: 'Backlog' });
+    expect(startDraft(board({ Todo: 0, Doing: 0 })).state).toBe('Todo');
   });
 
   it('reads the new task ID from structured content, JSON text or plain text', () => {
@@ -300,5 +321,25 @@ describe('supportsTextScale', () => {
     expect(supportsTextScale('2.1.295')).toBe(false);
     expect(supportsTextScale('1.9.999')).toBe(false);
     expect(supportsTextScale('unknown')).toBe(false);
+  });
+});
+
+describe('ancestorDirs', () => {
+  it('walks a POSIX path up to the root', () => {
+    expect(ancestorDirs('/repo/packages/app/')).toEqual([
+      '/repo/packages/app',
+      '/repo/packages',
+      '/repo',
+      '/',
+    ]);
+  });
+
+  it('walks a Windows path up to the drive', () => {
+    expect(ancestorDirs('C:\\Development\\repo\\sub')).toEqual([
+      'C:\\Development\\repo\\sub',
+      'C:\\Development\\repo',
+      'C:\\Development',
+      'C:',
+    ]);
   });
 });

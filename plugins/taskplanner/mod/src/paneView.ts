@@ -34,7 +34,8 @@ export interface PaneModel {
 
 export interface PaneActions {
   selectTab: (state: string) => void;
-  openTask: (id: string) => void;
+  openTask: (id: string, state: string) => void;
+  showAll: (state: string) => void;
   back: () => void;
   move: (id: string, target: string) => void;
   start: (task: TaskDetail) => void;
@@ -211,6 +212,7 @@ function tabs(
 function plainRow(
   style: Style,
   task: TaskViewItem,
+  state: string,
   columns: number,
   actions: PaneActions,
 ): ElementNode {
@@ -219,11 +221,11 @@ function plainRow(
     key: `task-${task.id}`,
     label: truncate(label, Math.max(MIN_LABEL_WIDTH, columns)),
     plain: true,
-    onPress: () => actions.openTask(task.id),
+    onPress: () => actions.openTask(task.id, state),
   });
 }
 
-function card(style: Style, task: TaskViewItem, actions: PaneActions): ElementNode {
+function card(style: Style, task: TaskViewItem, state: string, actions: PaneActions): ElementNode {
   const meta: ChildNode[] = [
     style.el.Text({ ...textStyle(style, 'id'), children: [task.id] }),
     priorityChip(style, task.priority),
@@ -241,7 +243,7 @@ function card(style: Style, task: TaskViewItem, actions: PaneActions): ElementNo
         key: `task-${task.id}`,
         label: task.title,
         plain: true,
-        onPress: () => actions.openTask(task.id),
+        onPress: () => actions.openTask(task.id, state),
       }),
     ],
   });
@@ -257,16 +259,34 @@ function listView(
   const rows: ChildNode[] = [];
   if (!state) {
     rows.push(caption(style, 'This board has no states.'));
+  } else if (state.tasks.length === 0 && board.deferredStates?.includes(state.name)) {
+    rows.push(caption(style, `Loading ${state.name}…`));
   } else if (state.tasks.length === 0) {
     rows.push(caption(style, `No tasks in ${state.name}.`));
   } else {
     rows.push(
       ...state.tasks.map((task) =>
-        style.isRich ? card(style, task, actions) : plainRow(style, task, model.columns, actions),
+        style.isRich
+          ? card(style, task, state.name, actions)
+          : plainRow(style, task, state.name, model.columns, actions),
       ),
     );
     if (state.hasMore) {
-      rows.push(caption(style, `+${state.totalCount - state.tasks.length} more`));
+      rows.push(
+        style.el.Box({
+          flexDirection: 'row',
+          columnGap: 2,
+          children: [
+            caption(style, `Showing ${state.tasks.length} of ${state.totalCount}.`),
+            style.el.Button({
+              key: 'show-all',
+              label: `Show all ${state.totalCount}`,
+              ...chrome(style),
+              onPress: () => actions.showAll(state.name),
+            }),
+          ],
+        }),
+      );
     }
   }
   return [
@@ -298,7 +318,7 @@ function detailView(
   style: Style,
   board: BoardSnapshot | null,
   detail: TaskDetail,
-  canWriteDetail: boolean,
+  canAct: boolean,
   actions: PaneActions,
 ): ChildNode[] {
   const commands: ChildNode[] = [
@@ -310,7 +330,7 @@ function detailView(
       onPress: actions.back,
     }),
   ];
-  if (!isCompletedState(detail.state)) {
+  if (canAct && !isCompletedState(detail.state)) {
     commands.push(
       style.el.Button({
         key: 'start',
@@ -322,16 +342,18 @@ function detailView(
       }),
     );
   }
-  commands.push(
-    style.el.Button({
-      key: 'edit',
-      label: 'Edit with Claude',
-      hotkey: 'e',
-      ...chrome(style),
-      onPress: () => actions.edit(detail),
-    }),
-  );
-  const targets = board && canWriteDetail ? moveTargets(board, detail.state) : [];
+  if (canAct) {
+    commands.push(
+      style.el.Button({
+        key: 'edit',
+        label: 'Edit with Claude',
+        hotkey: 'e',
+        ...chrome(style),
+        onPress: () => actions.edit(detail),
+      }),
+    );
+  }
+  const targets = board && canAct ? moveTargets(board, detail.state) : [];
   const moves = targets.map((target, index) =>
     style.el.Button({
       key: moveKey(target),
@@ -384,7 +406,7 @@ function detailView(
 function bodyOf(style: Style, model: PaneModel, actions: PaneActions): ChildNode[] {
   if (model.isMissingBoard) {
     return [
-      style.el.Text({ children: ['No .tasks/ board in this folder.'] }),
+      style.el.Text({ children: ['No .tasks/ board in this folder or above it.'] }),
       caption(style, 'Ask Claude to initialize TaskPlanner here, then run /taskboard again.'),
     ];
   }

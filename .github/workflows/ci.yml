@@ -17,3 +17,5 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - name: Built Claude Code mod matches its source
+        run: git diff --exit-code -- plugins/taskplanner/hooks/register.js

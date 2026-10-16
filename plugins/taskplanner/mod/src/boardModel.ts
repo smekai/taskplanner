@@ -1,5 +1,5 @@
 import type { StateViewData, TaskViewItem } from '../../../../src/core/model/messages.js';
-import type { McpToolResult } from './modApi.js';
+import type { McpToolResult, ToolCheckResult } from './modApi.js';
 
 export const IN_PROGRESS_STATE = 'In Progress';
 export const COMPLETED_STATES: readonly string[] = ['Done', 'Rejected'];
@@ -11,7 +11,10 @@ const PANE_WRITE_TOOL = /^mcp__.+__taskplanner_(move|create)$/;
 const TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
 export const PRIORITIES: readonly string[] = ['P0', 'P1', 'P2', 'P3', 'P4'];
 export const DEFAULT_NEW_PRIORITY = 'P2';
-const OWN_PLUGIN = 'taskplanner';
+const OWN_PLUGIN_IDS: ReadonlySet<string> = new Set([
+  'taskplanner',
+  'taskplanner@refined-taskplanner',
+]);
 const FILE_EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const TASKS_DIR_SEGMENT = /(^|[\\/])\.tasks[\\/]/;
 const PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
@@ -19,6 +22,7 @@ const PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
 export interface BoardSnapshot {
   states: StateViewData[];
   workspaceRoot: string | null;
+  deferredStates?: readonly string[];
 }
 
 export interface TaskDetail {
@@ -177,11 +181,34 @@ export function supportsTextScale(version: string): boolean {
 }
 
 export function isOwnPlugin(name: string): boolean {
-  return name === OWN_PLUGIN || name.startsWith(`${OWN_PLUGIN}@`);
+  return OWN_PLUGIN_IDS.has(name);
 }
 
 export function isPaneWriteByOwnPlugin(origin: string, tool: string): boolean {
   return isOwnPlugin(origin) && PANE_WRITE_TOOL.test(tool);
+}
+
+export function paneCheckDecision(
+  origin: string,
+  tool: string,
+  verdict: ToolCheckResult,
+): ToolCheckResult {
+  if (verdict.decision !== 'ask' || !isPaneWriteByOwnPlugin(origin, tool)) return verdict;
+  return { decision: 'allow', reason: 'Requested from the TaskPlanner board pane.' };
+}
+
+export function ancestorDirs(start: string): string[] {
+  const dirs: string[] = [];
+  let current = start.replace(/[\\/]+$/, '') || start;
+  for (;;) {
+    dirs.push(current);
+    const cut = current.search(/[\\/][^\\/]*$/);
+    if (cut < 0) break;
+    const parent = cut === 0 ? current[0] : current.slice(0, cut);
+    if (parent === current) break;
+    current = parent;
+  }
+  return dirs;
 }
 
 export function describeError(message: string): ErrorSummary {
@@ -199,14 +226,9 @@ export function newTaskStates(board: BoardSnapshot | null): string[] {
   return names.filter((name) => !isCompletedState(name));
 }
 
-export function startDraft(board: BoardSnapshot | null, activeTab: string | null): TaskDraft {
+export function startDraft(board: BoardSnapshot | null): TaskDraft {
   const states = newTaskStates(board);
-  const state =
-    activeTab && states.includes(activeTab)
-      ? activeTab
-      : states.includes('Backlog')
-        ? 'Backlog'
-        : (states[0] ?? 'Backlog');
+  const state = states.includes('Backlog') ? 'Backlog' : (states[0] ?? 'Backlog');
   return { title: '', priority: DEFAULT_NEW_PRIORITY, state };
 }
 

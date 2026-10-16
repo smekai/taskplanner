@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   BOARD_TASK_LIMIT,
   buildBoard,
+  findTask,
   readConfigStates,
   taskDetailOf,
 } from '../src/boardReader.js';
 import { DEFAULT_STATES } from '../../../../src/core/model/state.js';
+
+const COLLAPSED = { loadCompleted: false, expandedStates: new Set<string>() };
+const WITH_COMPLETED = { loadCompleted: true, expandedStates: new Set<string>() };
 
 function section(id: string, title: string, priority: string, extra = ''): string {
   return `## ${id}: ${title}\n**Priority:** ${priority}${extra}\n\nAbout ${title}.\n\n---\n`;
@@ -49,25 +53,28 @@ describe('readConfigStates', () => {
 
 describe('buildBoard', () => {
   it('sorts open states by priority and counts deferred states without parsing them', () => {
-    const { snapshot, tasks } = buildBoard(DEFAULT_STATES, FILES, false, '/work');
+    const { snapshot, tasks } = buildBoard(DEFAULT_STATES, FILES, COLLAPSED, '/work');
     const backlog = snapshot.states.find((state) => state.name === 'Backlog');
     expect(backlog?.tasks.map((task) => task.id)).toEqual(['TASK-002', 'TASK-003']);
     const done = snapshot.states.find((state) => state.name === 'Done');
     expect(done).toMatchObject({ tasks: [], totalCount: 2 });
+    expect(snapshot.deferredStates).toEqual(['Done', 'Rejected']);
     expect(tasks.has('TASK-001')).toBe(false);
-    expect(tasks.get('TASK-004')?.state).toBe('In Progress');
+    expect(findTask(tasks, 'TASK-004')?.state).toBe('In Progress');
     expect(snapshot.workspaceRoot).toBe('/work');
   });
 
   it('parses deferred states when asked', () => {
-    const { snapshot, tasks } = buildBoard(DEFAULT_STATES, FILES, true, null);
-    expect(snapshot.states.find((state) => state.name === 'Done')?.tasks).toHaveLength(2);
-    expect(tasks.get('TASK-001')?.state).toBe('Done');
+    const { snapshot, tasks } = buildBoard(DEFAULT_STATES, FILES, WITH_COMPLETED, null);
+    const done = snapshot.states.find((state) => state.name === 'Done');
+    expect(done?.tasks.map((task) => task.id)).toEqual(['TASK-001', 'TASK-000']);
+    expect(snapshot.deferredStates).toEqual([]);
+    expect(findTask(tasks, 'TASK-001')?.state).toBe('Done');
   });
 
   it('treats a missing state file as empty and counts parse errors', () => {
     const files = new Map([['BACKLOG.md', '# Backlog\n\n## not a task heading\n\ntext\n']]);
-    const { snapshot, issueCount } = buildBoard(DEFAULT_STATES, files, false, null);
+    const { snapshot, issueCount } = buildBoard(DEFAULT_STATES, files, COLLAPSED, null);
     expect(snapshot.states.every((state) => state.totalCount === 0)).toBe(true);
     expect(issueCount).toBe(1);
   });
@@ -76,19 +83,77 @@ describe('buildBoard', () => {
     const many = Array.from({ length: BOARD_TASK_LIMIT + 2 }, (_, index) =>
       section(`TASK-${100 + index}`, `Task ${index}`, 'P2'),
     ).join('');
-    const { snapshot } = buildBoard(DEFAULT_STATES, new Map([['BACKLOG.md', many]]), false, null);
+    const { snapshot } = buildBoard(
+      DEFAULT_STATES,
+      new Map([['BACKLOG.md', many]]),
+      COLLAPSED,
+      null,
+    );
     expect(snapshot.states[0]).toMatchObject({
       totalCount: BOARD_TASK_LIMIT + 2,
       hasMore: true,
     });
     expect(snapshot.states[0].tasks).toHaveLength(BOARD_TASK_LIMIT);
   });
+
+  it('shows every task of a state the person expanded', () => {
+    const many = Array.from({ length: BOARD_TASK_LIMIT + 2 }, (_, index) =>
+      section(`TASK-${100 + index}`, `Task ${index}`, 'P2'),
+    ).join('');
+    const expanded = { loadCompleted: false, expandedStates: new Set(['Backlog']) };
+    const { snapshot } = buildBoard(
+      DEFAULT_STATES,
+      new Map([['BACKLOG.md', many]]),
+      expanded,
+      null,
+    );
+    expect(snapshot.states[0]).toMatchObject({ totalCount: BOARD_TASK_LIMIT + 2, hasMore: false });
+    expect(snapshot.states[0].tasks).toHaveLength(BOARD_TASK_LIMIT + 2);
+  });
+
+  it('keeps Done in file order, newest first, rather than by priority', () => {
+    const done = `# Done
+
+${section('TASK-009', 'Just finished', 'P3')}${section('TASK-001', 'Long ago', 'P0')}`;
+    const { snapshot } = buildBoard(
+      DEFAULT_STATES,
+      new Map([['DONE.md', done]]),
+      WITH_COMPLETED,
+      null,
+    );
+    const ids = snapshot.states.find((state) => state.name === 'Done')?.tasks.map((t) => t.id);
+    expect(ids).toEqual(['TASK-009', 'TASK-001']);
+  });
+});
+
+describe('findTask', () => {
+  it('keeps both copies of a duplicated id and prefers the one in the asked state', () => {
+    const files = new Map([
+      [
+        'BACKLOG.md',
+        `# Backlog
+
+${section('TASK-007', 'Backlog copy', 'P2')}`,
+      ],
+      [
+        'NEXT.md',
+        `# Next
+
+${section('TASK-007', 'Next copy', 'P2')}`,
+      ],
+    ]);
+    const { tasks } = buildBoard(DEFAULT_STATES, files, COLLAPSED, null);
+    expect(findTask(tasks, 'TASK-007', 'Backlog')?.task.title).toBe('Backlog copy');
+    expect(findTask(tasks, 'TASK-007', 'Next')?.task.title).toBe('Next copy');
+    expect(findTask(tasks, 'TASK-007', 'Done')?.task.title).toBe('Backlog copy');
+    expect(findTask(tasks, 'TASK-404')).toBeNull();
+  });
 });
 
 describe('taskDetailOf', () => {
   it('carries the fields the pane shows', () => {
-    const { tasks } = buildBoard(DEFAULT_STATES, FILES, false, null);
-    const detail = taskDetailOf(tasks.get('TASK-004')!);
+    const { tasks } = buildBoard(DEFAULT_STATES, FILES, COLLAPSED, null);
+    const detail = taskDetailOf(findTask(tasks, 'TASK-004')!);
     expect(detail).toMatchObject({
       id: 'TASK-004',
       title: 'Doing',

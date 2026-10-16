@@ -8,7 +8,10 @@ var PANE_WRITE_TOOL = /^mcp__.+__taskplanner_(move|create)$/;
 var TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
 var PRIORITIES = ["P0", "P1", "P2", "P3", "P4"];
 var DEFAULT_NEW_PRIORITY = "P2";
-var OWN_PLUGIN = "taskplanner";
+var OWN_PLUGIN_IDS = /* @__PURE__ */ new Set([
+  "taskplanner",
+  "taskplanner@refined-taskplanner"
+]);
 var FILE_EDIT_TOOLS = /* @__PURE__ */ new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 var TASKS_DIR_SEGMENT = /(^|[\\/])\.tasks[\\/]/;
 var PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
@@ -113,10 +116,27 @@ function supportsTextScale(version) {
   return true;
 }
 function isOwnPlugin(name) {
-  return name === OWN_PLUGIN || name.startsWith(`${OWN_PLUGIN}@`);
+  return OWN_PLUGIN_IDS.has(name);
 }
 function isPaneWriteByOwnPlugin(origin, tool) {
   return isOwnPlugin(origin) && PANE_WRITE_TOOL.test(tool);
+}
+function paneCheckDecision(origin, tool, verdict) {
+  if (verdict.decision !== "ask" || !isPaneWriteByOwnPlugin(origin, tool)) return verdict;
+  return { decision: "allow", reason: "Requested from the TaskPlanner board pane." };
+}
+function ancestorDirs(start) {
+  const dirs = [];
+  let current = start.replace(/[\\/]+$/, "") || start;
+  for (; ; ) {
+    dirs.push(current);
+    const cut = current.search(/[\\/][^\\/]*$/);
+    if (cut < 0) break;
+    const parent = cut === 0 ? current[0] : current.slice(0, cut);
+    if (parent === current) break;
+    current = parent;
+  }
+  return dirs;
 }
 function describeError(message) {
   if (PERMISSION_REFUSAL.test(message)) {
@@ -131,9 +151,9 @@ function newTaskStates(board2) {
   const names = board2?.states.map((state) => state.name) ?? [];
   return names.filter((name) => !isCompletedState(name));
 }
-function startDraft(board2, activeTab2) {
+function startDraft(board2) {
   const states = newTaskStates(board2);
-  const state = activeTab2 && states.includes(activeTab2) ? activeTab2 : states.includes("Backlog") ? "Backlog" : states[0] ?? "Backlog";
+  const state = states.includes("Backlog") ? "Backlog" : states[0] ?? "Backlog";
   return { title: "", priority: DEFAULT_NEW_PRIORITY, state };
 }
 function createdTaskId(result) {
@@ -558,33 +578,50 @@ function readConfigStates(configText) {
   const states = parsed?.states;
   return states === void 0 ? [...DEFAULT_STATES] : normalizeStates(states, () => void 0);
 }
-function buildBoard(states, fileTexts, loadCompleted, workspaceRoot) {
+function indexTask(index, entry) {
+  const copies = index.get(entry.task.id);
+  if (copies) copies.push(entry);
+  else index.set(entry.task.id, [entry]);
+}
+function buildBoard(states, fileTexts, options, workspaceRoot) {
   const tasksByState = /* @__PURE__ */ new Map();
   const displayCounts = /* @__PURE__ */ new Map();
   const tasks = /* @__PURE__ */ new Map();
+  const deferredStates = [];
   let issueCount2 = 0;
   for (const state of states) {
     const text = fileTexts.get(state.fileName) ?? "";
-    if (isCompletedState(state.name) && !loadCompleted) {
+    if (isCompletedState(state.name) && !options.loadCompleted) {
       tasksByState.set(state.name, []);
       displayCounts.set(state.name, countTaskHeadings(text));
+      deferredStates.push(state.name);
       continue;
     }
     const parsed = parseTasks(text);
     issueCount2 += parsed.errors.length;
     tasksByState.set(state.name, parsed.tasks);
     displayCounts.set(state.name, parsed.tasks.length);
-    for (const task of parsed.tasks) tasks.set(task.id, { task, state: state.name });
+    for (const task of parsed.tasks) indexTask(tasks, { task, state: state.name });
   }
-  const view = filterAndPaginate(
-    tasksByState,
-    [...states],
-    void 0,
-    BOARD_TASK_LIMIT,
-    "priority",
-    displayCounts
+  const viewStates = states.map(
+    (state) => filterAndPaginate(
+      tasksByState,
+      [state],
+      void 0,
+      options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
+      isCompletedState(state.name) ? "file" : "priority",
+      displayCounts
+    ).states[0]
   );
-  return { snapshot: { states: view.states, workspaceRoot }, tasks, issueCount: issueCount2 };
+  return {
+    snapshot: { states: viewStates, workspaceRoot, deferredStates },
+    tasks,
+    issueCount: issueCount2
+  };
+}
+function findTask(index, id, state) {
+  const copies = index.get(id) ?? [];
+  return copies.find((copy) => copy.state === state) ?? copies[0] ?? null;
 }
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
@@ -731,16 +768,16 @@ function tabs(style, board2, active, actions) {
     )
   });
 }
-function plainRow(style, task, columns, actions) {
+function plainRow(style, task, state, columns, actions) {
   const label = `${task.id} ${task.priority} ${task.title}`;
   return style.el.Button({
     key: `task-${task.id}`,
     label: truncate(label, Math.max(MIN_LABEL_WIDTH, columns)),
     plain: true,
-    onPress: () => actions.openTask(task.id)
+    onPress: () => actions.openTask(task.id, state)
   });
 }
-function card(style, task, actions) {
+function card(style, task, state, actions) {
   const meta = [
     style.el.Text({ ...textStyle(style, "id"), children: [task.id] }),
     priorityChip(style, task.priority)
@@ -758,7 +795,7 @@ function card(style, task, actions) {
         key: `task-${task.id}`,
         label: task.title,
         plain: true,
-        onPress: () => actions.openTask(task.id)
+        onPress: () => actions.openTask(task.id, state)
       })
     ]
   });
@@ -768,16 +805,32 @@ function listView(style, model, board2, actions) {
   const rows = [];
   if (!state) {
     rows.push(caption(style, "This board has no states."));
+  } else if (state.tasks.length === 0 && board2.deferredStates?.includes(state.name)) {
+    rows.push(caption(style, `Loading ${state.name}\u2026`));
   } else if (state.tasks.length === 0) {
     rows.push(caption(style, `No tasks in ${state.name}.`));
   } else {
     rows.push(
       ...state.tasks.map(
-        (task) => style.isRich ? card(style, task, actions) : plainRow(style, task, model.columns, actions)
+        (task) => style.isRich ? card(style, task, state.name, actions) : plainRow(style, task, state.name, model.columns, actions)
       )
     );
     if (state.hasMore) {
-      rows.push(caption(style, `+${state.totalCount - state.tasks.length} more`));
+      rows.push(
+        style.el.Box({
+          flexDirection: "row",
+          columnGap: 2,
+          children: [
+            caption(style, `Showing ${state.tasks.length} of ${state.totalCount}.`),
+            style.el.Button({
+              key: "show-all",
+              label: `Show all ${state.totalCount}`,
+              ...chrome(style),
+              onPress: () => actions.showAll(state.name)
+            })
+          ]
+        })
+      );
     }
   }
   return [
@@ -803,7 +856,7 @@ function detailHeading(style, detail2) {
     style.el.Box({ flexDirection: "row", columnGap: 1, children: chips })
   ];
 }
-function detailView(style, board2, detail2, canWriteDetail, actions) {
+function detailView(style, board2, detail2, canAct, actions) {
   const commands = [
     style.el.Button({
       key: "back",
@@ -813,7 +866,7 @@ function detailView(style, board2, detail2, canWriteDetail, actions) {
       onPress: actions.back
     })
   ];
-  if (!isCompletedState(detail2.state)) {
+  if (canAct && !isCompletedState(detail2.state)) {
     commands.push(
       style.el.Button({
         key: "start",
@@ -825,16 +878,18 @@ function detailView(style, board2, detail2, canWriteDetail, actions) {
       })
     );
   }
-  commands.push(
-    style.el.Button({
-      key: "edit",
-      label: "Edit with Claude",
-      hotkey: "e",
-      ...chrome(style),
-      onPress: () => actions.edit(detail2)
-    })
-  );
-  const targets = board2 && canWriteDetail ? moveTargets(board2, detail2.state) : [];
+  if (canAct) {
+    commands.push(
+      style.el.Button({
+        key: "edit",
+        label: "Edit with Claude",
+        hotkey: "e",
+        ...chrome(style),
+        onPress: () => actions.edit(detail2)
+      })
+    );
+  }
+  const targets = board2 && canAct ? moveTargets(board2, detail2.state) : [];
   const moves = targets.map(
     (target, index) => style.el.Button({
       key: moveKey(target),
@@ -881,7 +936,7 @@ function detailView(style, board2, detail2, canWriteDetail, actions) {
 function bodyOf(style, model, actions) {
   if (model.isMissingBoard) {
     return [
-      style.el.Text({ children: ["No .tasks/ board in this folder."] }),
+      style.el.Text({ children: ["No .tasks/ board in this folder or above it."] }),
       caption(style, "Ask Claude to initialize TaskPlanner here, then run /taskboard again.")
     ];
   }
@@ -1003,23 +1058,26 @@ var PANE_ID = "taskplanner";
 var PANE_TITLE = "TaskPlanner";
 var SERVER_KEY = "taskplanner";
 var POLL_INTERVAL_MS = 5e3;
-var MISSING_BOARD_TEXT = "No .tasks/ board in this folder.";
+var MISSING_BOARD_TEXT = "No .tasks/ board in this folder or above it.";
 var serverName = null;
+var boardRoot = null;
 var board = null;
 var taskIndex = /* @__PURE__ */ new Map();
 var issueCount = 0;
 var activeTab = null;
 var detail = null;
+var pendingDetail = null;
 var errorText = null;
 var isLoading = false;
 var isMissingBoard = false;
 var lastSignature = null;
 var pollTimer = null;
-var isRefreshing = false;
+var refreshRun = null;
 var needsRefresh = false;
 var hasTextScale = false;
 var draft = null;
 var notice = null;
+var expandedStates = /* @__PURE__ */ new Set();
 async function connectServer($) {
   if (serverName) return serverName;
   const connection = await $.mcp.connect(SERVER_KEY);
@@ -1027,14 +1085,27 @@ async function connectServer($) {
   serverName = connection.server;
   return connection.server;
 }
+async function hasBoardAt($, dir) {
+  return $.fs.exists(joinPath(dir, ".tasks", "config.json"));
+}
+async function locateBoard($) {
+  if (boardRoot && await hasBoardAt($, boardRoot)) return boardRoot;
+  const starts = [await $.session.cwd(), await $.session.root()];
+  for (const start of starts) {
+    for (const dir of ancestorDirs(start)) {
+      if (await hasBoardAt($, dir)) {
+        boardRoot = dir;
+        return dir;
+      }
+    }
+  }
+  boardRoot = null;
+  return null;
+}
 async function callTaskplanner($, tool, args) {
   const server = await connectServer($);
-  const root = await $.session.root();
+  const root = boardRoot ?? await $.session.root();
   return $.mcp.call(server, tool, { workspace_root: root, ...args });
-}
-async function boardExists($) {
-  const root = await $.session.root();
-  return $.fs.exists(joinPath(root, ".tasks", "config.json"));
 }
 async function readTextOrEmpty($, path) {
   try {
@@ -1043,9 +1114,7 @@ async function readTextOrEmpty($, path) {
     return "";
   }
 }
-async function readSignature($) {
-  const root = await $.session.root();
-  const tasksDir = joinPath(root, ".tasks");
+async function readSignature($, tasksDir) {
   const entries = await $.fs.list(tasksDir);
   const files = [];
   for (const entry of entries) {
@@ -1060,41 +1129,49 @@ function forgetBoard() {
   taskIndex = /* @__PURE__ */ new Map();
   issueCount = 0;
   detail = null;
+  pendingDetail = null;
   lastSignature = null;
 }
-function detailFor(id) {
-  const indexed = taskIndex.get(id);
+function detailFor(id, state) {
+  const indexed = findTask(taskIndex, id, state);
   return indexed ? taskDetailOf(indexed) : null;
 }
+function reopenDetail() {
+  if (pendingDetail) {
+    const created = detailFor(pendingDetail.id, pendingDetail.state);
+    if (created) {
+      detail = created;
+      pendingDetail = null;
+    }
+  } else if (detail) {
+    detail = detailFor(detail.id, detail.state);
+  }
+}
 async function loadBoard($) {
-  if (!await boardExists($)) {
+  const root = await locateBoard($);
+  if (!root) {
     isMissingBoard = true;
     forgetBoard();
     return;
   }
   isMissingBoard = false;
-  const root = await $.session.root();
   const tasksDir = joinPath(root, ".tasks");
-  const signature = await readSignature($);
+  const signature = await readSignature($, tasksDir);
   const states = readConfigStates(await $.fs.read(joinPath(tasksDir, "config.json")));
   const texts = /* @__PURE__ */ new Map();
   for (const state of states) {
     texts.set(state.fileName, await readTextOrEmpty($, joinPath(tasksDir, state.fileName)));
   }
-  const read = buildBoard(states, texts, isCompletedState(activeTab) || detail !== null, root);
+  const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
+  const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
   board = read.snapshot;
   taskIndex = read.tasks;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastSignature = signature;
-  if (detail) detail = detailFor(detail.id);
+  reopenDetail();
 }
-async function refreshBoard($) {
-  if (isRefreshing) {
-    needsRefresh = true;
-    return;
-  }
-  isRefreshing = true;
+async function runRefresh($) {
   isLoading = true;
   $.ui.invalidate("ui.render");
   try {
@@ -1108,14 +1185,23 @@ async function refreshBoard($) {
       }
     } while (needsRefresh);
   } finally {
-    isRefreshing = false;
     isLoading = false;
+    refreshRun = null;
     $.ui.invalidate("ui.render");
   }
 }
+function refreshBoard($) {
+  if (refreshRun) {
+    needsRefresh = true;
+    return refreshRun;
+  }
+  refreshRun = runRefresh($);
+  return refreshRun;
+}
 async function syncIfChanged($) {
   try {
-    if (!await boardExists($)) {
+    const root = await locateBoard($);
+    if (!root) {
       if (!isMissingBoard || board) {
         isMissingBoard = true;
         forgetBoard();
@@ -1123,7 +1209,7 @@ async function syncIfChanged($) {
       }
       return;
     }
-    if (board && await readSignature($) === lastSignature) return;
+    if (board && await readSignature($, joinPath(root, ".tasks")) === lastSignature) return;
   } catch (error) {
     errorText = errorMessage(error);
     $.ui.invalidate("ui.render");
@@ -1152,15 +1238,18 @@ async function resumeAfterLoad($) {
   await syncIfChanged($);
 }
 async function selectTab($, state) {
-  const needsCompleted = isCompletedState(state) && !isCompletedState(activeTab);
   activeTab = state;
   detail = null;
   $.ui.invalidate("ui.render");
-  if (needsCompleted) await refreshBoard($);
+  if (board?.deferredStates?.includes(state)) await refreshBoard($);
 }
-function openTask($, id) {
+async function showAll($, state) {
+  expandedStates.add(state);
+  await refreshBoard($);
+}
+function openTask($, id, state) {
   notice = null;
-  detail = detailFor(id);
+  detail = detailFor(id, state);
   errorText = detail ? null : `${id} is no longer on the board.`;
   $.ui.invalidate("ui.render");
 }
@@ -1176,6 +1265,7 @@ async function moveTask($, id, target) {
     $.ui.invalidate("ui.render");
     return;
   }
+  if (detail) detail = { ...detail, state: target };
   await refreshBoard($);
 }
 async function createTask($) {
@@ -1194,8 +1284,8 @@ async function createTask($) {
     draft = null;
     activeTab = state;
     notice = id ? `Created ${id} in ${state}.` : `Created the task in ${state}.`;
+    pendingDetail = id ? { id, state } : null;
     await refreshBoard($);
-    if (id) detail = detailFor(id);
   } catch (error) {
     errorText = errorMessage(error);
   }
@@ -1212,9 +1302,6 @@ async function boardDigest($) {
   if (isMissingBoard) return MISSING_BOARD_TEXT;
   if (!board) return `TaskPlanner: ${errorText ?? "the board could not be read."}`;
   return boardDigestText(board);
-}
-function paneApproval(origin, tool) {
-  return isPaneWriteByOwnPlugin(origin, tool) ? { decision: "allow", reason: "Requested from the TaskPlanner board pane." } : null;
 }
 async function runBoardCommand($) {
   const surfaces = await $.session.surfaces();
@@ -1264,7 +1351,10 @@ function register(on) {
           notice = null;
           void selectTab($, state);
         },
-        openTask: (id) => openTask($, id),
+        openTask: (id, state) => openTask($, id, state),
+        showAll: (state) => {
+          void showAll($, state);
+        },
         back: () => {
           detail = null;
           notice = null;
@@ -1283,7 +1373,7 @@ function register(on) {
           void editTask($, task);
         },
         newTask: () => {
-          draft = startDraft(board, activeTab);
+          draft = startDraft(board);
           detail = null;
           notice = null;
           $.ui.invalidate("ui.render");
@@ -1339,7 +1429,7 @@ function register(on) {
   }).catch((_engine, e, next) => next(e));
   on(
     "tool.check",
-    async (_engine, e, next) => paneApproval(next.origin.plugin, e.tool) ?? next(e)
+    async (_engine, e, next) => paneCheckDecision(next.origin.plugin, e.tool, await next(e))
   ).catch((_engine, e, next) => next(e));
   on("tool.call", async ($, e, next) => {
     const result = await next(e);

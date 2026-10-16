@@ -186,6 +186,7 @@ export interface Engine {
     every: (ms: number, fn: () => void) => Timer;
   };
   session: {
+    cwd: () => Promise<string>;
     root: () => Promise<string>;
     surfaces: () => Promise<readonly string[]>;
     version: () => Promise<{ version: string }>;

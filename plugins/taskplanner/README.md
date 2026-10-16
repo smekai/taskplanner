@@ -54,7 +54,7 @@ From a shell: `claude plugin install taskplanner --marketplace smekai/taskplanne
 
 Then, in a project with `.tasks/`, run `/taskplanner:board` (or the shorter `/taskboard`):
 
-- The pane lists tasks per state (digits switch tabs, `r` refreshes). Pressing a task opens its description and plan. From there you can:
+- The pane lists tasks per state (digits switch tabs, `r` refreshes). Open states are sorted by priority, while Done and Rejected keep file order, newest first. A long list shows 50 tasks and a **Show all** button. Pressing a task opens its description and plan. From there you can:
   - **Move to another state**: the row of state buttons (digits) changes the task's status, for example Backlog → Next.
   - **Start with Claude** (`s`): sends "Work on TASK-… following the TaskPlanner workflow" as your next prompt.
   - **Edit with Claude** (`e`): puts "Update TASK-…: " in the prompt box for you to finish. Editing title, description, plan, tags or priority goes through Claude.
@@ -62,7 +62,7 @@ Then, in a project with `.tasks/`, run `/taskplanner:board` (or the shorter `/ta
 - In the Desktop Code tab the list is richer: a titled header with counts per state, tasks as cards with a coloured priority, and a primary **Start with Claude** button. With Claude Code 2.1.299 or later it also uses the Desktop type scale. The terminal keeps a compact list.
 - The pane follows the board while it is open. It rereads `.tasks/` after TaskPlanner tools or file edits there, and checks the files every 5 seconds for changes made elsewhere.
 - While a task is **In Progress**, a band above the prompt names it; its **Board** button opens the pane.
-- In a folder without `.tasks/`, the plugin draws nothing and reads nothing.
+- Like the MCP server, the pane finds `.tasks/` in the session folder or in any folder above it, so it also works from a package subfolder. Where there is none, the plugin draws nothing.
 
 Requirements and limits:
 
@@ -71,7 +71,7 @@ Requirements and limits:
 - Plugins cannot choose where a pane sits, and the mods API has no way to add a launcher icon to the Desktop top bar. A wide fullscreen terminal docks the pane beside the transcript, and a narrower one opens it above the prompt. The Desktop app places it itself.
 - `/taskplanner:board` is this plugin's `board` skill, which the mod answers by opening the pane. In Cursor and Codex the same skill shows the board through the MCP tools. `/taskboard` is the short name; `/tasks` is built into Claude Code and `/taskplanner` belongs to the plugin's main skill.
 - The mod runs unsandboxed with your permissions, like any Claude Code mod. It reads the `.tasks/` files itself with the same parser the MCP server uses, so reading the board never needs a permission. `claude plugin validate plugins/taskplanner` lists every call it makes.
-- Moving and creating a task go through this plugin's MCP server (`taskplanner_move`, `taskplanner_create`), so IDs, timestamps and file layout stay exactly as the server writes them. The mod approves those calls when you press a move button or create a task in the pane, so they raise no permission prompt and pass in auto mode. The mobile surface stays read-only. Your `deny` rules still apply. When Claude calls the TaskPlanner tools itself, your normal permission rules apply.
+- Moving and creating a task go through this plugin's MCP server (`taskplanner_move`, `taskplanner_create`), so IDs, timestamps and file layout stay exactly as the server writes them. When you move or create a task in the pane and your permission rules would only *ask*, the mod approves its own call. So there is no prompt, and the call also passes in auto mode. A `deny` rule, or any other decision your rules reach, stands. When Claude calls the TaskPlanner tools itself, your normal permission rules apply. The mobile surface stays read-only.
 - If your project's `.mcp.json` also runs `npx @smekai/taskplanner`, Claude sees the TaskPlanner tools twice. That happens because Claude Code merges servers only when their commands match. Remove the project entry once the plugin is installed.
 
 ### Codex app and CLI — repository marketplace
