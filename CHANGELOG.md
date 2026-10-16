@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-10-16
+
+### Changed
+
+- Version bump only, with no change in behaviour, so a plugin installed or uploaded at 2.5.0 is replaced by the released build (TASK-070).
+
 ## [2.5.0] - 2026-10-15
 
 ### Added
