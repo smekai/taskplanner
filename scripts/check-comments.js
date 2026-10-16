@@ -3,8 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const ts = require('typescript');
 
-const ROOT = path.join(__dirname, '..', 'src');
-const EXEMPT_DIRS = [path.join('src', 'test')];
+const ROOTS = [
+  path.join(__dirname, '..', 'src'),
+  path.join(__dirname, '..', 'plugins', 'taskplanner', 'mod', 'src'),
+];
 const DIRECTIVE_RE = /^\/[/*]\s*(eslint|ts-|@ts-|prettier-|c8 |v8 |istanbul|#!)/;
 const JUSTIFIED_RE = /^\/[/*]+\s*WHY:\s*\S/;
 
@@ -15,11 +17,6 @@ function sourceFiles(dir, found = []) {
     else if (entry.name.endsWith('.ts')) found.push(full);
   }
   return found;
-}
-
-function isExempt(file) {
-  const rel = path.relative(path.join(__dirname, '..'), file);
-  return EXEMPT_DIRS.some((dir) => rel.startsWith(dir + path.sep));
 }
 
 function commentsIn(file, text) {
@@ -50,8 +47,8 @@ function commentsIn(file, text) {
 const offenders = [];
 let justified = 0;
 
-for (const file of sourceFiles(ROOT)) {
-  if (isExempt(file)) continue;
+const files = ROOTS.filter((root) => fs.existsSync(root)).flatMap((root) => sourceFiles(root));
+for (const file of files) {
   const text = fs.readFileSync(file, 'utf-8');
   for (const comment of commentsIn(file, text)) {
     const trimmed = comment.text.trim();

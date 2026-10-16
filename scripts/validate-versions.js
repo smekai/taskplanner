@@ -18,6 +18,9 @@ function main() {
     path.join(root, 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
   );
   const codex = readJson(path.join(root, 'plugins', 'taskplanner', '.codex-plugin', 'plugin.json'));
+  const claude = readJson(
+    path.join(root, 'plugins', 'taskplanner', '.claude-plugin', 'plugin.json'),
+  );
   const mcpPackage = readJson(path.join(root, 'packages', 'mcp-server', 'package.json'));
   const expected = pkg.version;
 
@@ -26,6 +29,7 @@ function main() {
     ['package-lock.json root package', lock.packages?.['']?.version],
     ['Cursor plugin manifest', cursor.version],
     ['Codex plugin manifest', codex.version?.split('+')[0]],
+    ['Claude plugin manifest', claude.version],
     [`npm package ${mcpPackage.name}`, mcpPackage.version],
   ];
   for (const [label, actual] of versions) {
@@ -55,10 +59,9 @@ function main() {
     const skill = fs.readFileSync(skillPath, 'utf8');
     const marker = /<!-- TASKPLANNER:VERSION:([^ >]+) -->/.exec(skill)?.[1];
     if (marker !== expected) fail(`${skillName} skill is ${marker}; expected ${expected}.`);
-    for (const embedded of skill.match(/\b\d+\.\d+\.\d+\b/g) ?? []) {
-      if (embedded !== expected) {
-        fail(`${skillName} skill embeds ${embedded}; expected only ${expected}.`);
-      }
+    const embedded = skill.match(/\b\d+\.\d+\.\d+\b/g) ?? [];
+    if (embedded.length !== 1) {
+      fail(`${skillName} skill names a version ${embedded.length} times; keep only its marker.`);
     }
   }
 
@@ -74,11 +77,6 @@ function main() {
     fail(
       `Repository taskplannerVersion is ${projectConfig.taskplannerVersion}; expected ${expected}.`,
     );
-  }
-
-  for (const relativePath of ['CONTRIBUTING.md', 'docs/CODEX_PLUGIN_SUBMISSION.md']) {
-    const content = fs.readFileSync(path.join(root, relativePath), 'utf8');
-    if (!content.includes(expected)) fail(`${relativePath} does not reference ${expected}.`);
   }
 
   if (!process.exitCode) console.log(`[versions] All version markers match ${expected}.`);

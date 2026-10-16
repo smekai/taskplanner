@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-15
+
 ### Added
+
+- TaskPlanner is now a Claude Code plugin: `/plugin install taskplanner --marketplace smekai/taskplanner`. Then `/taskplanner:board` (or `/taskboard`) opens a live board pane in the Claude Desktop Code tab and the terminal. From it you can browse tasks per state, move them to another state, create new ones, start one with Claude, or draft an edit in the prompt. A band above the prompt shows the task in progress (TASK-070).
+- A shared `board` skill shows the board in Cursor and Codex as well (TASK-070).
+- The MCP server also finds the project from `CLAUDE_PROJECT_DIR`, so a server Claude Code starts for the plugin resolves the workspace without `workspace_root` (TASK-070).
 
 - `openBoard(tasksDir, { initialize })` and `boardExists` open or create a board in one call, defaulting to a read that does not rewrite the owner's `config.json`. The MCP server now uses it too (TASK-069).
 - `TaskStore.findTaskByAttribute` finds a task by an attribute a consumer wrote, and `TaskStore.knownTaskIds` answers whether an id is spent across the board **and** the archive (TASK-069).

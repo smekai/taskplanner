@@ -29,6 +29,8 @@ const mcpPackageBoardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.h
 
 const mcpPackageLibraryOut = path.join(mcpPackageRoot, 'dist', 'index.js');
 
+const claudeModOut = path.join(pluginRoot, 'hooks', 'register.js');
+
 function syncMcpPackage() {
   if (shared.format !== 'cjs') {
     throw new Error(
@@ -148,19 +150,46 @@ async function main() {
     ],
   });
 
+  const claudeModCtx = await esbuild.context({
+    entryPoints: ['plugins/taskplanner/mod/src/register.ts'],
+    outfile: claudeModOut,
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+    target: ['es2022'],
+    minify: false,
+    sourcemap: false,
+    logLevel: 'info',
+    plugins: [
+      {
+        name: 'watch-plugin',
+        setup(build) {
+          build.onEnd((result) => {
+            if (result.errors.length === 0) {
+              console.log('[watch] claude-mod build succeeded');
+            }
+          });
+        },
+      },
+    ],
+  });
+
   if (watch) {
     await extensionCtx.watch();
     await mcpCtx.watch();
     await libraryCtx.watch();
+    await claudeModCtx.watch();
     console.log('[watch] watching for changes...');
     console.log('[watch] note: .d.ts output is not rebuilt here — run "npm run build:types".');
   } else {
     await extensionCtx.rebuild();
     await mcpCtx.rebuild();
     await libraryCtx.rebuild();
+    await claudeModCtx.rebuild();
     await extensionCtx.dispose();
     await mcpCtx.dispose();
     await libraryCtx.dispose();
+    await claudeModCtx.dispose();
   }
 }
 

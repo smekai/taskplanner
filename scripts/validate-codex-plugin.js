@@ -44,6 +44,7 @@ function main() {
     ['skills/list-tasks/SKILL.md', 'List-tasks skill'],
     ['skills/next-task/SKILL.md', 'Next-task skill'],
     ['skills/continue-task/SKILL.md', 'Continue-task skill'],
+    ['skills/board/SKILL.md', 'Board skill'],
     ['skills/initialize-taskplanner/SKILL.md', 'Initialize-taskplanner skill'],
     ['skills/initialize-taskplanner/agents/openai.yaml', 'Initialize skill UI metadata'],
     ['skills/update-taskplanner/SKILL.md', 'Update-taskplanner skill'],

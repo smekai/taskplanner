@@ -1,0 +1,15 @@
+{
+  "name": "refined-taskplanner",
+  "owner": { "name": "refined", "url": "https://github.com/smekai" },
+  "metadata": {
+    "description": "Task-focused AI workflow tools for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "taskplanner",
+      "source": "./plugins/taskplanner",
+      "description": "Task-first AI workflows over markdown tasks in your repo: MCP tools, skills, and a /taskplanner:board pane.",
+      "category": "productivity"
+    }
+  ]
+}

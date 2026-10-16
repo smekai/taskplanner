@@ -1,0 +1,18 @@
+{
+  "name": "taskplanner",
+  "displayName": "TaskPlanner",
+  "version": "2.5.0",
+  "description": "Task-first AI workflows over markdown tasks in your repo: MCP tools, skills, and a /taskplanner:board pane for the Claude Code terminal and the Claude Desktop Code tab.",
+  "author": { "name": "refined", "url": "https://github.com/smekai" },
+  "homepage": "https://github.com/smekai/taskplanner#readme",
+  "repository": "https://github.com/smekai/taskplanner",
+  "license": "MIT",
+  "keywords": ["tasks", "planner", "project-management", "markdown", "ai-workflow", "kanban"],
+  "commands": [],
+  "mcpServers": {
+    "taskplanner": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js"]
+    }
+  }
+}

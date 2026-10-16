@@ -1,0 +1,357 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { ConfigManager } from '../../src/core/config/configManager.js';
+import { createDefaultConfig } from '../../src/core/model/config.js';
+
+describe('ConfigManager', () => {
+  let tmpDir: string;
+  let configManager: ConfigManager;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'taskplanner-test-'));
+    configManager = new ConfigManager(tmpDir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns default config when no file exists', () => {
+    const config = configManager.load();
+    expect(config.version).toBe(3);
+    expect(config.idPrefix).toBe('TASK');
+    expect(config.nextId).toBe(1);
+    expect(config.states).toHaveLength(5);
+    expect(config.taskplannerVersion).toBe('');
+    expect(config.aiPlanRequired).toBe(true);
+    expect(config.readmeAttribution).toBe(true);
+  });
+
+  it('strips the legacy sortBy field and bumps to version 3', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 2, idPrefix: 'ACME', nextId: 42, sortBy: 'priority' }),
+    );
+
+    const config: Record<string, unknown> = configManager.load();
+    expect(config.sortBy).toBeUndefined();
+    expect(config.version).toBe(3);
+    // Unrelated keys survive the migration.
+    expect(config.idPrefix).toBe('ACME');
+    expect(config.nextId).toBe(42);
+
+    // The key is gone from disk, not just from the in-memory object.
+    const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+    expect('sortBy' in onDisk).toBe(false);
+  });
+
+  it('records the v3 schema even when there was nothing to change', () => {
+    // A v2 file that already lacks sortBy and already has Rejected: the migration finds nothing to
+    // do, but the file must still be marked as having reached v3.
+    const states = [
+      { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
+      { name: 'Next', fileName: 'NEXT.md', order: 1 },
+      { name: 'In Progress', fileName: 'IN_PROGRESS.md', order: 2 },
+      { name: 'Done', fileName: 'DONE.md', order: 3 },
+      { name: 'Rejected', fileName: 'REJECTED.md', order: 4 },
+    ];
+    fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify({ version: 2, states }));
+
+    expect(configManager.load().version).toBe(3);
+    const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+    expect(onDisk.version).toBe(3);
+  });
+
+  // The MCP server runs every tool through load(), so migrating-and-saving there
+  // means a *read* tool rewrites the caller's board. A host that validates its own
+  // config strictly then rejects what the read produced.
+  describe('a load that may not write', () => {
+    const UNMIGRATED = {
+      idPrefix: 'TASK',
+      nextId: 1,
+      states: [
+        { name: 'Backlog', fileName: 'BACKLOG.md' },
+        { name: 'Done', fileName: 'DONE.md' },
+      ],
+      insertPosition: 'top',
+    };
+    const writeUnmigrated = () =>
+      fs.writeFileSync(
+        path.join(tmpDir, 'config.json'),
+        JSON.stringify(UNMIGRATED, null, 2) + '\n',
+      );
+
+    it('leaves config.json byte-identical when migration may not be persisted', () => {
+      writeUnmigrated();
+      const before = fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8');
+
+      configManager.load({ persistMigration: false });
+
+      expect(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8')).toBe(before);
+    });
+
+    it('still migrates in memory, so the caller reads a usable board', () => {
+      writeUnmigrated();
+
+      const config = configManager.load({ persistMigration: false });
+
+      expect(config.version).toBe(3);
+      expect(config.states.some((state) => state.name === 'Rejected')).toBe(true);
+    });
+
+    it('persists the migration on the next write, which is where a write belongs', () => {
+      writeUnmigrated();
+      configManager.load({ persistMigration: false });
+
+      configManager.save();
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.version).toBe(3);
+    });
+
+    it('persists by default, because the extension migrates a project when it opens it', () => {
+      writeUnmigrated();
+
+      configManager.load();
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.version).toBe(3);
+    });
+  });
+
+  it('never downgrades a config written by a newer TaskPlanner', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 99, idPrefix: 'FUTURE' }),
+    );
+
+    expect(configManager.load().version).toBe(99);
+  });
+
+  describe('malformed config.json', () => {
+    // The failure mode: a bad `states` entry reaches path.join(tasksDir, state.fileName) in
+    // FileStore and throws on undefined. Loading must degrade to a usable board instead.
+    const write = (content: string) => fs.writeFileSync(path.join(tmpDir, 'config.json'), content);
+
+    it('repairs states given as bare strings', () => {
+      write(JSON.stringify({ states: ['Backlog', 'Next', 'Done'] }));
+      const config = configManager.load();
+
+      expect(config.states.every((s) => typeof s.fileName === 'string')).toBe(true);
+      expect(config.states.map((s) => s.name)).toContain('Backlog');
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    it('repairs a known state that is missing a field', () => {
+      write(JSON.stringify({ states: [{ name: 'Backlog', order: 0 }] }));
+      const config = configManager.load();
+
+      expect(config.states.find((s) => s.name === 'Backlog')?.fileName).toBe('BACKLOG.md');
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    it('falls back to the default board for an unrecognisable entry', () => {
+      write(JSON.stringify({ states: [{ nonsense: true }] }));
+      const config = configManager.load();
+
+      expect(config.states).toHaveLength(5);
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    for (const [label, content] of [
+      ['truncated JSON', '{ "idPrefix": "X", '],
+      ['an empty file', ''],
+      ['a JSON array', '[1,2,3]'],
+      ['a non-array states', JSON.stringify({ states: 'nope' })],
+    ] as Array<[string, string]>) {
+      it(`does not throw on ${label}`, () => {
+        write(content);
+        expect(() => configManager.load()).not.toThrow();
+        expect(configManager.load().states).toHaveLength(5);
+      });
+    }
+
+    it('reports the real problem once, without a spurious states complaint', () => {
+      write('{ broken');
+      configManager.load();
+      const messages = configManager.getDiagnostics().map((d) => d.message);
+
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toContain('could not be parsed');
+    });
+
+    it('reports nothing for a clean config', () => {
+      write(JSON.stringify({ version: 3, idPrefix: 'OK' }));
+      configManager.load();
+      expect(configManager.getDiagnostics()).toEqual([]);
+    });
+  });
+
+  it('saves and loads config', () => {
+    configManager.load();
+    configManager.update({ idPrefix: 'BUG' });
+    configManager.save();
+
+    const newManager = new ConfigManager(tmpDir);
+    const loaded = newManager.load();
+    expect(loaded.idPrefix).toBe('BUG');
+  });
+
+  it('generates incrementing IDs', () => {
+    configManager.load();
+    const id1 = configManager.getNextId();
+    const id2 = configManager.getNextId();
+    expect(id1).toBe('TASK-001');
+    expect(id2).toBe('TASK-002');
+  });
+
+  it('creates directory on save if needed', () => {
+    const nestedDir = path.join(tmpDir, 'nested', '.tasks');
+    const manager = new ConfigManager(nestedDir);
+    manager.load();
+    manager.save();
+    expect(fs.existsSync(path.join(nestedDir, 'config.json'))).toBe(true);
+  });
+
+  it('reconcileNextId bumps nextId up to floor and persists', () => {
+    configManager.load();
+    expect(configManager.get().nextId).toBe(1);
+
+    const changed = configManager.reconcileNextId(42);
+    expect(changed).toBe(true);
+    expect(configManager.get().nextId).toBe(42);
+
+    const reloaded = new ConfigManager(tmpDir);
+    expect(reloaded.load().nextId).toBe(42);
+  });
+
+  it('reconcileNextId is a no-op when floor is not higher', () => {
+    configManager.load();
+    configManager.update({ nextId: 100 });
+    configManager.save();
+
+    expect(configManager.reconcileNextId(50)).toBe(false);
+    expect(configManager.reconcileNextId(100)).toBe(false);
+    expect(configManager.get().nextId).toBe(100);
+  });
+
+  it('reloadFromDisk picks up concurrent writes from another process', () => {
+    configManager.load();
+    expect(configManager.get().nextId).toBe(1);
+
+    const other = new ConfigManager(tmpDir);
+    other.load();
+    other.update({ nextId: 77 });
+    other.save();
+
+    configManager.reloadFromDisk();
+    expect(configManager.get().nextId).toBe(77);
+  });
+
+  it('preserves unknown fields on load', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'config.json'),
+      JSON.stringify({ version: 1, idPrefix: 'CUSTOM', nextId: 50 }),
+    );
+    const config = configManager.load();
+    expect(config.idPrefix).toBe('CUSTOM');
+    expect(config.nextId).toBe(50);
+    // Default fields should fill in (5 states including Rejected)
+    expect(config.states).toHaveLength(5);
+  });
+
+  describe('config field validation', () => {
+    const write = (value: unknown) =>
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify(value));
+
+    it('rejects a non-array priorities instead of handing consumers something that throws', () => {
+      // createTask does config.priorities.map(...); an object here used to crash at use.
+      write({ version: 3, priorities: {} });
+      const config = configManager.load();
+
+      expect(Array.isArray(config.priorities)).toBe(true);
+      expect(config.priorities.length).toBeGreaterThan(0);
+      expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
+    });
+
+    it('repairs every scalar field independently', () => {
+      write({
+        version: 'three',
+        idPrefix: 42,
+        nextId: -5,
+        tags: [1, 2],
+        insertPosition: 'sideways',
+        aiPlanRequired: 'yes',
+      });
+      const config = configManager.load();
+
+      expect(typeof config.idPrefix).toBe('string');
+      expect(config.nextId).toBeGreaterThan(0);
+      expect(config.tags).toEqual([]);
+      expect(config.insertPosition).toBe('top');
+      expect(config.aiPlanRequired).toBe(true);
+      expect(configManager.getDiagnostics().length).toBeGreaterThanOrEqual(6);
+    });
+
+    it('passes unknown keys through so a newer version does not lose settings', () => {
+      write({ version: 3, somethingNew: { nested: true } });
+      configManager.load();
+      configManager.save();
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.somethingNew).toEqual({ nested: true });
+    });
+
+    it('preserves an unreadable config before defaults overwrite it', () => {
+      // Fail-open loading must not become silent data loss: allocating a task ID saves the config,
+      // so the first create used to erase a file the user could still have repaired.
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), '{ broken but precious');
+      configManager.load();
+      configManager.save();
+
+      const backups = fs.readdirSync(tmpDir).filter((f) => f.startsWith('config.invalid-'));
+      expect(backups).toHaveLength(1);
+      expect(fs.readFileSync(path.join(tmpDir, backups[0]), 'utf-8')).toBe('{ broken but precious');
+      expect(configManager.getDiagnostics().some((d) => d.message.includes('preserved'))).toBe(
+        true,
+      );
+    });
+
+    it('does not leave a backup for a config it could read', () => {
+      write({ version: 3, idPrefix: 'OK' });
+      configManager.load();
+      configManager.save();
+
+      expect(fs.readdirSync(tmpDir).filter((f) => f.startsWith('config.invalid-'))).toHaveLength(0);
+    });
+
+    // A writer gating on the flag would otherwise refuse forever, because the only path
+    // that cleared it was save() -> quarantineUnreadable().
+    it('stops reporting a config as unreadable once the file it could not read is gone', () => {
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), '{ broken but precious');
+      configManager.load({ persistMigration: false });
+      expect(configManager.isConfigUnreadable()).toBe(true);
+
+      fs.rmSync(path.join(tmpDir, 'config.json'));
+      configManager.reloadFromDisk();
+
+      expect(configManager.isConfigUnreadable()).toBe(false);
+      expect(configManager.getDiagnostics()).toEqual([]);
+      expect(configManager.get().idPrefix).toBe(createDefaultConfig().idPrefix);
+    });
+
+    // A caller that writes to the board needs to refuse before it puts a default config
+    // where a broken one was, and a diagnostic message is not something to match on.
+    it('reports a config nobody could read apart from one it merely migrated', () => {
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), '{ broken but precious');
+      configManager.load({ persistMigration: false });
+      expect(configManager.isConfigUnreadable()).toBe(true);
+
+      write({ version: 1, idPrefix: 'OK' });
+      configManager.load({ persistMigration: false });
+      expect(configManager.isConfigUnreadable()).toBe(false);
+    });
+  });
+});

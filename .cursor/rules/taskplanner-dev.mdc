@@ -18,8 +18,8 @@ This repo provides markdown-based task tracking stored as `.md` files under `.ta
 
 - `src/core/`: pure logic, no `vscode` dependency
 - `src/extension/`: VS Code extension shell (commands, views, providers, watchers)
-- `src/test/core/`: Vitest unit tests for core logic
-- `src/test/extension/`: integration tests (via `@vscode/test-cli`)
+- `test/core/`: Vitest unit tests for core logic
+- `test/extension/`: integration tests (via `@vscode/test-cli`)
 
 ## Task workflow for agents (task-agent instructions)
 

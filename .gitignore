@@ -10,3 +10,7 @@ out/
 
 # Generated npm package artifacts (built by esbuild.js from src/, published from packages/mcp-server)
 packages/mcp-server/ui/
+
+# Written by Claude Code when it loads plugins/taskplanner with --plugin-dir (mod type declarations)
+plugins/taskplanner/.claude-plugin/types/
+plugins/taskplanner/tsconfig.json
