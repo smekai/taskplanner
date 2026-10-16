@@ -1,8 +1,8 @@
-import { normalizeStates } from '../core/config/configStates.js';
-import { filterAndPaginate } from '../core/filter/taskFilter.js';
-import { DEFAULT_STATES, TaskState } from '../core/model/state.js';
-import type { Task } from '../core/model/task.js';
-import { countTaskHeadings, parseTasks } from '../core/parser/taskParser.js';
+import { normalizeStates } from '../../../../src/core/config/configStates.js';
+import { filterAndPaginate } from '../../../../src/core/filter/taskFilter.js';
+import { DEFAULT_STATES, TaskState } from '../../../../src/core/model/state.js';
+import type { Task } from '../../../../src/core/model/task.js';
+import { countTaskHeadings, parseTasks } from '../../../../src/core/parser/taskParser.js';
 import {
   BoardSnapshot,
   TaskDetail,

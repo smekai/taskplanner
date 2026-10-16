@@ -1,4 +1,4 @@
-import type { StateViewData, TaskViewItem } from '../core/model/messages.js';
+import type { StateViewData, TaskViewItem } from '../../../../src/core/model/messages.js';
 import type { McpToolResult } from './modApi.js';
 
 export const IN_PROGRESS_STATE = 'In Progress';

@@ -1,4 +1,4 @@
-import type { TaskViewItem } from '../core/model/messages.js';
+import type { TaskViewItem } from '../../../../src/core/model/messages.js';
 import type { ChildNode, ElementNode, Elements, TextProps } from './modApi.js';
 import {
   BoardSnapshot,

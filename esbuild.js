@@ -151,7 +151,7 @@ async function main() {
   });
 
   const claudeModCtx = await esbuild.context({
-    entryPoints: ['src/claude-mod/register.ts'],
+    entryPoints: ['plugins/taskplanner/mod/src/register.ts'],
     outfile: claudeModOut,
     bundle: true,
     format: 'esm',

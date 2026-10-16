@@ -23,8 +23,8 @@ import {
   taskMarkdown,
   startPrompt,
   truncate,
-} from '../../src/claude-mod/boardModel.js';
-import { Priority } from '../../src/core/model/task.js';
+} from '../src/boardModel.js';
+import { Priority } from '../../../../src/core/model/task.js';
 
 function task(id: string, title = 'A task') {
   return { id, title, priority: Priority.P2, tags: [], description: '' };

@@ -1,4 +1,4 @@
-// src/claude-mod/boardModel.ts
+// plugins/taskplanner/mod/src/boardModel.ts
 var IN_PROGRESS_STATE = "In Progress";
 var COMPLETED_STATES = ["Done", "Rejected"];
 var BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
@@ -543,7 +543,7 @@ function countTaskHeadings(rawContent) {
   return headingIds(rawContent).length;
 }
 
-// src/claude-mod/boardReader.ts
+// plugins/taskplanner/mod/src/boardReader.ts
 var BOARD_TASK_LIMIT = 50;
 function withoutBom(text) {
   return text.charCodeAt(0) === 65279 ? text.slice(1) : text;
@@ -599,7 +599,7 @@ function taskDetailOf({ task, state }) {
   };
 }
 
-// src/claude-mod/paneView.ts
+// plugins/taskplanner/mod/src/paneView.ts
 var MAX_DIGIT_HOTKEYS = 9;
 var MIN_LABEL_WIDTH = 12;
 var BAND_BUTTON_ROOM = 8;
@@ -998,7 +998,7 @@ function renderBand(el, task, columns, below, onOpen) {
   });
 }
 
-// src/claude-mod/register.ts
+// plugins/taskplanner/mod/src/register.ts
 var PANE_ID = "taskplanner";
 var PANE_TITLE = "TaskPlanner";
 var SERVER_KEY = "taskplanner";

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ElementNode, Elements } from '../../src/claude-mod/modApi.js';
-import type { BoardSnapshot } from '../../src/claude-mod/boardModel.js';
-import { PaneActions, PaneModel, renderBand, renderPane, slug } from '../../src/claude-mod/paneView.js';
-import { Priority } from '../../src/core/model/task.js';
+import type { ElementNode, Elements } from '../src/modApi.js';
+import type { BoardSnapshot } from '../src/boardModel.js';
+import { PaneActions, PaneModel, renderBand, renderPane, slug } from '../src/paneView.js';
+import { Priority } from '../../../../src/core/model/task.js';
 
 function element(type: string) {
   return (props: Record<string, unknown>): ElementNode => {

@@ -241,7 +241,7 @@
     "release:check": "npm run build && npm run lint && npm test && npm run validate:versions && npm run validate:cursor-plugin && npm run validate:codex-plugin && npm run validate:claude-plugin && npm run package:codex-skills && npm run validate:codex-submission && npm run smoke:mcp-server",
     "test": "node scripts/run-vitest.js run",
     "test:watch": "node scripts/run-vitest.js",
-    "lint": "eslint src test --ext ts && node scripts/check-comments.js",
+    "lint": "eslint src test plugins/taskplanner/mod/src plugins/taskplanner/mod/test --ext ts && node scripts/check-comments.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"plugins/taskplanner/mod/**/*.ts\" \"esbuild.js\"",
     "package": "node scripts/package-vsix.js",
     "package:codex-skills": "node scripts/package-codex-skills.js"
