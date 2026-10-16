@@ -175,7 +175,7 @@ Project configuration lives in `.tasks/config.json`:
 ```json
 {
   "version": 3,
-  "taskplannerVersion": "2.5.0",
+  "taskplannerVersion": "<version>",
   "idPrefix": "TASK",
   "nextId": 1,
   "states": [

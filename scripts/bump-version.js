@@ -28,8 +28,6 @@ const mcpPackageBundlePath = path.resolve(
 );
 const versionTextPaths = [
   path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.codex-plugin', 'submission.json'),
-  path.resolve(__dirname, '..', 'docs', 'CODEX_PLUGIN_SUBMISSION.md'),
-  path.resolve(__dirname, '..', 'CONTRIBUTING.md'),
 ];
 const pluginManifestPaths = [
   path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
@@ -109,7 +107,10 @@ for (const bundlePath of [mcpBundlePath, mcpPackageBundlePath]) {
 for (const skillPath of skillVersionPaths) {
   if (!fs.existsSync(skillPath)) continue;
   const source = fs.readFileSync(skillPath, 'utf8');
-  const updated = source.replaceAll(previousVersion, pkg.version);
+  const updated = source.replace(
+    /<!-- TASKPLANNER:VERSION:[^ >]+ -->/,
+    `<!-- TASKPLANNER:VERSION:${pkg.version} -->`,
+  );
   fs.writeFileSync(skillPath, updated);
 }
 
