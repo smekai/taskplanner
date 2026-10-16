@@ -4,7 +4,7 @@ VS Code / Cursor extension for markdown task tracking under `.tasks/`. Core is V
 
 **Stack:** TypeScript (strict), esbuild, Vitest, ESLint, Prettier.
 
-**Layout:** `src/core/` (library), `src/extension/` (VS Code shell), `src/test/core/`, `plugins/taskplanner/`, `packages/mcp-server/`, `dist/`.
+**Layout:** `src/core/` (library), `src/extension/` (VS Code shell), `test/` (Vitest), `plugins/taskplanner/`, `packages/mcp-server/`, `dist/`.
 
 ```bash
 npm install && npm run build && npm test && npm run lint
@@ -18,7 +18,7 @@ npm run release:check    # full pre-release gate
 
 **Architecture:** one markdown file per state; config in `.tasks/config.json`; dates UTC via `src/core/util/time.ts` (`YYYY-MM-DD` / `YYYY-MM-DD HH:MM` only).
 
-**Comments:** `npm run lint` fails on comments in `src/` outside `src/test/` (machine directives exempt; `WHY:` escape hatch). Prefer clearer names over comments.
+**Comments:** `npm run lint` fails on comments in `src/`; tests in `test/` are exempt (machine directives exempt; `WHY:` escape hatch). Prefer clearer names over comments.
 
 <!-- TASKPLANNER:START -->
 # TaskPlanner — AI Agent Instructions

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Priority, Task } from '../../core/model/task.js';
-import { TaskState } from '../../core/model/state.js';
-import { detectDuplicates, resolveConflict } from '../../core/validation/duplicateDetector.js';
+import { Priority, Task } from '../../src/core/model/task.js';
+import { TaskState } from '../../src/core/model/state.js';
+import { detectDuplicates, resolveConflict } from '../../src/core/validation/duplicateDetector.js';
 
 function task(id: string, title: string, updatedAt?: string): Task {
   return {

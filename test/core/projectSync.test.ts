@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ConfigManager } from '../../core/config/configManager.js';
+import { ConfigManager } from '../../src/core/config/configManager.js';
 import {
   compareTaskPlannerVersions,
   normalizeTaskPlannerVersion,
   synchronizeTaskPlannerProject,
-} from '../../core/project/projectSync.js';
+} from '../../src/core/project/projectSync.js';
 
 describe('TaskPlanner project version comparison', () => {
   it('normalizes Codex cachebusters and other SemVer build metadata', () => {

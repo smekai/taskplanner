@@ -149,10 +149,10 @@ src/
 │                   # Models, parser, serializer, stores, config
 ├── extension/      # VS Code extension shell
 │                   # Commands, views, providers, watchers
-├── claude-mod/     # Claude Code mod (board pane), bundled to plugins/taskplanner/hooks/register.js
-├── test/
-│   ├── core/       # Vitest unit tests for core library
-│   └── extension/  # VS Code integration tests
+└── claude-mod/     # Claude Code mod (board pane), bundled to plugins/taskplanner/hooks/register.js
+test/
+├── core/           # Vitest unit tests for the core library
+└── claude-mod/     # Vitest unit tests for the Claude Code mod
 resources/          # SVG icons and templates
 plugins/taskplanner/ # Shared Cursor/Codex/Claude Code plugin source and manifests
 dist/               # Generated output (extension bundle and release packages)
@@ -212,7 +212,7 @@ cannot reveal tasks inserted into files that have not been read.
 
 ## Testing
 
-- **Unit tests** — run `npm test` (Vitest). Tests live in `src/test/core/` and `src/test/claude-mod/`.
+- **Unit tests** — run `npm test` (Vitest). Tests live in `test/core/` and `test/claude-mod/`, outside `src/`.
 - **Claude Code mod** — `src/claude-mod/register.ts` is the only file that touches the mods API (`$`). `boardModel.ts`, `boardReader.ts` and `paneView.ts` are pure, so Vitest covers them. The mod reads `.tasks/` itself with the core parser (`$.fs` needs no tool permission) and writes only through the MCP server's `taskplanner_move` and `taskplanner_create`, called from its `ui.press` and `ui.input` hooks: a `$` call from a timer or an `onPress` closure skips the mod's own `tool.check` hook, so it could not approve it there. `npm run build` bundles the mod unminified into `plugins/taskplanner/hooks/register.js`, so `claude plugin validate` can scan it and users can audit it. `npm run validate:claude-plugin` runs `claude plugin validate` and the kit tests in `plugins/taskplanner/tests/` against Claude Code itself (set `CLAUDE_BIN` if `claude` is not on PATH). To try the pane, run `claude --plugin-dir plugins/taskplanner` in this repository and then `/taskplanner:board` or `/taskboard`. For the Desktop Code tab, add the plugin folder to `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`'s `env`, or install from this repository as a local marketplace.
 
 ## Code Style
@@ -233,7 +233,7 @@ Comments are welcome in tests, where a name plus a short note explains the failu
 against better than a comment beside the code it guards.
 
 This is enforced, not merely advised: `npm run lint` runs `scripts/check-comments.js`, which fails
-the build on any comment in `src/` outside `src/test/`. Machine directives (`eslint-disable`,
+the build on any comment in `src/`; tests in `test/` are exempt. Machine directives (`eslint-disable`,
 `@ts-expect-error`, `prettier-ignore`) are exempt. When a comment really is the right answer,
 prefix it with `WHY:` and state the reason; the check reports how many such comments exist, so the
 exceptions stay countable and reviewable.

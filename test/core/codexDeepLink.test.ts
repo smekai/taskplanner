@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCodexDeepLink } from '../../core/ai/codexDeepLink.js';
+import { buildCodexDeepLink } from '../../src/core/ai/codexDeepLink.js';
 
 describe('buildCodexDeepLink', () => {
   it('prefills Plan mode, the TaskPlanner plugin, prompt, and workspace path', () => {

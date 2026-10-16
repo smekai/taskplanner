@@ -4,16 +4,16 @@ import {
   findTaskLineNumber,
   countTaskHeadings,
   maxTaskIdNumber,
-} from '../../core/parser/taskParser.js';
-import { serializeTask } from '../../core/parser/taskSerializer.js';
+} from '../../src/core/parser/taskParser.js';
+import { serializeTask } from '../../src/core/parser/taskSerializer.js';
 import {
   isWaiting,
   currentDate,
   currentTimestamp,
   parseTimestamp,
   daysSince,
-} from '../../core/util/time.js';
-import { Priority } from '../../core/model/task.js';
+} from '../../src/core/util/time.js';
+import { Priority } from '../../src/core/model/task.js';
 
 describe('parseTasks', () => {
   it('parses a single task', () => {

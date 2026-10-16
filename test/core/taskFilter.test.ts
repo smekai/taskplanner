@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { filterAndPaginate, groupTasks, sortTasks } from '../../core/filter/taskFilter.js';
-import { Task, Priority } from '../../core/model/task.js';
-import { TaskState } from '../../core/model/state.js';
-import { GROUP_BY_VALUES } from '../../core/model/messages.js';
+import { filterAndPaginate, groupTasks, sortTasks } from '../../src/core/filter/taskFilter.js';
+import { Task, Priority } from '../../src/core/model/task.js';
+import { TaskState } from '../../src/core/model/state.js';
+import { GROUP_BY_VALUES } from '../../src/core/model/messages.js';
 import * as fs from 'fs';
 
 const states: TaskState[] = [

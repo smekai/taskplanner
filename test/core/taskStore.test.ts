@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ConfigManager } from '../../core/config/configManager.js';
-import { FileStore } from '../../core/store/fileStore.js';
-import { TaskStore } from '../../core/store/taskStore.js';
-import { Priority } from '../../core/model/task.js';
+import { ConfigManager } from '../../src/core/config/configManager.js';
+import { FileStore } from '../../src/core/store/fileStore.js';
+import { TaskStore } from '../../src/core/store/taskStore.js';
+import { Priority } from '../../src/core/model/task.js';
 
 describe('TaskStore', () => {
   let tmpDir: string;

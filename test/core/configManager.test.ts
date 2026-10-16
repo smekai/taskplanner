@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ConfigManager } from '../../core/config/configManager.js';
-import { createDefaultConfig } from '../../core/model/config.js';
+import { ConfigManager } from '../../src/core/config/configManager.js';
+import { createDefaultConfig } from '../../src/core/model/config.js';
 
 describe('ConfigManager', () => {
   let tmpDir: string;

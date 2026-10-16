@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { serializeTask, serializeStateFile } from '../../core/parser/taskSerializer.js';
-import { Task, Priority } from '../../core/model/task.js';
+import { serializeTask, serializeStateFile } from '../../src/core/parser/taskSerializer.js';
+import { Task, Priority } from '../../src/core/model/task.js';
 
 describe('serializeTask', () => {
   it('serializes a full task with metadata on one line', () => {

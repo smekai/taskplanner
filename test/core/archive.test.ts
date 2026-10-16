@@ -2,17 +2,17 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { ConfigManager } from '../../core/config/configManager.js';
-import { FileStore } from '../../core/store/fileStore.js';
-import { TaskStore } from '../../core/store/taskStore.js';
+import { ConfigManager } from '../../src/core/config/configManager.js';
+import { FileStore } from '../../src/core/store/fileStore.js';
+import { TaskStore } from '../../src/core/store/taskStore.js';
 import {
   TASK_ARCHIVE,
   WORK_LOG_ARCHIVE,
   archiveFileName,
   isArchivable,
   splitWorkLog,
-} from '../../core/store/archive.js';
-import { Priority, Task } from '../../core/model/task.js';
+} from '../../src/core/store/archive.js';
+import { Priority, Task } from '../../src/core/model/task.js';
 
 const NOW = new Date('2026-08-27T12:00:00Z');
 

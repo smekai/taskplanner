@@ -4,8 +4,8 @@ import {
   buildBoard,
   readConfigStates,
   taskDetailOf,
-} from '../../claude-mod/boardReader.js';
-import { DEFAULT_STATES } from '../../core/model/state.js';
+} from '../../src/claude-mod/boardReader.js';
+import { DEFAULT_STATES } from '../../src/core/model/state.js';
 
 function section(id: string, title: string, priority: string, extra = ''): string {
   return `## ${id}: ${title}\n**Priority:** ${priority}${extra}\n\nAbout ${title}.\n\n---\n`;

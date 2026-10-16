@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldAutomateCursorPlanMode } from '../../core/ai/planMode.js';
+import { shouldAutomateCursorPlanMode } from '../../src/core/ai/planMode.js';
 
 describe('shouldAutomateCursorPlanMode', () => {
   it('enables Cursor automation only when planning and automation are enabled', () => {

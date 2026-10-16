@@ -9,8 +9,8 @@ import {
   parsePriority,
   splitFieldGroup,
   taskHeadingOf,
-} from '../../core/parser/grammar.js';
-import { Priority } from '../../core/model/task.js';
+} from '../../src/core/parser/grammar.js';
+import { Priority } from '../../src/core/model/task.js';
 
 describe('task headings', () => {
   it.each([

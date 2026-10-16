@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { composeImplementationPrompt } from '../../core/ai/promptComposer.js';
-import { Task, Priority } from '../../core/model/task.js';
-import { TaskPlannerConfig, createDefaultConfig } from '../../core/model/config.js';
+import { composeImplementationPrompt } from '../../src/core/ai/promptComposer.js';
+import { Task, Priority } from '../../src/core/model/task.js';
+import { TaskPlannerConfig, createDefaultConfig } from '../../src/core/model/config.js';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {

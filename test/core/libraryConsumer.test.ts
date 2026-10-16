@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { boardExists, openBoard } from '../../core/store/openBoard.js';
-import { renderWorkLogEntry } from '../../core/store/archive.js';
-import { renderBoardDigest } from '../../core/ai/boardDigest.js';
-import { Priority, Task } from '../../core/model/task.js';
+import { boardExists, openBoard } from '../../src/core/store/openBoard.js';
+import { renderWorkLogEntry } from '../../src/core/store/archive.js';
+import { renderBoardDigest } from '../../src/core/ai/boardDigest.js';
+import { Priority, Task } from '../../src/core/model/task.js';
 
 // The surface a program consumes this package through, rather than the editor. Each of
 // these existed inside TaskPlanner already and was being re-derived by a consumer.

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseTasks } from '../../core/parser/taskParser.js';
-import { serializeBoard, serializeTask } from '../../core/parser/taskSerializer.js';
-import { Task, Priority } from '../../core/model/task.js';
+import { parseTasks } from '../../src/core/parser/taskParser.js';
+import { serializeBoard, serializeTask } from '../../src/core/parser/taskSerializer.js';
+import { Task, Priority } from '../../src/core/model/task.js';
 
 function task(overrides: Partial<Task> = {}): Task {
   return {

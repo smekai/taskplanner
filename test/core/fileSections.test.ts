@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitSections } from '../../core/parser/fileSections.js';
+import { splitSections } from '../../src/core/parser/fileSections.js';
 
 describe('file section boundaries', () => {
   it('an unterminated task ends where the next one begins', () => {

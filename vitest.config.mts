@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['src/test/{core,claude-mod}/**/*.test.ts'],
+    include: ['test/**/*.test.ts', 'plugins/taskplanner/mod/test/**/*.spec.ts'],
     globals: true,
   },
 });

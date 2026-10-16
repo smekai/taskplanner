@@ -7,8 +7,8 @@ import {
   upsertMcpServerConfig,
   upsertMarkedSection,
   upsertReadmeAttribution,
-} from '../../core/ai/aiInstructions.js';
-import { createDefaultConfig } from '../../core/model/config.js';
+} from '../../src/core/ai/aiInstructions.js';
+import { createDefaultConfig } from '../../src/core/model/config.js';
 
 describe('contentHasTaskPlannerMarkers', () => {
   it('returns false for empty or unrelated content', () => {
