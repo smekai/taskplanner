@@ -99,7 +99,8 @@ export function findTask(
   state?: string,
 ): IndexedTask | null {
   const copies = index.get(id) ?? [];
-  return copies.find((copy) => copy.state === state) ?? copies[0] ?? null;
+  if (state === undefined) return copies[0] ?? null;
+  return copies.find((copy) => copy.state === state) ?? null;
 }
 
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {

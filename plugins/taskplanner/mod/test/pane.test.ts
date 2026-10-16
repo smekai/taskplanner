@@ -15,6 +15,20 @@ function section(id: string, title: string, priority: string, body: string) {
   return `## ${id}: ${title}\n**Priority:** ${priority} | **Tags:** ui\n\n${body}\n\n---\n`;
 }
 
+// Stands in for the server's move, so a reload after a move sees the task in its new file.
+function moveSection(files: Record<string, string>, id: string, target: string) {
+  const fileName = STATES.find((state) => state.name === target)?.fileName;
+  if (!fileName) return;
+  for (const [name, text] of Object.entries(files)) {
+    const start = text.indexOf(`## ${id}:`);
+    if (start < 0) continue;
+    const end = text.indexOf('---\n', start) + '---\n'.length;
+    files[name] = text.slice(0, start) + text.slice(end);
+    files[fileName] = `${files[fileName] ?? `# ${target}\n\n`}${text.slice(start, end)}`;
+    return;
+  }
+}
+
 function boardFiles(): Record<string, string> {
   return {
     'config.json': JSON.stringify({ version: 3, idPrefix: 'TASK', nextId: 5, states: STATES }),
@@ -73,6 +87,7 @@ function engine(
     surfaces?: string[];
     takenCommands?: string[];
     cwd?: string;
+    boardRoots?: string[];
     backlogTasks?: number;
   } = {},
 ) {
@@ -91,6 +106,8 @@ function engine(
   const clock = mock.clock(on);
   let mtimeMs = 1000;
   let gate: Promise<void> | null = null;
+  let cwd = options.cwd ?? ROOT;
+  const boardRoots = options.boardRoots ?? [ROOT];
   on('session.start', () => ({ cwd: ROOT }));
   on('command.register', ($: unknown, e: { name: string }) => {
     if (options.takenCommands?.includes(e.name)) return { deny: `/${e.name} is taken` };
@@ -98,11 +115,13 @@ function engine(
     return { value: undefined };
   });
   on('session.root', () => ({ value: ROOT }));
-  on('session.cwd', () => ({ value: options.cwd ?? ROOT }));
+  on('session.cwd', () => ({ value: cwd }));
   on('session.version', () => ({ value: { version: '2.1.292' } }));
   on('session.surfaces', () => ({ value: options.surfaces ?? ['desktop'] }));
   on('fs.exists', ($: unknown, e: { path: string }) => ({
-    value: (options.hasBoard ?? true) && posixPath(e.path) === `${ROOT}/.tasks/config.json`,
+    value:
+      (options.hasBoard ?? true) &&
+      boardRoots.some((root) => posixPath(e.path) === `${root}/.tasks/config.json`),
   }));
   on('fs.read', async ($: unknown, e: { path: string }) => {
     if (gate) await gate;
@@ -138,6 +157,9 @@ function engine(
         },
       };
     }
+    if (e.tool === 'taskplanner_move')
+      moveSection(files, String(e.args.task_id), String(e.args.target_state));
+    mtimeMs += 1000;
     return { value: { content: [{ type: 'text', text: 'Moved' }], isError: false } };
   });
   on('prompt.fill', ($: unknown, e: { text: string }) => {
@@ -158,6 +180,9 @@ function engine(
   const configReads = () => reads.filter((name) => name === 'config.json').length;
   const touch = () => {
     mtimeMs += 1000;
+  };
+  const changeDirectory = (path: string) => {
+    cwd = path;
   };
   const holdReads = () => {
     let release = () => {};
@@ -181,6 +206,7 @@ function engine(
     configReads,
     touch,
     holdReads,
+    changeDirectory,
   };
 }
 
@@ -252,10 +278,12 @@ test('a task opens from the files, moves through the server, and starts a Claude
 
   await ui.press({ key: 'start' });
   expect(world.submitted).toEqual([
-    'Continue TASK-001 (First task) following the TaskPlanner workflow.',
+    'Work on TASK-001 (First task) following the TaskPlanner workflow.',
   ]);
 
   await ui.press({ key: 'back' });
+  expect(await ui.find({ key: 'task-TASK-001' })).toBeUndefined();
+  await ui.press({ key: 'tab-next' });
   expect(await ui.find({ key: 'task-TASK-001' })).toBeDefined();
 });
 
@@ -480,4 +508,19 @@ test('a task created while the board is reloading still opens', async ($, on) =>
   expect(await ui.find({ type: 'Text', text: 'Created mid-reload' })).toBeDefined();
   expect(await ui.find({ key: 'edit' })).toBeDefined();
   expect(await ui.find({ key: 'move-backlog' })).toBeUndefined();
+});
+
+test('after /cd to another project the pane reads and writes the new board', async ($, on) => {
+  const world = engine(on, { boardRoots: [ROOT, '/other'] });
+  await startSession($, world.clock);
+  await $.command.run({ command: 'taskboard', args: '' });
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+  expect(await ui.find({ key: 'task-TASK-001' })).toBeDefined();
+
+  world.changeDirectory('/other');
+  await $.tool.call({ tool: 'Edit', file_path: '/other/.tasks/BACKLOG.md' });
+  await world.clock.settle();
+  await ui.press({ key: 'task-TASK-001' });
+  await ui.press({ key: 'move-next' });
+  expect(world.calls[0]?.args.workspace_root).toBe('/other');
 });

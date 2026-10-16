@@ -46,6 +46,7 @@ interface TaskRef {
 
 let serverName: string | null = null;
 let boardRoot: string | null = null;
+let boardSearchFrom: string | null = null;
 let board: BoardSnapshot | null = null;
 let taskIndex = new Map<string, IndexedTask[]>();
 let issueCount = 0;
@@ -76,19 +77,29 @@ async function hasBoardAt($: Engine, dir: string): Promise<boolean> {
   return $.fs.exists(joinPath(dir, '.tasks', 'config.json'));
 }
 
-async function locateBoard($: Engine): Promise<string | null> {
-  if (boardRoot && (await hasBoardAt($, boardRoot))) return boardRoot;
-  const starts = [await $.session.cwd(), await $.session.root()];
+async function findBoardRoot($: Engine, starts: readonly string[]): Promise<string | null> {
   for (const start of starts) {
     for (const dir of ancestorDirs(start)) {
-      if (await hasBoardAt($, dir)) {
-        boardRoot = dir;
-        return dir;
-      }
+      if (await hasBoardAt($, dir)) return dir;
     }
   }
-  boardRoot = null;
   return null;
+}
+
+async function locateBoard($: Engine): Promise<string | null> {
+  const starts = [await $.session.cwd(), await $.session.root()];
+  const searchFrom = starts.join('|');
+  if (searchFrom === boardSearchFrom && boardRoot && (await hasBoardAt($, boardRoot))) {
+    return boardRoot;
+  }
+  boardSearchFrom = searchFrom;
+  const found = await findBoardRoot($, starts);
+  if (found !== boardRoot) {
+    forgetBoard();
+    expandedStates.clear();
+  }
+  boardRoot = found;
+  return found;
 }
 
 async function callTaskplanner(
@@ -97,7 +108,7 @@ async function callTaskplanner(
   args: Record<string, unknown>,
 ): Promise<McpToolResult> {
   const server = await connectServer($);
-  const root = boardRoot ?? (await $.session.root());
+  const root = board?.workspaceRoot ?? boardRoot ?? (await $.session.root());
   return $.mcp.call(server, tool, { workspace_root: root, ...args });
 }
 
@@ -474,6 +485,7 @@ export function register(on: On): void {
     const result = await next(e);
     if (e.id === PANE_ID) {
       detail = null;
+      expandedStates.clear();
       stopPolling();
     }
     return result;

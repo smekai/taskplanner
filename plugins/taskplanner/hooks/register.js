@@ -621,7 +621,8 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
 }
 function findTask(index, id, state) {
   const copies = index.get(id) ?? [];
-  return copies.find((copy) => copy.state === state) ?? copies[0] ?? null;
+  if (state === void 0) return copies[0] ?? null;
+  return copies.find((copy) => copy.state === state) ?? null;
 }
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
@@ -1061,6 +1062,7 @@ var POLL_INTERVAL_MS = 5e3;
 var MISSING_BOARD_TEXT = "No .tasks/ board in this folder or above it.";
 var serverName = null;
 var boardRoot = null;
+var boardSearchFrom = null;
 var board = null;
 var taskIndex = /* @__PURE__ */ new Map();
 var issueCount = 0;
@@ -1088,23 +1090,32 @@ async function connectServer($) {
 async function hasBoardAt($, dir) {
   return $.fs.exists(joinPath(dir, ".tasks", "config.json"));
 }
-async function locateBoard($) {
-  if (boardRoot && await hasBoardAt($, boardRoot)) return boardRoot;
-  const starts = [await $.session.cwd(), await $.session.root()];
+async function findBoardRoot($, starts) {
   for (const start of starts) {
     for (const dir of ancestorDirs(start)) {
-      if (await hasBoardAt($, dir)) {
-        boardRoot = dir;
-        return dir;
-      }
+      if (await hasBoardAt($, dir)) return dir;
     }
   }
-  boardRoot = null;
   return null;
+}
+async function locateBoard($) {
+  const starts = [await $.session.cwd(), await $.session.root()];
+  const searchFrom = starts.join("|");
+  if (searchFrom === boardSearchFrom && boardRoot && await hasBoardAt($, boardRoot)) {
+    return boardRoot;
+  }
+  boardSearchFrom = searchFrom;
+  const found = await findBoardRoot($, starts);
+  if (found !== boardRoot) {
+    forgetBoard();
+    expandedStates.clear();
+  }
+  boardRoot = found;
+  return found;
 }
 async function callTaskplanner($, tool, args) {
   const server = await connectServer($);
-  const root = boardRoot ?? await $.session.root();
+  const root = board?.workspaceRoot ?? boardRoot ?? await $.session.root();
   return $.mcp.call(server, tool, { workspace_root: root, ...args });
 }
 async function readTextOrEmpty($, path) {
@@ -1444,6 +1455,7 @@ function register(on) {
     const result = await next(e);
     if (e.id === PANE_ID) {
       detail = null;
+      expandedStates.clear();
       stopPolling();
     }
     return result;

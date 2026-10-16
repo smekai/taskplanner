@@ -127,7 +127,7 @@ ${section('TASK-009', 'Just finished', 'P3')}${section('TASK-001', 'Long ago', '
 });
 
 describe('findTask', () => {
-  it('keeps both copies of a duplicated id and prefers the one in the asked state', () => {
+  it('keeps both copies of a duplicated id and finds only the one in the asked state', () => {
     const files = new Map([
       [
         'BACKLOG.md',
@@ -145,7 +145,8 @@ ${section('TASK-007', 'Next copy', 'P2')}`,
     const { tasks } = buildBoard(DEFAULT_STATES, files, COLLAPSED, null);
     expect(findTask(tasks, 'TASK-007', 'Backlog')?.task.title).toBe('Backlog copy');
     expect(findTask(tasks, 'TASK-007', 'Next')?.task.title).toBe('Next copy');
-    expect(findTask(tasks, 'TASK-007', 'Done')?.task.title).toBe('Backlog copy');
+    expect(findTask(tasks, 'TASK-007', 'Done')).toBeNull();
+    expect(findTask(tasks, 'TASK-007')?.task.title).toBe('Backlog copy');
     expect(findTask(tasks, 'TASK-404')).toBeNull();
   });
 });
