@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ElementNode, Elements } from '../src/modApi.js';
 import type { BoardSnapshot } from '../src/boardModel.js';
-import { PaneActions, PaneModel, renderBand, renderPane, slug } from '../src/paneView.js';
+import {
+  PaneActions,
+  PaneModel,
+  renderBand,
+  renderPane,
+  renderSetUpBand,
+  slug,
+} from '../src/paneView.js';
 import { Priority } from '../../../../src/core/model/task.js';
 
 function element(type: string) {
@@ -98,6 +105,7 @@ function actions(): PaneActions {
     setDraftPriority: vi.fn(),
     setDraftState: vi.fn(),
     create: vi.fn(),
+    setUp: vi.fn(),
   };
 }
 
@@ -167,10 +175,13 @@ describe('renderPane list view', () => {
     expect(handlers.refresh).toHaveBeenCalled();
   });
 
-  it('explains a missing board instead of listing', () => {
-    const tree = renderPane(el, model({ board: null, isMissingBoard: true }), actions());
+  it('offers to set up a board where there is none instead of listing', () => {
+    const handlers = actions();
+    const tree = renderPane(el, model({ board: null, isMissingBoard: true }), handlers);
     expect(texts(tree)).toContain('No .tasks/ board in this folder or above it.');
     expect(byKey(tree, 'tab-backlog')).toBeUndefined();
+    press(tree, 'set-up');
+    expect(handlers.setUp).toHaveBeenCalled();
   });
 
   it('shows a loading line before the first board arrives', () => {
@@ -272,14 +283,48 @@ describe('renderPane on the desktop surface', () => {
 });
 
 describe('renderBand', () => {
-  it('keeps what was drawn below and adds the task with a Board button', () => {
-    const onOpen = vi.fn();
-    const below = el.Text({ children: ['other band'] });
-    const tree = renderBand(el, BOARD.states[2].tasks[0], 80, below, onOpen);
+  const below = el.Text({ children: ['other band'] });
+  const bandActions = () => ({ open: vi.fn(), start: vi.fn() });
+
+  it('keeps what was drawn below and adds the task in progress with only a Board button', () => {
+    const handlers = bandActions();
+    const task = { id: 'TASK-001', title: 'First', state: 'In Progress' };
+    const tree = renderBand(el, task, 80, below, handlers);
     expect(tree.children?.[0]).toBe(below);
     expect(texts(tree)).toContain('▶ TASK-001 · First');
+    expect(byKey(tree, 'taskplanner-start')).toBeUndefined();
     press(tree, 'taskplanner-board');
-    expect(onOpen).toHaveBeenCalled();
+    expect(handlers.open).toHaveBeenCalled();
+  });
+
+  it('labels a planned task as next and offers to start it', () => {
+    const handlers = bandActions();
+    const task = { id: 'TASK-002', title: 'Second', state: 'Backlog' };
+    const tree = renderBand(el, task, 80, below, handlers);
+    expect(texts(tree)).toContain('Next · TASK-002 · Second');
+    press(tree, 'taskplanner-start');
+    expect(handlers.start).toHaveBeenCalled();
+  });
+
+  it('leaves room for both buttons when it truncates', () => {
+    const task = {
+      id: 'TASK-002',
+      title: 'A very long backlog task title that cannot fit',
+      state: 'Next',
+    };
+    const [label] = texts(renderBand(el, task, 40, below, bandActions())).slice(-1);
+    expect(label).toHaveLength(24);
+    expect(label.endsWith('…')).toBe(true);
+  });
+
+  it('offers setup where there is no board, keeping what was drawn below', () => {
+    const onSetUp = vi.fn();
+    const tree = renderSetUpBand(el, 80, below, onSetUp);
+    expect(tree.children?.[0]).toBe(below);
+    expect(texts(tree)).toContain('TaskPlanner · no board here');
+    expect(byKey(tree, 'taskplanner-board')).toBeUndefined();
+    press(tree, 'taskplanner-set-up');
+    expect(onSetUp).toHaveBeenCalled();
   });
 });
 

@@ -11,7 +11,6 @@ import {
   createdTaskId,
   editPrompt,
   errorMessage,
-  inProgressTask,
   isCompletedState,
   isOwnPlugin,
   joinPath,
@@ -19,6 +18,7 @@ import {
   paneCheckDecision,
   pickTab,
   resultText,
+  SETUP_PROMPT,
   shouldRefreshAfterTool,
   startDraft,
   startPrompt,
@@ -28,10 +28,11 @@ import {
   IndexedTask,
   buildBoard,
   findTask,
+  focusTask,
   readConfigStates,
   taskDetailOf,
 } from './boardReader.js';
-import { renderBand, renderPane } from './paneView.js';
+import { renderBand, renderPane, renderSetUpBand } from './paneView.js';
 
 const PANE_ID = 'taskplanner';
 const PANE_TITLE = 'TaskPlanner';
@@ -432,17 +433,34 @@ export function register(on: On): void {
         create: () => {
           void createTask($);
         },
+        setUp: () => {
+          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+        },
       },
     );
   });
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const task = e.props.hasSurvey ? null : inProgressTask(board);
-    if (!task) return next(e);
+    if (e.props.hasSurvey) return next(e);
+    if (isMissingBoard) {
+      const elements = $.ui.resolve(e);
+      const below = await next(e);
+      return renderSetUpBand(elements, e.props.bodyColumns, below, () => {
+        void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+      });
+    }
+    const focus = focusTask(board, taskIndex);
+    if (!focus) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);
-    return renderBand(elements, task, e.props.bodyColumns, below, () => {
-      void openPane($);
+    const band = { id: focus.task.id, title: focus.task.title, state: focus.state };
+    return renderBand(elements, band, e.props.bodyColumns, below, {
+      open: () => {
+        void openPane($);
+      },
+      start: () => {
+        void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
+      },
     });
   });
 

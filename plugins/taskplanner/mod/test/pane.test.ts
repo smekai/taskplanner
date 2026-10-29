@@ -344,23 +344,45 @@ test('the band shows the In Progress task beside what others draw and opens the 
   }
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  expect(await band.find({ key: 'taskplanner-start' })).toBeUndefined();
   await band.press({ key: 'taskplanner-board' });
   expect(world.opened).toEqual(['taskplanner']);
 });
 
-test('a folder without .tasks/ stays silent', async ($, on) => {
+test('with nothing in progress the band offers the next task to start', async ($, on) => {
+  const world = engine(on);
+  delete world.files['IN_PROGRESS.md'];
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  expect(await band.find({ type: 'Text', text: /Next · TASK-002 · Second task/ })).toBeDefined();
+  await band.press({ key: 'taskplanner-start' });
+  expect(world.submitted).toEqual([
+    'Work on TASK-002 (Second task) following the TaskPlanner workflow.',
+  ]);
+  expect(world.calls).toEqual([]);
+});
+
+test('a folder without .tasks/ offers setup in the band and the pane, reading nothing', async ($, on) => {
   const world = engine(on, { hasBoard: false });
   await startSession($, world.clock);
   expect(world.reads).toEqual([]);
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
   expect(await band.find({ type: 'Text', text: /TASK-/ })).toBeUndefined();
+  expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
+  expect(await band.find({ type: 'Text', text: 'drawn by Claude Code' })).toBeDefined();
+  await band.press({ key: 'taskplanner-set-up' });
 
   await $.command.run({ command: 'taskboard', args: '' });
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
   expect(await ui.find({ type: 'Text', text: /No \.tasks\/ board/ })).toBeDefined();
   expect(world.reads).toEqual([]);
   expect(world.calls).toEqual([]);
+
+  await ui.press({ key: 'set-up' });
+  const setUp = 'Set up TaskPlanner in this repository with the initialize-taskplanner skill.';
+  expect(world.submitted).toEqual([setUp, setUp]);
 });
 
 test('with no surface attached the commands answer with the board digest', async ($, on) => {

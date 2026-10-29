@@ -1,5 +1,70 @@
 # Backlog
 
+## TASK-076: Ship 3.0 on every platform and announce it
+**Priority:** P2 | **Tags:** docs, ci | **Epic:** 3.0
+**Updated:** 2026-10-29 15:16
+
+Phase E of TASK-071. Last in the epic.
+
+- Update READMEs (root, `packages/mcp-server/`, `plugins/taskplanner/`), CONTRIBUTING and marketplace listings.
+- Set 3.0.0 via `scripts/bump-version.js`; `npm run release:check` green.
+- Publish: VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, Claude Code marketplace, Cursor, Codex.
+- Announce on LinkedIn; decide whether smek.ai starts as a minimal updates page.
+
+---
+## TASK-075: Fix the known defects before 3.0
+**Priority:** P2 | **Tags:** testing | **Epic:** 3.0
+**Updated:** 2026-10-29 15:16
+
+Phase D of TASK-071.
+
+- Sweep the Backlog and open GitHub issues for bugs and rough edges; pick what must land in 3.0.
+- Fix the smoke `counter` case regression noted in TASK-070 (from TASK-069), so `npm run release:check` is fully green.
+- **A failed move loses the task (seen 2026-10-29, Windows).** `taskplanner_update` on TASK-071 and `taskplanner_move` of TASK-072 ran concurrently, both writing `IN_PROGRESS.md`. The move had already removed TASK-072 from `BACKLOG.md`; its rename `IN_PROGRESS.md.tmp` → `IN_PROGRESS.md` then failed with `EPERM`. The task existed only in the leftover `.tmp` until it was renamed by hand. Two fixes to weigh: write the destination before cutting the source (a crash then leaves a duplicate, which the duplicate detector handles, instead of a loss), and retry the rename on `EPERM`/`EBUSY`, which Windows returns while another handle has the file open. Related: `moveAtomicity.test.ts`, TASK-064.
+
+---
+## TASK-074: Remove the MCP tools 3.0 does not need
+**Priority:** P2 | **Tags:** core, refactor | **Epic:** 3.0
+**Updated:** 2026-10-29 15:16
+
+Phase C of TASK-071. Depends on TASK-073 (which surfaces stay).
+
+`src/mcp/server.ts` registers 8 tools. Candidates to merge or drop: `taskplanner_board`, `taskplanner_board_data`, `taskplanner_board_visual`. `board_data`, `move` and `get` are called by the MCP UI app (`src/mcp/ui/board/board.ts`), so their fate follows the surface decision.
+
+Removing a tool is a breaking change for `@smekai/taskplanner` — note it in the 3.0 changelog and update skills, rules and READMEs that name the tools.
+
+---
+## TASK-073: Decide which board surfaces 3.0 keeps
+**Priority:** P2 | **Tags:** ui, docs | **Epic:** 3.0
+**Updated:** 2026-10-29 15:16
+
+Phase B of TASK-071.
+
+Inventory every way the board is shown and mark each keep or drop: VS Code/Cursor views, Claude Code mod pane and band, the shared `board` skill, the MCP UI app (`src/mcp/ui/board/`), Codex.
+
+Usage data: decide between opt-in telemetry and none. Default proposal for 3.0 is none — use marketplace install counts plus a short user survey; telemetry is its own privacy and README commitment. The outcome feeds the MCP cleanup task.
+
+---
+## TASK-023: CI/CD pipeline for extension delivery
+**Priority:** P4 | **Tags:** setup, ci
+**Updated:** 2026-10-16 17:57
+
+**Validation (2026-07-27):** Partially addressed — not done as originally written.
+
+**Already in place:**
+- PR CI workflow (`.github/workflows/ci.yml`): `npm ci`, lint, test, build.
+- Manual release path: `npm run release:check`, `npm run package`, CONTRIBUTING publish steps (`vsce` / `ovsx`).
+- Extension published on [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) and [Open VSX](https://open-vsx.org/extension/refined/taskplanner).
+- Cursor/Codex plugin packaging and validation scripts; Cursor marketplace submission documented (see TASK-035 in Done).
+
+**Still missing:**
+- Automated publish/release workflow (tag → build → publish VSIX to Marketplace/Open VSX).
+- Auto-merge for PRs into `main` after checks pass.
+- JetBrains Marketplace exploration (no IntelliJ plugin in repo yet).
+
+**Scope (revised):** Add release/publish automation and optional auto-merge; treat JetBrains as a separate follow-up once TASK-019 exists.
+
+---
 ## TASK-059: Move date handling to Luxon
 **Priority:** P2 | **Tags:** core, refactor
 **Updated:** 2026-10-15 19:48
@@ -125,27 +190,6 @@ The package is ESM-only (`"type": "module"`), which is exactly why today's CJS s
 - **The `bin` check** (lines 343–348): `npm publish` silently drops a `bin` path starting with `./` while `npm pack` keeps it, so the tarball under test passes while the published package ships with no `bin`. This was a real incident; it is the reason the check exists.
 - **`childEnv()`** (lines 112–118): strips `TASKPLANNER_WORKSPACE_ROOT`, `CURSOR_WORKSPACE_ROOT`, `VSCODE_WORKSPACE_ROOT`, `PWD` and `INIT_CWD` so that a passing run proves the variable under test is what located `.tasks/`. Without it a green run proves nothing.
 - Running against the **packed and installed tarball**, not the working tree.
-
----
-
-## TASK-023: CI/CD pipeline for extension delivery
-**Priority:** P4 | **Tags:** setup, ci
-**Updated:** 2026-07-27 13:35
-
-**Validation (2026-07-27):** Partially addressed — not done as originally written.
-
-**Already in place:**
-- PR CI workflow (`.github/workflows/ci.yml`): `npm ci`, lint, test, build.
-- Manual release path: `npm run release:check`, `npm run package`, CONTRIBUTING publish steps (`vsce` / `ovsx`).
-- Extension published on [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) and [Open VSX](https://open-vsx.org/extension/refined/taskplanner).
-- Cursor/Codex plugin packaging and validation scripts; Cursor marketplace submission documented (see TASK-035 in Done).
-
-**Still missing:**
-- Automated publish/release workflow (tag → build → publish VSIX to Marketplace/Open VSX).
-- Auto-merge for PRs into `main` after checks pass.
-- JetBrains Marketplace exploration (no IntelliJ plugin in repo yet).
-
-**Scope (revised):** Add release/publish automation and optional auto-merge; treat JetBrains as a separate follow-up once TASK-019 exists.
 
 ---
 

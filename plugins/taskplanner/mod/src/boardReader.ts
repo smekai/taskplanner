@@ -3,15 +3,21 @@ import { filterAndPaginate } from '../../../../src/core/filter/taskFilter.js';
 import { DEFAULT_STATES, TaskState } from '../../../../src/core/model/state.js';
 import type { Task } from '../../../../src/core/model/task.js';
 import { countTaskHeadings, parseTasks } from '../../../../src/core/parser/taskParser.js';
+import { isWaiting } from '../../../../src/core/util/time.js';
 import {
+  BACKLOG_STATE,
   BoardSnapshot,
+  IN_PROGRESS_STATE,
+  NEXT_STATE,
   TaskDetail,
   isCompletedState,
+  stateNamed,
   taskBody,
   taskMarkdown,
 } from './boardModel.js';
 
 export const BOARD_TASK_LIMIT = 50;
+const FOCUS_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 
 export interface IndexedTask {
   task: Task;
@@ -101,6 +107,22 @@ export function findTask(
   const copies = index.get(id) ?? [];
   if (state === undefined) return copies[0] ?? null;
   return copies.find((copy) => copy.state === state) ?? null;
+}
+
+export function focusTask(
+  snapshot: BoardSnapshot | null,
+  index: ReadonlyMap<string, readonly IndexedTask[]>,
+  now = new Date(),
+): IndexedTask | null {
+  if (!snapshot) return null;
+  for (const name of FOCUS_ORDER) {
+    for (const view of stateNamed(snapshot, name)?.tasks ?? []) {
+      const found = findTask(index, view.id, name);
+      if (!found) continue;
+      if (name === IN_PROGRESS_STATE || !isWaiting(found.task.waitingUntil, now)) return found;
+    }
+  }
+  return null;
 }
 
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {

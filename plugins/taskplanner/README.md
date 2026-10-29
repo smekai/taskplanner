@@ -12,7 +12,7 @@ Use this plugin for agent workflows; use the TaskPlanner VS Code extension for p
 | **Cursor commands** | `/list-tasks`, `/next-task`, `/continue-task` slash commands |
 | **Skills** | TaskPlanner, initialize, update, list, next-task, continue-task, and board workflows for Codex and compatible hosts |
 | **Rule** | Task markdown format conventions (fires when editing `.tasks/` files) |
-| **Claude Code board pane** | `/taskplanner:board` (or `/taskboard`) opens a live board beside the transcript in the Claude Code terminal and the Claude Desktop Code tab; a band above the prompt shows the task in progress |
+| **Claude Code board pane** | `/taskplanner:board` (or `/taskboard`) opens a live board beside the transcript in the Claude Code terminal and the Claude Desktop Code tab; a band above the prompt shows the task in progress, or the next one to pick |
 | **Manifests** | Host-specific Cursor, Codex and Claude Code manifests backed by one package |
 
 ## Usage
@@ -61,8 +61,9 @@ Then, in a project with `.tasks/`, run `/taskplanner:board` (or the shorter `/ta
 - **New task** (`n`) opens a short form: title, priority and state. Enter or **Create** creates it, and the server assigns the ID. The new task then opens, ready for **Edit with Claude** to add a description.
 - In the Desktop Code tab the list is richer: a titled header with counts per state, tasks as cards with a coloured priority, and a primary **Start with Claude** button. With Claude Code 2.1.299 or later it also uses the Desktop type scale. The terminal keeps a compact list.
 - The pane follows the board while it is open. It rereads `.tasks/` after TaskPlanner tools or file edits there, and checks the files every 5 seconds for changes made elsewhere.
-- While a task is **In Progress**, a band above the prompt names it; its **Board** button opens the pane.
-- Like the MCP server, the pane finds `.tasks/` in the session folder or in any folder above it, so it also works from a package subfolder. Where there is none, the plugin draws nothing.
+- A band above the prompt names the task **In Progress**; its **Board** button opens the pane. With nothing in progress it shows the highest-priority **Next** task, or **Backlog** task when Next is empty, skipping tasks that are still waiting, and adds a **Start** button that asks Claude to work on it.
+- In a folder without `.tasks/`, the band reads *TaskPlanner · no board here* with a **Set up** button, and the pane offers **Set up TaskPlanner**. Both ask Claude to initialize the board.
+- Like the MCP server, the pane finds `.tasks/` in the session folder or in any folder above it, so it also works from a package subfolder.
 
 Requirements and limits:
 

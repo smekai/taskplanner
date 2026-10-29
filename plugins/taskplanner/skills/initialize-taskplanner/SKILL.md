@@ -5,7 +5,7 @@ description: Initialize TaskPlanner in a repository. Use for install, setup, ini
 
 # Initialize TaskPlanner
 
-<!-- TASKPLANNER:VERSION:2.5.1 -->
+<!-- TASKPLANNER:VERSION:2.5.2 -->
 
 1. Locate the active repository root. If `.tasks/config.json` already exists, do not replace the board; follow the sibling `update-taskplanner` skill instead.
 2. Create `.tasks/` and `config.json` with schema `version: 2`, `taskplannerVersion` set to the version in this skill's `TASKPLANNER:VERSION` marker, `readmeAttribution: true`, `idPrefix: "TASK"`, `nextId: 1`, the five default states, priorities P0-P4, empty tags, top insertion, required AI plans, and priority sorting.
