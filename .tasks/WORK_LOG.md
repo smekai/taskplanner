@@ -15,10 +15,10 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
-## TASK-070 — 2026-10-15
-**What:** Made `plugins/taskplanner/` a Claude Code plugin whose mod opens a live board pane (`/taskplanner:board`, `/taskboard`) in the Desktop Code tab and the terminal. The pane can move tasks, create them, start them with Claude and draft edits in the prompt; a band above the prompt shows the task in progress.
-**Decisions:** The mod reads `.tasks/` with the core parser and writes only through the MCP server, from `ui.press`/`ui.input` hooks. A `$.mcp.call` from a timer or `onPress` skips the mod's own `tool.check`, so auto mode refused it. The Desktop type scale is gated on Claude Code ≥ 2.1.299.
-**Outcome:** 377 vitest and 16 kit tests pass on three engine versions. No top-bar launcher exists in the mods API. The smoke `counter` case still fails on main (a TASK-069 regression).
+## TASK-072 — 2026-10-29
+**What:** The Claude Code band shows the next task (Next, then Backlog, skipping waiting) when nothing is in progress, and offers Set up where there is no board.
+**Decisions:** The setup band shows in every repository without a board, so a fresh install is visible; the band picks from full lists, not the pane's 50-task view (PR #19 review).
+**Outcome:** Merged as PR #19 (admin merge). First step of 3.0 (TASK-071); not yet checked by hand in Claude Desktop.
 
 ---
 

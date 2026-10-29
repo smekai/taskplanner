@@ -1,27 +1,5 @@
 # In Progress
 
-## TASK-072: Band shows the next task when nothing is in progress, and offers setup when there is no board
-**Priority:** P1 | **Tags:** ui, feature | **Epic:** 3.0
-**Updated:** 2026-10-29 15:17
-
-Phase A of TASK-071 (3.0 first-run experience).
-
-The Claude Code mod's band above the prompt draws only when a task is In Progress, and a folder without `.tasks/` gets a passive "ask Claude to initialize" line. A freshly installed plugin therefore looks like it does nothing.
-
-- When nothing is In Progress, the band shows the highest-priority Next task; when Next is empty, the highest-priority Backlog task. Tasks whose **Waiting until** has not arrived are skipped. It reads `Next · ID · title` with **Start** and **Board**.
-- With no board, the pane and band offer **Set up TaskPlanner**, which runs the `initialize-taskplanner` skill.
-- Open, not in this task: whether `taskplanner_create` should initialize `.tasks/` itself on first add.
-
-### Plan
-
-- `boardReader.ts`: pure `focusTask(snapshot, index, now)` — first In Progress, else first non-waiting Next, else first non-waiting Backlog (views are priority-sorted; waiting via core `isWaiting` on the indexed `Task`).
-- `boardModel.ts`: drop `inProgressTask`; `NEXT_STATE` / `BACKLOG_STATE` constants.
-- `paneView.ts`: `renderBand` takes the focus and `{ open, start }`; In Progress keeps `▶ ID · title` + Board, otherwise `Next · ID · title` + Start + Board. Missing board: Set up button in pane and band.
-- `register.ts`: AbovePrompt uses `focusTask`; Start submits `startPrompt`; Set up submits a prompt for the `initialize-taskplanner` skill.
-- Tests in `mod/test/` (reader, view, kit); CHANGELOG and README band sentence.
-- Risk: the band now shows on almost every board, so it must stay one dim line.
-
----
 ## TASK-071: TaskPlanner 3.0 release
 **Priority:** P1 | **Tags:** feature, ui, docs, ci | **Epic:** 3.0
 **Updated:** 2026-10-29 15:16
