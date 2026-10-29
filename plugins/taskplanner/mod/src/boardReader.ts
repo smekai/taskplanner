@@ -1,10 +1,14 @@
 import { normalizeStates } from '../../../../src/core/config/configStates.js';
-import { filterAndPaginate } from '../../../../src/core/filter/taskFilter.js';
+import { filterAndPaginate, sortTasks } from '../../../../src/core/filter/taskFilter.js';
 import { DEFAULT_STATES, TaskState } from '../../../../src/core/model/state.js';
 import type { Task } from '../../../../src/core/model/task.js';
 import { countTaskHeadings, parseTasks } from '../../../../src/core/parser/taskParser.js';
+import { isWaiting } from '../../../../src/core/util/time.js';
 import {
+  BACKLOG_STATE,
   BoardSnapshot,
+  IN_PROGRESS_STATE,
+  NEXT_STATE,
   TaskDetail,
   isCompletedState,
   taskBody,
@@ -12,6 +16,7 @@ import {
 } from './boardModel.js';
 
 export const BOARD_TASK_LIMIT = 50;
+const FOCUS_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 
 export interface IndexedTask {
   task: Task;
@@ -21,6 +26,7 @@ export interface IndexedTask {
 export interface BoardRead {
   snapshot: BoardSnapshot;
   tasks: Map<string, IndexedTask[]>;
+  focusCandidates: IndexedTask[];
   issueCount: number;
 }
 
@@ -86,9 +92,13 @@ export function buildBoard(
         displayCounts,
       ).states[0],
   );
+  const focusCandidates = FOCUS_ORDER.flatMap((name) =>
+    sortTasks(tasksByState.get(name) ?? [], 'priority').map((task) => ({ task, state: name })),
+  );
   return {
     snapshot: { states: viewStates, workspaceRoot, deferredStates },
     tasks,
+    focusCandidates,
     issueCount,
   };
 }
@@ -101,6 +111,17 @@ export function findTask(
   const copies = index.get(id) ?? [];
   if (state === undefined) return copies[0] ?? null;
   return copies.find((copy) => copy.state === state) ?? null;
+}
+
+export function focusTask(
+  candidates: readonly IndexedTask[],
+  now = new Date(),
+): IndexedTask | null {
+  return (
+    candidates.find(
+      ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now),
+    ) ?? null
+  );
 }
 
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {

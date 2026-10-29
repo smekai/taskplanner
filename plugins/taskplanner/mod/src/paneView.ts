@@ -2,6 +2,7 @@ import type { TaskViewItem } from '../../../../src/core/model/messages.js';
 import type { ChildNode, ElementNode, Elements, TextProps } from './modApi.js';
 import {
   BoardSnapshot,
+  IN_PROGRESS_STATE,
   PRIORITIES,
   TaskDetail,
   TaskDraft,
@@ -47,6 +48,18 @@ export interface PaneActions {
   setDraftPriority: (priority: string) => void;
   setDraftState: (state: string) => void;
   create: () => void;
+  setUp: () => void;
+}
+
+export interface BandTask {
+  id: string;
+  title: string;
+  state: string;
+}
+
+export interface BandActions {
+  open: () => void;
+  start: () => void;
 }
 
 const MAX_DIGIT_HOTKEYS = 9;
@@ -407,7 +420,14 @@ function bodyOf(style: Style, model: PaneModel, actions: PaneActions): ChildNode
   if (model.isMissingBoard) {
     return [
       style.el.Text({ children: ['No .tasks/ board in this folder or above it.'] }),
-      caption(style, 'Ask Claude to initialize TaskPlanner here, then run /taskboard again.'),
+      caption(style, 'Claude can create one here and add the TaskPlanner instructions.'),
+      style.el.Button({
+        key: 'set-up',
+        label: 'Set up TaskPlanner',
+        ...chrome(style),
+        ...(style.isRich ? { variant: 'primary' as const } : {}),
+        onPress: actions.setUp,
+      }),
     ];
   }
   if (model.draft && model.board && canWrite(model)) {
@@ -512,14 +532,55 @@ export function renderPane(el: Elements, model: PaneModel, actions: PaneActions)
 
 export function renderBand(
   el: Elements,
-  task: TaskViewItem,
+  task: BandTask,
   columns: number,
   below: ElementNode,
-  onOpen: () => void,
+  actions: BandActions,
+): ElementNode {
+  const isActive = task.state === IN_PROGRESS_STATE;
+  const buttons: ElementNode[] = [];
+  if (!isActive) {
+    buttons.push(
+      el.Button({ key: 'taskplanner-start', label: 'Start', plain: true, onPress: actions.start }),
+    );
+  }
+  buttons.push(
+    el.Button({ key: 'taskplanner-board', label: 'Board', plain: true, onPress: actions.open }),
+  );
+  return bandRow(
+    el,
+    `${isActive ? '▶' : 'Next ·'} ${task.id} · ${task.title}`,
+    buttons,
+    columns,
+    below,
+  );
+}
+
+export function renderSetUpBand(
+  el: Elements,
+  columns: number,
+  below: ElementNode,
+  onSetUp: () => void,
+): ElementNode {
+  const button = el.Button({
+    key: 'taskplanner-set-up',
+    label: 'Set up',
+    plain: true,
+    onPress: onSetUp,
+  });
+  return bandRow(el, 'TaskPlanner · no board here', [button], columns, below);
+}
+
+function bandRow(
+  el: Elements,
+  text: string,
+  buttons: ElementNode[],
+  columns: number,
+  below: ElementNode,
 ): ElementNode {
   const label = truncate(
-    `▶ ${task.id} · ${task.title}`,
-    Math.max(MIN_LABEL_WIDTH, columns - BAND_BUTTON_ROOM),
+    text,
+    Math.max(MIN_LABEL_WIDTH, columns - BAND_BUTTON_ROOM * buttons.length),
   );
   return el.Box({
     flexDirection: 'column',
@@ -528,10 +589,7 @@ export function renderBand(
       el.Box({
         flexDirection: 'row',
         columnGap: 1,
-        children: [
-          el.Text({ dimColor: true, children: [label] }),
-          el.Button({ key: 'taskplanner-board', label: 'Board', plain: true, onPress: onOpen }),
-        ],
+        children: [el.Text({ dimColor: true, children: [label] }), ...buttons],
       }),
     ],
   });

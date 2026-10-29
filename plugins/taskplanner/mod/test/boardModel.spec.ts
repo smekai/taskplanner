@@ -4,7 +4,6 @@ import {
   boardDigestText,
   boardSignature,
   describeError,
-  inProgressTask,
   ancestorDirs,
   isOwnPlugin,
   paneCheckDecision,
@@ -227,7 +226,7 @@ describe('pickTab', () => {
   });
 });
 
-describe('moveTargets and inProgressTask', () => {
+describe('moveTargets', () => {
   it('offers every other state in board order', () => {
     expect(moveTargets(board(STANDARD), 'Next')).toEqual([
       'Backlog',
@@ -242,12 +241,6 @@ describe('moveTargets and inProgressTask', () => {
     expect(moveTargetForKey(board(STANDARD), 'Next', 'move-in-progress')).toBe('In Progress');
     expect(moveTargetForKey(board(STANDARD), 'Next', 'move-next')).toBeNull();
     expect(moveTargetForKey(board(STANDARD), 'Next', 'tab-backlog')).toBeNull();
-  });
-
-  it('finds the first In Progress task, or none', () => {
-    expect(inProgressTask(board({ ...STANDARD, 'In Progress': 2 }))?.id).toBe('In Progress-0');
-    expect(inProgressTask(board(STANDARD))).toBeNull();
-    expect(inProgressTask(null)).toBeNull();
   });
 });
 

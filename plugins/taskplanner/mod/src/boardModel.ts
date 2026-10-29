@@ -1,11 +1,13 @@
-import type { StateViewData, TaskViewItem } from '../../../../src/core/model/messages.js';
+import type { StateViewData } from '../../../../src/core/model/messages.js';
 import type { McpToolResult, ToolCheckResult } from './modApi.js';
 
 export const IN_PROGRESS_STATE = 'In Progress';
+export const NEXT_STATE = 'Next';
+export const BACKLOG_STATE = 'Backlog';
 export const COMPLETED_STATES: readonly string[] = ['Done', 'Rejected'];
 export const BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
 
-const DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, 'Next', 'Backlog'];
+const DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 const TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
 const PANE_WRITE_TOOL = /^mcp__.+__taskplanner_(move|create)$/;
 const TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
@@ -115,7 +117,7 @@ export function taskMarkdown(task: Record<string, unknown>): string {
 export function boardDigestText(board: BoardSnapshot): string {
   const counts = board.states.map((state) => `${state.name} ${state.totalCount}`).join(' · ');
   const lines = [counts];
-  for (const name of [IN_PROGRESS_STATE, 'Next']) {
+  for (const name of [IN_PROGRESS_STATE, NEXT_STATE]) {
     for (const task of stateNamed(board, name)?.tasks ?? []) {
       lines.push(`- ${name}: ${task.id} ${task.priority} ${task.title}`);
     }
@@ -155,10 +157,6 @@ export function moveTargetForKey(
   key: string,
 ): string | null {
   return moveTargets(board, currentState).find((target) => moveKey(target) === key) ?? null;
-}
-
-export function inProgressTask(board: BoardSnapshot | null): TaskViewItem | null {
-  return (board && stateNamed(board, IN_PROGRESS_STATE)?.tasks[0]) || null;
 }
 
 export function shouldRefreshAfterTool(tool: string, input: Record<string, unknown>): boolean {
@@ -228,7 +226,7 @@ export function newTaskStates(board: BoardSnapshot | null): string[] {
 
 export function startDraft(board: BoardSnapshot | null): TaskDraft {
   const states = newTaskStates(board);
-  const state = states.includes('Backlog') ? 'Backlog' : (states[0] ?? 'Backlog');
+  const state = states.includes(BACKLOG_STATE) ? BACKLOG_STATE : (states[0] ?? BACKLOG_STATE);
   return { title: '', priority: DEFAULT_NEW_PRIORITY, state };
 }
 
@@ -259,6 +257,9 @@ export function boardSignature(files: readonly BoardFileStat[]): string {
 export function joinPath(root: string, ...parts: string[]): string {
   return [root.replace(/[\\/]+$/, ''), ...parts].join('/');
 }
+
+export const SETUP_PROMPT =
+  'Set up TaskPlanner in this repository with the initialize-taskplanner skill.';
 
 export function startPrompt(task: TaskDetail): string {
   const verb = task.state === IN_PROGRESS_STATE ? 'Continue' : 'Work on';

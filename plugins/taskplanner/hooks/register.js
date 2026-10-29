@@ -1,8 +1,10 @@
 // plugins/taskplanner/mod/src/boardModel.ts
 var IN_PROGRESS_STATE = "In Progress";
+var NEXT_STATE = "Next";
+var BACKLOG_STATE = "Backlog";
 var COMPLETED_STATES = ["Done", "Rejected"];
 var BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
-var DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, "Next", "Backlog"];
+var DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 var TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
 var PANE_WRITE_TOOL = /^mcp__.+__taskplanner_(move|create)$/;
 var TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
@@ -65,7 +67,7 @@ function taskMarkdown(task) {
 function boardDigestText(board2) {
   const counts = board2.states.map((state) => `${state.name} ${state.totalCount}`).join(" \xB7 ");
   const lines = [counts];
-  for (const name of [IN_PROGRESS_STATE, "Next"]) {
+  for (const name of [IN_PROGRESS_STATE, NEXT_STATE]) {
     for (const task of stateNamed(board2, name)?.tasks ?? []) {
       lines.push(`- ${name}: ${task.id} ${task.priority} ${task.title}`);
     }
@@ -95,9 +97,6 @@ function moveKey(target) {
 }
 function moveTargetForKey(board2, currentState, key) {
   return moveTargets(board2, currentState).find((target) => moveKey(target) === key) ?? null;
-}
-function inProgressTask(board2) {
-  return board2 && stateNamed(board2, IN_PROGRESS_STATE)?.tasks[0] || null;
 }
 function shouldRefreshAfterTool(tool, input) {
   if (TASKPLANNER_WRITE_TOOL.test(tool)) return true;
@@ -153,7 +152,7 @@ function newTaskStates(board2) {
 }
 function startDraft(board2) {
   const states = newTaskStates(board2);
-  const state = states.includes("Backlog") ? "Backlog" : states[0] ?? "Backlog";
+  const state = states.includes(BACKLOG_STATE) ? BACKLOG_STATE : states[0] ?? BACKLOG_STATE;
   return { title: "", priority: DEFAULT_NEW_PRIORITY, state };
 }
 function createdTaskId(result) {
@@ -177,6 +176,7 @@ function boardSignature(files) {
 function joinPath(root, ...parts) {
   return [root.replace(/[\\/]+$/, ""), ...parts].join("/");
 }
+var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-taskplanner skill.";
 function startPrompt(task) {
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
@@ -563,8 +563,27 @@ function countTaskHeadings(rawContent) {
   return headingIds(rawContent).length;
 }
 
+// src/core/util/time.ts
+var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+function parseTimestamp(value) {
+  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
+  return survivesRoundTrip ? date : null;
+}
+function currentDate(now = /* @__PURE__ */ new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
+  const until = parseTimestamp(waitingUntil);
+  return until !== null && currentDate(until) > currentDate(now);
+}
+
 // plugins/taskplanner/mod/src/boardReader.ts
 var BOARD_TASK_LIMIT = 50;
+var FOCUS_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 function withoutBom(text) {
   return text.charCodeAt(0) === 65279 ? text.slice(1) : text;
 }
@@ -613,9 +632,13 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
       displayCounts
     ).states[0]
   );
+  const focusCandidates2 = FOCUS_ORDER.flatMap(
+    (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))
+  );
   return {
     snapshot: { states: viewStates, workspaceRoot, deferredStates },
     tasks,
+    focusCandidates: focusCandidates2,
     issueCount: issueCount2
   };
 }
@@ -623,6 +646,11 @@ function findTask(index, id, state) {
   const copies = index.get(id) ?? [];
   if (state === void 0) return copies[0] ?? null;
   return copies.find((copy) => copy.state === state) ?? null;
+}
+function focusTask(candidates, now = /* @__PURE__ */ new Date()) {
+  return candidates.find(
+    ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now)
+  ) ?? null;
 }
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
@@ -938,7 +966,14 @@ function bodyOf(style, model, actions) {
   if (model.isMissingBoard) {
     return [
       style.el.Text({ children: ["No .tasks/ board in this folder or above it."] }),
-      caption(style, "Ask Claude to initialize TaskPlanner here, then run /taskboard again.")
+      caption(style, "Claude can create one here and add the TaskPlanner instructions."),
+      style.el.Button({
+        key: "set-up",
+        label: "Set up TaskPlanner",
+        ...chrome(style),
+        ...style.isRich ? { variant: "primary" } : {},
+        onPress: actions.setUp
+      })
     ];
   }
   if (model.draft && model.board && canWrite(model)) {
@@ -1033,10 +1068,38 @@ function renderPane(el, model, actions) {
   children.push(...bodyOf(style, model, actions));
   return el.Box({ flexDirection: "column", children });
 }
-function renderBand(el, task, columns, below, onOpen) {
+function renderBand(el, task, columns, below, actions) {
+  const isActive = task.state === IN_PROGRESS_STATE;
+  const buttons = [];
+  if (!isActive) {
+    buttons.push(
+      el.Button({ key: "taskplanner-start", label: "Start", plain: true, onPress: actions.start })
+    );
+  }
+  buttons.push(
+    el.Button({ key: "taskplanner-board", label: "Board", plain: true, onPress: actions.open })
+  );
+  return bandRow(
+    el,
+    `${isActive ? "\u25B6" : "Next \xB7"} ${task.id} \xB7 ${task.title}`,
+    buttons,
+    columns,
+    below
+  );
+}
+function renderSetUpBand(el, columns, below, onSetUp) {
+  const button = el.Button({
+    key: "taskplanner-set-up",
+    label: "Set up",
+    plain: true,
+    onPress: onSetUp
+  });
+  return bandRow(el, "TaskPlanner \xB7 no board here", [button], columns, below);
+}
+function bandRow(el, text, buttons, columns, below) {
   const label = truncate(
-    `\u25B6 ${task.id} \xB7 ${task.title}`,
-    Math.max(MIN_LABEL_WIDTH, columns - BAND_BUTTON_ROOM)
+    text,
+    Math.max(MIN_LABEL_WIDTH, columns - BAND_BUTTON_ROOM * buttons.length)
   );
   return el.Box({
     flexDirection: "column",
@@ -1045,10 +1108,7 @@ function renderBand(el, task, columns, below, onOpen) {
       el.Box({
         flexDirection: "row",
         columnGap: 1,
-        children: [
-          el.Text({ dimColor: true, children: [label] }),
-          el.Button({ key: "taskplanner-board", label: "Board", plain: true, onPress: onOpen })
-        ]
+        children: [el.Text({ dimColor: true, children: [label] }), ...buttons]
       })
     ]
   });
@@ -1065,6 +1125,7 @@ var boardRoot = null;
 var boardSearchFrom = null;
 var board = null;
 var taskIndex = /* @__PURE__ */ new Map();
+var focusCandidates = [];
 var issueCount = 0;
 var activeTab = null;
 var detail = null;
@@ -1138,6 +1199,7 @@ async function readSignature($, tasksDir) {
 function forgetBoard() {
   board = null;
   taskIndex = /* @__PURE__ */ new Map();
+  focusCandidates = [];
   issueCount = 0;
   detail = null;
   pendingDetail = null;
@@ -1177,6 +1239,7 @@ async function loadBoard($) {
   const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
   board = read.snapshot;
   taskIndex = read.tasks;
+  focusCandidates = read.focusCandidates;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastSignature = signature;
@@ -1406,17 +1469,34 @@ function register(on) {
         },
         create: () => {
           void createTask($);
+        },
+        setUp: () => {
+          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
         }
       }
     );
   });
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
-    const task = e.props.hasSurvey ? null : inProgressTask(board);
-    if (!task) return next(e);
+    if (e.props.hasSurvey) return next(e);
+    if (isMissingBoard) {
+      const elements2 = $.ui.resolve(e);
+      const below2 = await next(e);
+      return renderSetUpBand(elements2, e.props.bodyColumns, below2, () => {
+        void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+      });
+    }
+    const focus = focusTask(focusCandidates);
+    if (!focus) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);
-    return renderBand(elements, task, e.props.bodyColumns, below, () => {
-      void openPane($);
+    const band = { id: focus.task.id, title: focus.task.title, state: focus.state };
+    return renderBand(elements, band, e.props.bodyColumns, below, {
+      open: () => {
+        void openPane($);
+      },
+      start: () => {
+        void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
+      }
     });
   });
   on("ui.press", async ($, e, next) => {

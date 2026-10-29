@@ -3,6 +3,7 @@ import {
   BOARD_TASK_LIMIT,
   buildBoard,
   findTask,
+  focusTask,
   readConfigStates,
   taskDetailOf,
 } from '../src/boardReader.js';
@@ -148,6 +149,58 @@ ${section('TASK-007', 'Next copy', 'P2')}`,
     expect(findTask(tasks, 'TASK-007', 'Done')).toBeNull();
     expect(findTask(tasks, 'TASK-007')?.task.title).toBe('Backlog copy');
     expect(findTask(tasks, 'TASK-404')).toBeNull();
+  });
+});
+
+describe('focusTask', () => {
+  const NOW = new Date('2026-10-29T12:00:00Z');
+
+  function focusOf(files: Record<string, string>): string | null {
+    const { focusCandidates } = buildBoard(
+      DEFAULT_STATES,
+      new Map(Object.entries(files)),
+      COLLAPSED,
+      null,
+    );
+    const found = focusTask(focusCandidates, NOW);
+    return found ? `${found.state} ${found.task.id}` : null;
+  }
+
+  const backlog = `# Backlog\n\n${section('TASK-010', 'Later', 'P3')}${section('TASK-011', 'Soon', 'P1')}`;
+  const next = `# Next\n\n${section('TASK-020', 'Minor', 'P3')}${section('TASK-021', 'Major', 'P0')}`;
+
+  it('prefers the task in progress over everything planned', () => {
+    expect(focusOf(Object.fromEntries(FILES))).toBe('In Progress TASK-004');
+  });
+
+  it('falls back to the highest-priority Next task', () => {
+    expect(focusOf({ 'BACKLOG.md': backlog, 'NEXT.md': next })).toBe('Next TASK-021');
+  });
+
+  it('falls back to the highest-priority Backlog task when Next is empty', () => {
+    expect(focusOf({ 'BACKLOG.md': backlog })).toBe('Backlog TASK-011');
+  });
+
+  it('skips planned tasks that are still waiting, but not once the date arrives', () => {
+    const blocked = section('TASK-030', 'Blocked', 'P0', '\n**Waiting until:** 2026-11-05');
+    const waiting = `# Next\n\n${blocked}${section('TASK-031', 'Free', 'P2')}`;
+    expect(focusOf({ 'NEXT.md': waiting })).toBe('Next TASK-031');
+    const arrived = waiting.replace('2026-11-05', '2026-10-29');
+    expect(focusOf({ 'NEXT.md': arrived })).toBe('Next TASK-030');
+  });
+
+  it('shows nothing when no open state has a task to pick', () => {
+    expect(focusOf({ 'DONE.md': `# Done\n\n${section('TASK-001', 'Old', 'P2')}` })).toBeNull();
+    expect(focusTask([], NOW)).toBeNull();
+  });
+
+  it('looks past the pane cap when every displayed candidate is waiting', () => {
+    const waitingCount = BOARD_TASK_LIMIT + 1;
+    const waiting = Array.from({ length: waitingCount }, (_, index) =>
+      section(`TASK-${100 + index}`, `Blocked ${index}`, 'P0', '\n**Waiting until:** 2026-11-05'),
+    ).join('');
+    const runnable = section('TASK-999', 'Runnable', 'P4');
+    expect(focusOf({ 'NEXT.md': `# Next\n\n${waiting}${runnable}` })).toBe('Next TASK-999');
   });
 });
 

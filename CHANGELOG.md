@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- The Claude Code band above the prompt no longer goes blank when nothing is in progress: it shows the highest-priority Next task, or Backlog task when Next is empty, with a **Start** button. In a folder without a board, the band and the pane offer **Set up**, so a freshly installed plugin shows itself (TASK-072).
+
 ## [2.5.1] - 2026-10-16
 
 ### Changed
