@@ -632,9 +632,13 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
       displayCounts
     ).states[0]
   );
+  const focusCandidates2 = FOCUS_ORDER.flatMap(
+    (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))
+  );
   return {
     snapshot: { states: viewStates, workspaceRoot, deferredStates },
     tasks,
+    focusCandidates: focusCandidates2,
     issueCount: issueCount2
   };
 }
@@ -643,16 +647,10 @@ function findTask(index, id, state) {
   if (state === void 0) return copies[0] ?? null;
   return copies.find((copy) => copy.state === state) ?? null;
 }
-function focusTask(snapshot, index, now = /* @__PURE__ */ new Date()) {
-  if (!snapshot) return null;
-  for (const name of FOCUS_ORDER) {
-    for (const view of stateNamed(snapshot, name)?.tasks ?? []) {
-      const found = findTask(index, view.id, name);
-      if (!found) continue;
-      if (name === IN_PROGRESS_STATE || !isWaiting(found.task.waitingUntil, now)) return found;
-    }
-  }
-  return null;
+function focusTask(candidates, now = /* @__PURE__ */ new Date()) {
+  return candidates.find(
+    ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now)
+  ) ?? null;
 }
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
@@ -1127,6 +1125,7 @@ var boardRoot = null;
 var boardSearchFrom = null;
 var board = null;
 var taskIndex = /* @__PURE__ */ new Map();
+var focusCandidates = [];
 var issueCount = 0;
 var activeTab = null;
 var detail = null;
@@ -1200,6 +1199,7 @@ async function readSignature($, tasksDir) {
 function forgetBoard() {
   board = null;
   taskIndex = /* @__PURE__ */ new Map();
+  focusCandidates = [];
   issueCount = 0;
   detail = null;
   pendingDetail = null;
@@ -1239,6 +1239,7 @@ async function loadBoard($) {
   const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
   board = read.snapshot;
   taskIndex = read.tasks;
+  focusCandidates = read.focusCandidates;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastSignature = signature;
@@ -1484,7 +1485,7 @@ function register(on) {
         void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
       });
     }
-    const focus = focusTask(board, taskIndex);
+    const focus = focusTask(focusCandidates);
     if (!focus) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);

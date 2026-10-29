@@ -50,6 +50,7 @@ let boardRoot: string | null = null;
 let boardSearchFrom: string | null = null;
 let board: BoardSnapshot | null = null;
 let taskIndex = new Map<string, IndexedTask[]>();
+let focusCandidates: IndexedTask[] = [];
 let issueCount = 0;
 let activeTab: string | null = null;
 let detail: TaskDetail | null = null;
@@ -135,6 +136,7 @@ async function readSignature($: Engine, tasksDir: string): Promise<string> {
 function forgetBoard(): void {
   board = null;
   taskIndex = new Map();
+  focusCandidates = [];
   issueCount = 0;
   detail = null;
   pendingDetail = null;
@@ -177,6 +179,7 @@ async function loadBoard($: Engine): Promise<void> {
   const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
   board = read.snapshot;
   taskIndex = read.tasks;
+  focusCandidates = read.focusCandidates;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastSignature = signature;
@@ -449,7 +452,7 @@ export function register(on: On): void {
         void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
       });
     }
-    const focus = focusTask(board, taskIndex);
+    const focus = focusTask(focusCandidates);
     if (!focus) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);

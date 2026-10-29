@@ -156,13 +156,13 @@ describe('focusTask', () => {
   const NOW = new Date('2026-10-29T12:00:00Z');
 
   function focusOf(files: Record<string, string>): string | null {
-    const { snapshot, tasks } = buildBoard(
+    const { focusCandidates } = buildBoard(
       DEFAULT_STATES,
       new Map(Object.entries(files)),
       COLLAPSED,
       null,
     );
-    const found = focusTask(snapshot, tasks, NOW);
+    const found = focusTask(focusCandidates, NOW);
     return found ? `${found.state} ${found.task.id}` : null;
   }
 
@@ -191,7 +191,16 @@ describe('focusTask', () => {
 
   it('shows nothing when no open state has a task to pick', () => {
     expect(focusOf({ 'DONE.md': `# Done\n\n${section('TASK-001', 'Old', 'P2')}` })).toBeNull();
-    expect(focusTask(null, new Map(), NOW)).toBeNull();
+    expect(focusTask([], NOW)).toBeNull();
+  });
+
+  it('looks past the pane cap when every displayed candidate is waiting', () => {
+    const waitingCount = BOARD_TASK_LIMIT + 1;
+    const waiting = Array.from({ length: waitingCount }, (_, index) =>
+      section(`TASK-${100 + index}`, `Blocked ${index}`, 'P0', '\n**Waiting until:** 2026-11-05'),
+    ).join('');
+    const runnable = section('TASK-999', 'Runnable', 'P4');
+    expect(focusOf({ 'NEXT.md': `# Next\n\n${waiting}${runnable}` })).toBe('Next TASK-999');
   });
 });
 

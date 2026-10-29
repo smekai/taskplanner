@@ -1,5 +1,5 @@
 import { normalizeStates } from '../../../../src/core/config/configStates.js';
-import { filterAndPaginate } from '../../../../src/core/filter/taskFilter.js';
+import { filterAndPaginate, sortTasks } from '../../../../src/core/filter/taskFilter.js';
 import { DEFAULT_STATES, TaskState } from '../../../../src/core/model/state.js';
 import type { Task } from '../../../../src/core/model/task.js';
 import { countTaskHeadings, parseTasks } from '../../../../src/core/parser/taskParser.js';
@@ -11,7 +11,6 @@ import {
   NEXT_STATE,
   TaskDetail,
   isCompletedState,
-  stateNamed,
   taskBody,
   taskMarkdown,
 } from './boardModel.js';
@@ -27,6 +26,7 @@ export interface IndexedTask {
 export interface BoardRead {
   snapshot: BoardSnapshot;
   tasks: Map<string, IndexedTask[]>;
+  focusCandidates: IndexedTask[];
   issueCount: number;
 }
 
@@ -92,9 +92,13 @@ export function buildBoard(
         displayCounts,
       ).states[0],
   );
+  const focusCandidates = FOCUS_ORDER.flatMap((name) =>
+    sortTasks(tasksByState.get(name) ?? [], 'priority').map((task) => ({ task, state: name })),
+  );
   return {
     snapshot: { states: viewStates, workspaceRoot, deferredStates },
     tasks,
+    focusCandidates,
     issueCount,
   };
 }
@@ -110,19 +114,14 @@ export function findTask(
 }
 
 export function focusTask(
-  snapshot: BoardSnapshot | null,
-  index: ReadonlyMap<string, readonly IndexedTask[]>,
+  candidates: readonly IndexedTask[],
   now = new Date(),
 ): IndexedTask | null {
-  if (!snapshot) return null;
-  for (const name of FOCUS_ORDER) {
-    for (const view of stateNamed(snapshot, name)?.tasks ?? []) {
-      const found = findTask(index, view.id, name);
-      if (!found) continue;
-      if (name === IN_PROGRESS_STATE || !isWaiting(found.task.waitingUntil, now)) return found;
-    }
-  }
-  return null;
+  return (
+    candidates.find(
+      ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now),
+    ) ?? null
+  );
 }
 
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {
