@@ -1,7 +1,7 @@
 {
   "name": "taskplanner",
   "displayName": "TaskPlanner",
-  "version": "2.5.4",
+  "version": "3.0.0",
   "description": "Task-first AI workflows over markdown tasks in your repo: MCP tools, skills, and a /taskplanner:board pane for the Claude Code terminal and the Claude Desktop Code tab.",
   "author": { "name": "refined", "url": "https://github.com/smekai" },
   "homepage": "https://github.com/smekai/taskplanner#readme",
