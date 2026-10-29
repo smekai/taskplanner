@@ -207,7 +207,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '2.5.3',
+  version: '2.5.4',
 });
 
 server.registerTool(

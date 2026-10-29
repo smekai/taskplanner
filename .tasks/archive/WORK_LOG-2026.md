@@ -270,3 +270,10 @@ template. Fixed a pre-existing missing blank line before ### Work Log found whil
 **Outcome:** 204 tests; verified over stdio.
 
 ---
+
+## TASK-070 — 2026-10-15
+**What:** Made `plugins/taskplanner/` a Claude Code plugin whose mod opens a live board pane (`/taskplanner:board`, `/taskboard`) in the Desktop Code tab and the terminal. The pane can move tasks, create them, start them with Claude and draft edits in the prompt; a band above the prompt shows the task in progress.
+**Decisions:** The mod reads `.tasks/` with the core parser and writes only through the MCP server, from `ui.press`/`ui.input` hooks. A `$.mcp.call` from a timer or `onPress` skips the mod's own `tool.check`, so auto mode refused it. The Desktop type scale is gated on Claude Code ≥ 2.1.299.
+**Outcome:** 377 vitest and 16 kit tests pass on three engine versions. No top-bar launcher exists in the mods API. The smoke `counter` case still fails on main (a TASK-069 regression).
+
+---
