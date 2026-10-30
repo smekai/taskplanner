@@ -7,6 +7,7 @@ import { TaskStore } from './taskStore.js';
 export interface OpenBoardOptions {
   initialize?: boolean;
   persistMigration?: boolean;
+  loadAllStates?: boolean;
 }
 
 export interface OpenedBoard {
@@ -30,6 +31,6 @@ export function openBoard(tasksDir: string, options: OpenBoardOptions = {}): Ope
 
   configManager.load({ persistMigration: options.persistMigration ?? false });
   const taskStore = new TaskStore(configManager, fileStore);
-  taskStore.reload();
+  if (options.loadAllStates ?? true) taskStore.reload();
   return { configManager, fileStore, taskStore };
 }

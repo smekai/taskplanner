@@ -13,17 +13,6 @@ Phase E of TASK-071. Last in the epic.
 - Announce on LinkedIn; decide whether smek.ai starts as a minimal updates page.
 
 ---
-## TASK-075: Fix the known defects before 3.0
-**Priority:** P2 | **Tags:** testing | **Epic:** 3.0
-**Updated:** 2026-10-29 15:16
-
-Phase D of TASK-071.
-
-- Sweep the Backlog and open GitHub issues for bugs and rough edges; pick what must land in 3.0.
-- Fix the smoke `counter` case regression noted in TASK-070 (from TASK-069), so `npm run release:check` is fully green.
-- **A failed move loses the task (seen 2026-10-29, Windows).** `taskplanner_update` on TASK-071 and `taskplanner_move` of TASK-072 ran concurrently, both writing `IN_PROGRESS.md`. The move had already removed TASK-072 from `BACKLOG.md`; its rename `IN_PROGRESS.md.tmp` → `IN_PROGRESS.md` then failed with `EPERM`. The task existed only in the leftover `.tmp` until it was renamed by hand. Two fixes to weigh: write the destination before cutting the source (a crash then leaves a duplicate, which the duplicate detector handles, instead of a loss), and retry the rename on `EPERM`/`EBUSY`, which Windows returns while another handle has the file open. Related: `moveAtomicity.test.ts`, TASK-064.
-
----
 ## TASK-074: Remove the MCP tools 3.0 does not need
 **Priority:** P2 | **Tags:** core, refactor | **Epic:** 3.0
 **Updated:** 2026-10-30 13:21

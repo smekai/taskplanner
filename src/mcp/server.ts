@@ -100,7 +100,9 @@ async function freshStore(
   targetState?: TaskState;
 }> {
   const tasksDir = await findTasksDir(explicitRoot);
-  const { configManager, taskStore } = openBoard(tasksDir);
+  const { configManager, taskStore } = openBoard(tasksDir, {
+    loadAllStates: targetStateName === undefined,
+  });
   for (const diagnostic of configManager.getDiagnostics()) {
     console.error(`TaskPlanner config: ${diagnostic.message}`);
   }
@@ -207,7 +209,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.1',
+  version: '3.0.2',
 });
 
 server.registerTool(

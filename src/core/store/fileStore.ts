@@ -14,12 +14,7 @@ import {
   splitWorkLog,
   type WorkLogEntryDraft,
 } from './archive.js';
-
-function writeFileAtomic(filePath: string, content: string): void {
-  const tempPath = `${filePath}.tmp`;
-  fs.writeFileSync(tempPath, content, 'utf-8');
-  fs.renameSync(tempPath, filePath);
-}
+import { writeFileAtomic } from './atomicWrite.js';
 
 export interface PreparedWrite {
   filePath: string;

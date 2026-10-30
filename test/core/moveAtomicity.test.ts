@@ -68,6 +68,20 @@ describe('commit writes every state or none', () => {
     expect(read('NEXT.md')).not.toContain('TASK-001');
   });
 
+  // Seen on Windows: the first file landed, then the second rename failed with EPERM.
+  it('keeps the task on disk when the second write of a move fails', () => {
+    const real = fileStore.commitWrites.bind(fileStore);
+    vi.spyOn(fileStore, 'commitWrites').mockImplementation((writes) => {
+      real(writes.slice(0, 1));
+      throw new Error('EPERM: operation not permitted, rename');
+    });
+
+    expect(() => taskStore.moveTask('TASK-001', 'Next')).toThrow('EPERM');
+
+    expect(read('NEXT.md')).toContain('TASK-001');
+    expect(read('BACKLOG.md')).toContain('TASK-001');
+  });
+
   it('still moves a task it can serialize', () => {
     const moved = taskStore.moveTask('TASK-001', 'Next');
 

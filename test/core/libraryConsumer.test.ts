@@ -51,6 +51,29 @@ describe('library consumer surface', () => {
 
       expect(fs.readFileSync(path.join(tasksDir, 'config.json'), 'utf-8')).toBe(unmigrated);
     });
+
+    // A create needs only its destination; the MCP server relies on this so an unreadable
+    // state elsewhere on the board cannot block it.
+    it('can open without reading any state, then create from the persisted counter', () => {
+      openBoard(tasksDir, { initialize: true }).taskStore.createTask(
+        { title: 'First', description: '', priority: Priority.P1, tags: [] },
+        'Backlog',
+      );
+      fs.rmSync(path.join(tasksDir, 'NEXT.md'));
+      fs.mkdirSync(path.join(tasksDir, 'NEXT.md'));
+
+      expect(() => openBoard(tasksDir)).toThrow();
+      const { taskStore } = openBoard(tasksDir, { loadAllStates: false });
+      taskStore.reloadState('Backlog');
+      const created = taskStore.createTask(
+        { title: 'Second', description: '', priority: Priority.P2, tags: [] },
+        'Backlog',
+      );
+
+      expect(created.id).toBe('TASK-002');
+      const ids = taskStore.getTasksByState('Backlog').map((task) => task.id);
+      expect(ids.sort()).toEqual(['TASK-001', 'TASK-002']);
+    });
   });
 
   describe('finding work a consumer put there', () => {
