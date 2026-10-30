@@ -82,6 +82,15 @@ describe('commit writes every state or none', () => {
     expect(read('BACKLOG.md')).toContain('TASK-001');
   });
 
+  // Source and destination are one file here; writing it twice let the second write drop the task.
+  it('keeps a task moved into the state it is already in', () => {
+    const moved = taskStore.moveTask('TASK-001', 'Backlog');
+
+    expect(moved?.id).toBe('TASK-001');
+    expect(read('BACKLOG.md')).toContain('TASK-001');
+    expect(taskStore.getTasksByState('Backlog').map((task) => task.id)).toEqual(['TASK-001']);
+  });
+
   it('still moves a task it can serialize', () => {
     const moved = taskStore.moveTask('TASK-001', 'Next');
 
