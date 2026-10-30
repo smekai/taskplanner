@@ -2,13 +2,14 @@
 
 ## TASK-076: Ship 3.0 on every platform and announce it
 **Priority:** P2 | **Tags:** docs, ci | **Epic:** 3.0
-**Updated:** 2026-10-29 15:16
+**Updated:** 2026-10-30 13:21
 
 Phase E of TASK-071. Last in the epic.
 
 - Update READMEs (root, `packages/mcp-server/`, `plugins/taskplanner/`), CONTRIBUTING and marketplace listings.
-- Set 3.0.0 via `scripts/bump-version.js`; `npm run release:check` green.
-- Publish: VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, Claude Code marketplace, Cursor, Codex.
+- ~~Set 3.0.0~~: done in PR #21. Before publishing, add the `[3.0.0]` CHANGELOG section with the date, and get `npm run release:check` green.
+- Publish to the VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, the Claude Code marketplace, Cursor and Codex.
+- **Open VSX is behind:** it still serves 2.4.4 (checked 2026-10-30), and it is the largest audience (4268 downloads, mostly Cursor). Check why 2.5.x did not reach it. Consider publishing there even before 3.0.
 - Announce on LinkedIn; decide whether smek.ai starts as a minimal updates page.
 
 ---
@@ -25,24 +26,59 @@ Phase D of TASK-071.
 ---
 ## TASK-074: Remove the MCP tools 3.0 does not need
 **Priority:** P2 | **Tags:** core, refactor | **Epic:** 3.0
-**Updated:** 2026-10-29 15:16
+**Updated:** 2026-10-30 13:21
 
-Phase C of TASK-071. Depends on TASK-073 (which surfaces stay).
+Phase C of TASK-071. Depends on TASK-073 (every view stays, decoupled on one core).
 
-`src/mcp/server.ts` registers 8 tools. Candidates to merge or drop: `taskplanner_board`, `taskplanner_board_data`, `taskplanner_board_visual`. `board_data`, `move` and `get` are called by the MCP UI app (`src/mcp/ui/board/board.ts`), so their fate follows the surface decision.
+`src/mcp/server.ts` registers 8 tools. Since every view stays, a tool goes only once it is clearly irrelevant, not because of usage numbers (3.0 ships without telemetry, see TASK-073).
 
-Removing a tool is a breaking change for `@smekai/taskplanner` — note it in the 3.0 changelog and update skills, rules and READMEs that name the tools.
+Current users of the tools that are candidates to merge or drop:
+
+- `taskplanner_board_data`: the MCP UI app and the `board` skill.
+- `taskplanner_board_visual`: the `board` skill.
+- `taskplanner_board`: overview for agents; check whether `taskplanner_list` or the digest covers it.
+- `taskplanner_get` / `taskplanner_move`: the MCP UI app.
+- `taskplanner_move` / `taskplanner_create`: the Claude Code mod's writes.
+
+Removing a tool is a breaking change for `@smekai/taskplanner`. Note it in the 3.0 changelog and update the skills, rules and READMEs that name the tool.
 
 ---
-## TASK-073: Decide which board surfaces 3.0 keeps
+## TASK-073: Keep every board view, on one core, independent of each other
 **Priority:** P2 | **Tags:** ui, docs | **Epic:** 3.0
-**Updated:** 2026-10-29 15:16
+**Updated:** 2026-10-30 13:21
 
 Phase B of TASK-071.
 
-Inventory every way the board is shown and mark each keep or drop: VS Code/Cursor views, Claude Code mod pane and band, the shared `board` skill, the MCP UI app (`src/mcp/ui/board/`), Codex.
+## Decisions (2026-10-30)
 
-Usage data: decide between opt-in telemetry and none. Default proposal for 3.0 is none — use marketplace install counts plus a short user survey; telemetry is its own privacy and README commitment. The outcome feeds the MCP cleanup task.
+- **No telemetry in 3.0.** In the Claude Code mod it is impossible (the mods API has no network access). In the MCP server it would be opt-in only, with no consent UI. Only the VS Code extension could do it properly (`vscode.env.createTelemetryLogger`, honouring `telemetry.telemetryLevel`), and that is the one surface we do not need data for. Revisit after 3.0 only if the public numbers are not enough.
+- **Collect the public numbers instead.** GitHub traffic expires after 14 days, so it must be saved regularly or it is lost.
+- **Keep every view, rather than choosing which to drop.** Drop a tool only once it is clearly irrelevant.
+- **Direction:** one core, with every view a separate client of it. No view depends on another view, or on the MCP server, unless it has to.
+
+## Public numbers, 2026-10-30
+
+| Source | Numbers |
+| --- | --- |
+| Open VSX (Cursor) | 4268 downloads, ★5 (1); **still at 2.4.4** |
+| VS Code Marketplace | 116 installs, 553 downloads, ★5 (1) |
+| npm `@smekai/taskplanner` | 103 downloads in the last month |
+| GitHub | 23★, 4 forks; 14 days: 153 clones (73 unique), 58 views (33 unique) |
+
+## Coupling today
+
+- **VS Code / Cursor extension** — core only (`TaskStore`, `ConfigManager`, `projectSync`). Touches MCP only to write `.mcp.json` during setup. Already independent.
+- **MCP server** — core only.
+- **MCP UI app** (`src/mcp/ui/board/`) — goes through the server's `taskplanner_board_data`, `taskplanner_get` and `taskplanner_move`. Coupled to the server by design: it runs inside the MCP host.
+- **Claude Code mod** — reads through the core parser. Writes through the server's `taskplanner_move` / `taskplanner_create`: the mod has no node `fs`, and auto-mode approval rides on those calls. It also keeps its own `boardDigestText` beside `core/ai/boardDigest`.
+- **`board` skill** — names `taskplanner_board_visual` / `taskplanner_board_data`, so it depends on the server.
+
+## To do
+
+- For each view, list what it re-implements that the core already has (start with the mod's digest versus `core/ai/boardDigest`, and the mod's board model versus `core/view/boardViewModel`), then move the shared parts into core.
+- Write down which coupling to the MCP server is required (the mod's writes, the UI app) and which is incidental.
+- Feed the list of tools each view needs into TASK-074.
+- Optional: a small script or weekly scheduled task that saves the public numbers above.
 
 ---
 ## TASK-023: CI/CD pipeline for extension delivery

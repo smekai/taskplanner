@@ -1,6 +1,6 @@
 {
   "name": "taskplanner",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
   "author": {
     "name": "refined",
