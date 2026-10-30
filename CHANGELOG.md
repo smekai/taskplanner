@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - The Claude Code band above the prompt no longer goes blank when nothing is in progress: it shows the highest-priority Next task, or Backlog task when Next is empty, with a **Start** button. In a folder without a board, the band and the pane offer **Set up**, so a freshly installed plugin shows itself (TASK-072).
 
+### Fixed
+
+- A move that failed halfway could lose the task: it was already gone from its old state when writing the new one failed (seen on Windows as `EPERM`). The new state is now written first, each write uses its own temporary file, and a rename Windows refuses while the file is held open is retried (TASK-075).
+- Creating a task through the MCP server reads only the state it goes into again, so an unreadable file elsewhere on the board no longer blocks it (TASK-075).
+
 ## [2.5.1] - 2026-10-16
 
 ### Changed

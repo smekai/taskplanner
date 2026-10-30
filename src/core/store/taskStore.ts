@@ -453,10 +453,15 @@ export class TaskStore {
       targetTasks.push(moved);
     }
 
-    this.commit(
-      { state: found.state, tasks: sourceTasks },
-      { state: targetState, tasks: targetTasks },
-    );
+    if (found.stateName === targetStateName) {
+      this.commit({ state: targetState, tasks: targetTasks });
+    } else {
+      // WHY: destination first, so a failed second write leaves a duplicate the detector reports rather than no copy at all.
+      this.commit(
+        { state: targetState, tasks: targetTasks },
+        { state: found.state, tasks: sourceTasks },
+      );
+    }
     if (targetStateName === 'Done') this.archiveCompleted();
     return moved;
   }
