@@ -124,13 +124,14 @@ interface BoardIssue {
 }
 
 function boardIssues(taskStore: TaskStore): { errors: BoardIssue[]; warnings: BoardIssue[] } {
-  const flatten = <K extends string>(
+  const flatten = <K extends 'errors' | 'warnings'>(
     groups: ({ fileName: string } & Record<K, ParseIssue[]>)[],
     key: K,
   ): BoardIssue[] =>
-    groups.flatMap(({ fileName, ...rest }) =>
-      (rest[key] as ParseIssue[]).map((issue) => ({ file: fileName, ...issue })),
-    );
+    groups.flatMap((group) => {
+      const issues: ParseIssue[] = group[key];
+      return issues.map((issue) => ({ file: group.fileName, ...issue }));
+    });
 
   return {
     errors: flatten(taskStore.getErrors(), 'errors'),
@@ -209,7 +210,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.5',
+  version: '3.0.6',
 });
 
 server.registerTool(
