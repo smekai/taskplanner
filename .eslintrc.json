@@ -15,5 +15,69 @@
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-explicit-any": "warn"
   },
+  "overrides": [
+    {
+      "files": ["src/core/**/*.ts", "test/core/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "paths": [{ "name": "vscode", "message": "Core is harness-free: no VS Code API." }],
+          "patterns": [{ "group": ["**/views/**", "**/mcp/**"], "message": "Core is harness-free: it must not import a harness (views/*, mcp/)." }]
+        }]
+      }
+    },
+    {
+      "files": ["mcp/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "paths": [{ "name": "vscode", "message": "The MCP server runs outside VS Code." }],
+          "patterns": [{ "group": ["**/views/**"], "message": "A harness imports only core and itself (mcp/ must not import views/*)." }]
+        }]
+      }
+    },
+    {
+      "files": ["views/vscode/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [{
+            "group": ["**/mcp/**", "**/claude/**", "**/cursor/**", "**/codex/**", "**/mcp-app/**"],
+            "message": "A harness imports only core and itself (views/vscode)."
+          }]
+        }]
+      }
+    },
+    {
+      "files": ["views/mcp-app/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "paths": [
+            { "name": "fs", "message": "views/mcp-app runs in the browser." },
+            { "name": "path", "message": "views/mcp-app runs in the browser." },
+            { "name": "os", "message": "views/mcp-app runs in the browser." }
+          ],
+          "patterns": [
+            { "group": ["node:*"], "message": "views/mcp-app runs in the browser." },
+            { "group": ["**/src/**", "**/mcp/**", "**/views/**"], "message": "views/mcp-app is self-contained: it talks to the server only through MCP tools." }
+          ]
+        }]
+      }
+    },
+    {
+      "files": ["views/claude/mod/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "paths": [
+            { "name": "fs", "message": "The Claude Code mod is a neutral bundle with no node fs; read through $.fs." },
+            { "name": "path", "message": "The Claude Code mod is a neutral bundle; use its own path helpers." },
+            { "name": "os", "message": "The Claude Code mod is a neutral bundle." }
+          ],
+          "patterns": [
+            { "group": ["node:*"], "message": "The Claude Code mod is a neutral bundle." },
+            { "group": ["**/vscode/**", "**/cursor/**", "**/codex/**", "**/mcp-app/**", "**/mcp/**"], "message": "A harness imports only core and itself (views/claude)." },
+            { "group": ["**/core/store/**", "**/core/config/configManager*"], "message": "This part of core needs node fs, which the mod does not have." }
+          ]
+        }]
+      }
+    }
+  ],
   "ignorePatterns": ["dist", "node_modules", "esbuild.js"]
 }

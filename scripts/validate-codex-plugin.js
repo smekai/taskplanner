@@ -25,7 +25,7 @@ function assertExists(filePath, label) {
 
 function main() {
   const rootDir = path.resolve(__dirname, '..');
-  const pluginRoot = path.join(rootDir, 'plugins', 'taskplanner');
+  const pluginRoot = path.join(rootDir, 'views', 'codex');
   const manifestPath = path.join(pluginRoot, '.codex-plugin', 'plugin.json');
   const mcpPath = path.join(pluginRoot, '.mcp.json');
   const marketplacePath = path.join(rootDir, '.agents', 'plugins', 'marketplace.json');
@@ -38,7 +38,6 @@ function main() {
     ['.mcp.json', 'Codex MCP configuration'],
     ['dist/mcp-server.js', 'MCP server bundle'],
     ['ui/board/index.html', 'MCP board HTML'],
-    ['assets/logo.svg', 'Cursor plugin logo'],
     ['assets/taskplanner-color.png', 'Codex plugin logo'],
     ['skills/taskplanner/SKILL.md', 'TaskPlanner skill'],
     ['skills/list-tasks/SKILL.md', 'List-tasks skill'],
@@ -114,8 +113,8 @@ function main() {
     fail('Marketplace name must be "refined-taskplanner".');
   }
   const entry = marketplace?.plugins?.find((plugin) => plugin.name === 'taskplanner');
-  if (entry?.source?.path !== './plugins/taskplanner') {
-    fail('Marketplace source must be ./plugins/taskplanner.');
+  if (entry?.source?.path !== './views/codex') {
+    fail('Marketplace source must be ./views/codex.');
   }
   if (entry?.policy?.installation !== 'AVAILABLE') {
     fail('Marketplace installation policy must be AVAILABLE.');

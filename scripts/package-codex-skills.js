@@ -52,7 +52,7 @@ function writeZip(sourceRoot, destinationPath) {
 async function main() {
   const root = path.resolve(__dirname, '..');
   const pkg = readJson(path.join(root, 'package.json'));
-  const pluginSource = path.join(root, 'plugins', 'taskplanner');
+  const pluginSource = path.join(root, 'views', 'codex');
   const manifestSource = path.join(pluginSource, '.codex-plugin', 'plugin.json');
   const submission = readJson(path.join(pluginSource, '.codex-plugin', 'submission.json'));
   const destination = path.join(root, 'dist', 'codex', `taskplanner-codex-skills-${pkg.version}`);

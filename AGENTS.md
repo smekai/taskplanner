@@ -4,7 +4,9 @@ VS Code / Cursor extension for markdown task tracking under `.tasks/`. Core is V
 
 **Stack:** TypeScript (strict), esbuild, Vitest, ESLint, Prettier.
 
-**Layout:** `src/core/` (library), `src/extension/` (VS Code shell), `test/` (Vitest), `plugins/taskplanner/` (plugin; Claude Code mod source in `mod/`), `packages/mcp-server/`, `dist/`.
+**Layout:** one folder per harness on a shared core. `src/core/` (domain library), `mcp/` (MCP server + npm package), `views/vscode/` (VS Code / Cursor extension), `views/mcp-app/` (board inside MCP hosts), `views/claude/`, `views/cursor/`, `views/codex/` (one plugin per host, each with its own skills and built files), `test/core/` (core tests), `dist/`. Each folder has a short `CLAUDE.md` (for the Claude plugin, in `views/claude/mod/`).
+
+**Harnesses:** a harness imports only `src/core/` and itself; duplicating code between harnesses is fine. `.eslintrc.json` overrides enforce it.
 
 ```bash
 npm install && npm run build && npm test && npm run lint
@@ -18,7 +20,7 @@ npm run release:check    # full pre-release gate
 
 **Architecture:** one markdown file per state; config in `.tasks/config.json`; dates UTC via `src/core/util/time.ts` (`YYYY-MM-DD` / `YYYY-MM-DD HH:MM` only).
 
-**Comments:** `npm run lint` fails on comments in `src/` and `plugins/taskplanner/mod/src/`; tests are exempt (machine directives exempt; `WHY:` escape hatch). Prefer clearer names over comments.
+**Comments:** `npm run lint` fails on comments in `src/`, `mcp/src/`, `views/vscode/src/`, `views/mcp-app/` and `views/claude/mod/src/`; tests are exempt (machine directives exempt; `WHY:` escape hatch). Prefer clearer names over comments.
 
 <!-- TASKPLANNER:START -->
 # TaskPlanner — AI Agent Instructions

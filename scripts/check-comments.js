@@ -5,7 +5,10 @@ const ts = require('typescript');
 
 const ROOTS = [
   path.join(__dirname, '..', 'src'),
-  path.join(__dirname, '..', 'plugins', 'taskplanner', 'mod', 'src'),
+  path.join(__dirname, '..', 'mcp', 'src'),
+  path.join(__dirname, '..', 'views', 'vscode', 'src'),
+  path.join(__dirname, '..', 'views', 'mcp-app'),
+  path.join(__dirname, '..', 'views', 'claude', 'mod', 'src'),
 ];
 const DIRECTIVE_RE = /^\/[/*]\s*(eslint|ts-|@ts-|prettier-|c8 |v8 |istanbul|#!)/;
 const JUSTIFIED_RE = /^\/[/*]+\s*WHY:\s*\S/;

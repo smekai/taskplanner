@@ -6,7 +6,7 @@
     "types": ["node"],
     "moduleResolution": "Node16",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -16,6 +16,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/mcp/ui/**/*.ts", "node_modules", "dist"]
+  "include": ["src/**/*.ts", "views/vscode/src/**/*.ts", "mcp/src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

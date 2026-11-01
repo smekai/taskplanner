@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "taskplanner",
-      "source": "plugins/taskplanner",
+      "source": "views/cursor",
       "description": "Task-first AI workflows: manage, prioritize, and execute markdown tasks in your repo via MCP tools and an interactive board."
     }
   ]

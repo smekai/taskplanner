@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "src/core",
-    "outDir": "packages/mcp-server/dist",
+    "outDir": "mcp/dist",
     "emitDeclarationOnly": true,
     "declaration": true,
     "declarationMap": false,

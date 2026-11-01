@@ -16,10 +16,13 @@ This repo provides markdown-based task tracking stored as `.md` files under `.ta
 
 ## Code layout
 
-- `src/core/`: pure logic, no `vscode` dependency
-- `src/extension/`: VS Code extension shell (commands, views, providers, watchers)
+- `src/core/`: domain logic, no `vscode` dependency and no harness code
 - `test/core/`: Vitest unit tests for core logic
-- `test/extension/`: integration tests (via `@vscode/test-cli`)
+- `mcp/`: MCP server and the npm package
+- `views/vscode/`: VS Code extension shell (`src/` commands, views, watchers; `test/`)
+- `views/mcp-app/`: board UI inside MCP hosts
+- `views/claude/`, `views/cursor/`, `views/codex/`: one plugin per host
+- A harness imports only `src/core/` and itself (lint-enforced)
 
 ## Task workflow for agents (task-agent instructions)
 

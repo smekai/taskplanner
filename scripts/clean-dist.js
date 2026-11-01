@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 
 // A build that only overwrites leaves declarations behind for modules that were deleted,
 // and `files: ["dist/"]` then publishes them.
-fs.rmSync(path.join(root, 'packages', 'mcp-server', 'dist'), { recursive: true, force: true });
+fs.rmSync(path.join(root, 'mcp', 'dist'), { recursive: true, force: true });
 
 // The extension bundle shares dist/ with the packaged release artifacts, which the build
 // must not touch: `npm run package` creates dist/vscode/ before vsce runs this through

@@ -12,8 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The VS Code extension package no longer includes repository configuration that leaked into it, such as a local `.claude/settings.local.json`, `.github/`, agent instruction files and test configs (TASK-073).
 - A move that failed halfway could lose the task: it was already gone from its old state when writing the new one failed (seen on Windows as `EPERM`). The new state is now written first, each write uses its own temporary file, and a rename Windows refuses while the file is held open is retried (TASK-075).
 - Creating a task through the MCP server reads only the state it goes into again, so an unreadable file elsewhere on the board no longer blocks it (TASK-075).
+
+### Changed
+
+- Repository layout: one folder per harness on a shared core. Paths moved: `mcp/` for the MCP server and npm package, and `views/vscode`, `views/mcp-app`, `views/claude`, `views/cursor`, `views/codex`. The Claude Code, Cursor and Codex plugins are now separate folders, each with its own skills. Behaviour is unchanged, and installed plugins keep their name (TASK-073).
 
 ## [2.5.1] - 2026-10-16
 

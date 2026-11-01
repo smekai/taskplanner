@@ -15,42 +15,41 @@ const shared = {
   logLevel: 'info',
 };
 
-const boardUiDir = path.join(__dirname, 'src', 'mcp', 'ui', 'board');
-const pluginRoot = path.join(__dirname, 'plugins', 'taskplanner');
-const boardUiOutDir = path.join(pluginRoot, 'ui', 'board');
+const boardUiDir = path.join(__dirname, 'views', 'mcp-app', 'board');
 const boardHtmlTemplate = path.join(boardUiDir, 'board.html');
 const boardCssFile = path.join(boardUiDir, 'board.css');
-const boardHtmlOut = path.join(boardUiOutDir, 'index.html');
 
-const mcpServerOut = path.join(pluginRoot, 'dist', 'mcp-server.js');
-const mcpPackageRoot = path.join(__dirname, 'packages', 'mcp-server');
-const mcpPackageServerOut = path.join(mcpPackageRoot, 'dist', 'mcp-server.js');
-const mcpPackageBoardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
-
+const mcpPackageRoot = path.join(__dirname, 'mcp');
+const mcpServerOut = path.join(mcpPackageRoot, 'dist', 'mcp-server.js');
+const boardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
 const mcpPackageLibraryOut = path.join(mcpPackageRoot, 'dist', 'index.js');
 
-const claudeModOut = path.join(pluginRoot, 'hooks', 'register.js');
+// Marketplaces copy only a plugin's own folder, so each one carries its own server and board.
+const pluginRoots = ['claude', 'cursor', 'codex'].map((host) => path.join(__dirname, 'views', host));
 
-function syncMcpPackage() {
+const claudeModOut = path.join(__dirname, 'views', 'claude', 'hooks', 'register.js');
+
+function syncPlugins() {
   if (shared.format !== 'cjs') {
     throw new Error(
       `MCP bundle format must stay "cjs" (__dirname is used at runtime); got "${shared.format}".`,
     );
   }
 
-  const copies = [
-    [mcpServerOut, mcpPackageServerOut],
-    [boardHtmlOut, mcpPackageBoardHtmlOut],
-  ];
-  for (const [from, to] of copies) {
-    fs.mkdirSync(path.dirname(to), { recursive: true });
-    fs.copyFileSync(from, to);
+  for (const pluginRoot of pluginRoots) {
+    const copies = [
+      [mcpServerOut, path.join(pluginRoot, 'dist', 'mcp-server.js')],
+      [boardHtmlOut, path.join(pluginRoot, 'ui', 'board', 'index.html')],
+    ];
+    for (const [from, to] of copies) {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(from, to);
+    }
   }
 
-  fs.rmSync(`${mcpPackageServerOut}.map`, { force: true });
   if (production) fs.rmSync(`${mcpServerOut}.map`, { force: true });
 
-  console.log(`[mcp-package] synced ${path.relative(__dirname, mcpPackageRoot)}`);
+  console.log(`[plugins] synced ${pluginRoots.map((root) => path.relative(__dirname, root)).join(', ')}`);
 }
 
 async function buildBoardUi() {
@@ -70,7 +69,7 @@ async function buildBoardUi() {
   const css = fs.readFileSync(boardCssFile, 'utf8');
   const template = fs.readFileSync(boardHtmlTemplate, 'utf8');
   const html = template.replace('/*__CSS__*/', () => css).replace('/*__JS__*/', () => js);
-  fs.mkdirSync(boardUiOutDir, { recursive: true });
+  fs.mkdirSync(path.dirname(boardHtmlOut), { recursive: true });
   fs.writeFileSync(boardHtmlOut, html, 'utf8');
   console.log(`[board-ui] wrote ${path.relative(__dirname, boardHtmlOut)} (${html.length} bytes)`);
 }
@@ -93,7 +92,7 @@ function boardUiWatchPlugin() {
 async function main() {
   const extensionCtx = await esbuild.context({
     ...shared,
-    entryPoints: ['src/extension/extension.ts'],
+    entryPoints: ['views/vscode/src/extension.ts'],
     outfile: 'dist/extension.js',
     external: ['vscode'],
     plugins: [
@@ -114,7 +113,7 @@ async function main() {
 
   const mcpCtx = await esbuild.context({
     ...shared,
-    entryPoints: ['src/mcp/server.ts'],
+    entryPoints: ['mcp/src/server.ts'],
     outfile: mcpServerOut,
     plugins: [
       boardUiWatchPlugin(),
@@ -123,7 +122,7 @@ async function main() {
         setup(build) {
           build.onEnd((result) => {
             if (result.errors.length === 0) {
-              syncMcpPackage();
+              syncPlugins();
               console.log('[watch] mcp-server build succeeded');
             }
           });
@@ -151,7 +150,7 @@ async function main() {
   });
 
   const claudeModCtx = await esbuild.context({
-    entryPoints: ['plugins/taskplanner/mod/src/register.ts'],
+    entryPoints: ['views/claude/mod/src/register.ts'],
     outfile: claudeModOut,
     bundle: true,
     format: 'esm',

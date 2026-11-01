@@ -1,7 +1,7 @@
 /**
  * Headless smoke test for the TaskPlanner npm package (stdio).
  *
- * Packs packages/mcp-server, installs the tarball into an empty temporary directory, and exercises
+ * Packs mcp/, installs the tarball into an empty temporary directory, and exercises
  * the published artifact there: both workspace-root paths, the tool set and annotations, the board
  * resource, the Assignee round-trip, the bin mapping, and the library entry.
  *
@@ -14,7 +14,7 @@ const os = require('os');
 const path = require('path');
 
 const repoRoot = path.join(__dirname, '..');
-const packageDir = path.join(repoRoot, 'packages', 'mcp-server');
+const packageDir = path.join(repoRoot, 'mcp');
 const packageName = require(path.join(packageDir, 'package.json')).name;
 const npmCli = path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
 const BOARD_URI = 'ui://taskplanner/board';
@@ -269,7 +269,7 @@ function checkTools(tools) {
 
 /** Case 1: TASKPLANNER_WORKSPACE_ROOT, pointed at a subdirectory so a pass proves the walk up. */
 function checkEnvVarRoot(serverPath, installDir) {
-  const nestedRepoDir = path.join(repoRoot, 'src', 'mcp');
+  const nestedRepoDir = path.join(repoRoot, 'mcp', 'src');
   const env = { TASKPLANNER_WORKSPACE_ROOT: nestedRepoDir };
   return withServer({ args: [serverPath], cwd: installDir, env, label: 'env-var' }, async (c) => {
     checkTools((await c.request('tools/list')).tools || []);

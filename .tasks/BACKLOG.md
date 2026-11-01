@@ -32,44 +32,6 @@ Current users of the tools that are candidates to merge or drop:
 Removing a tool is a breaking change for `@smekai/taskplanner`. Note it in the 3.0 changelog and update the skills, rules and READMEs that name the tool.
 
 ---
-## TASK-073: Keep every board view, on one core, independent of each other
-**Priority:** P2 | **Tags:** ui, docs | **Epic:** 3.0
-**Updated:** 2026-10-30 13:21
-
-Phase B of TASK-071.
-
-## Decisions (2026-10-30)
-
-- **No telemetry in 3.0.** In the Claude Code mod it is impossible (the mods API has no network access). In the MCP server it would be opt-in only, with no consent UI. Only the VS Code extension could do it properly (`vscode.env.createTelemetryLogger`, honouring `telemetry.telemetryLevel`), and that is the one surface we do not need data for. Revisit after 3.0 only if the public numbers are not enough.
-- **Collect the public numbers instead.** GitHub traffic expires after 14 days, so it must be saved regularly or it is lost.
-- **Keep every view, rather than choosing which to drop.** Drop a tool only once it is clearly irrelevant.
-- **Direction:** one core, with every view a separate client of it. No view depends on another view, or on the MCP server, unless it has to.
-
-## Public numbers, 2026-10-30
-
-| Source | Numbers |
-| --- | --- |
-| Open VSX (Cursor) | 4268 downloads, ★5 (1); **still at 2.4.4** |
-| VS Code Marketplace | 116 installs, 553 downloads, ★5 (1) |
-| npm `@smekai/taskplanner` | 103 downloads in the last month |
-| GitHub | 23★, 4 forks; 14 days: 153 clones (73 unique), 58 views (33 unique) |
-
-## Coupling today
-
-- **VS Code / Cursor extension** — core only (`TaskStore`, `ConfigManager`, `projectSync`). Touches MCP only to write `.mcp.json` during setup. Already independent.
-- **MCP server** — core only.
-- **MCP UI app** (`src/mcp/ui/board/`) — goes through the server's `taskplanner_board_data`, `taskplanner_get` and `taskplanner_move`. Coupled to the server by design: it runs inside the MCP host.
-- **Claude Code mod** — reads through the core parser. Writes through the server's `taskplanner_move` / `taskplanner_create`: the mod has no node `fs`, and auto-mode approval rides on those calls. It also keeps its own `boardDigestText` beside `core/ai/boardDigest`.
-- **`board` skill** — names `taskplanner_board_visual` / `taskplanner_board_data`, so it depends on the server.
-
-## To do
-
-- For each view, list what it re-implements that the core already has (start with the mod's digest versus `core/ai/boardDigest`, and the mod's board model versus `core/view/boardViewModel`), then move the shared parts into core.
-- Write down which coupling to the MCP server is required (the mod's writes, the UI app) and which is incidental.
-- Feed the list of tools each view needs into TASK-074.
-- Optional: a small script or weekly scheduled task that saves the public numbers above.
-
----
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup, ci
 **Updated:** 2026-10-16 17:57

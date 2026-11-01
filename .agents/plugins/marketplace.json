@@ -8,7 +8,7 @@
       "name": "taskplanner",
       "source": {
         "source": "local",
-        "path": "./plugins/taskplanner"
+        "path": "./views/codex"
       },
       "policy": {
         "installation": "AVAILABLE",
