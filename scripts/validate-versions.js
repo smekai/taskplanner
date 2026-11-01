@@ -12,62 +12,60 @@ function fail(message) {
 
 function main() {
   const root = path.resolve(__dirname, '..');
+  const hosts = ['claude', 'cursor', 'codex'];
+  const pluginRoot = (host) => path.join(root, 'views', host);
+  const manifest = (host) => readJson(path.join(pluginRoot(host), `.${host}-plugin`, 'plugin.json'));
   const pkg = readJson(path.join(root, 'package.json'));
   const lock = readJson(path.join(root, 'package-lock.json'));
-  const cursor = readJson(
-    path.join(root, 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
-  );
-  const codex = readJson(path.join(root, 'plugins', 'taskplanner', '.codex-plugin', 'plugin.json'));
-  const claude = readJson(
-    path.join(root, 'plugins', 'taskplanner', '.claude-plugin', 'plugin.json'),
-  );
-  const mcpPackage = readJson(path.join(root, 'packages', 'mcp-server', 'package.json'));
+  const mcpPackage = readJson(path.join(root, 'mcp', 'package.json'));
   const expected = pkg.version;
 
   const versions = [
     ['package-lock.json', lock.version],
     ['package-lock.json root package', lock.packages?.['']?.version],
-    ['Cursor plugin manifest', cursor.version],
-    ['Codex plugin manifest', codex.version?.split('+')[0]],
-    ['Claude plugin manifest', claude.version],
+    ['Cursor plugin manifest', manifest('cursor').version],
+    ['Codex plugin manifest', manifest('codex').version?.split('+')[0]],
+    ['Claude plugin manifest', manifest('claude').version],
     [`npm package ${mcpPackage.name}`, mcpPackage.version],
   ];
   for (const [label, actual] of versions) {
     if (actual !== expected) fail(`${label} is ${actual}; expected ${expected}.`);
   }
 
-  const mcpSource = fs.readFileSync(path.join(root, 'src', 'mcp', 'server.ts'), 'utf8');
+  const mcpSource = fs.readFileSync(path.join(root, 'mcp', 'src', 'server.ts'), 'utf8');
   const mcpVersion = /version: '([^']+)',/.exec(mcpSource)?.[1];
   if (mcpVersion !== expected) fail(`MCP server is ${mcpVersion}; expected ${expected}.`);
 
-  const mcpBundlePath = path.join(root, 'plugins', 'taskplanner', 'dist', 'mcp-server.js');
-  const mcpBundle = fs.readFileSync(mcpBundlePath, 'utf8');
-  const mcpBundleVersion = /name:"taskplanner",version:"([^"]+)"/.exec(mcpBundle)?.[1];
-  if (mcpBundleVersion !== expected) {
-    fail(`Bundled MCP server is ${mcpBundleVersion}; expected ${expected}.`);
-  }
-
-  const mcpPackageBundlePath = path.join(root, 'packages', 'mcp-server', 'dist', 'mcp-server.js');
-  if (!fs.existsSync(mcpPackageBundlePath)) {
+  const mcpPackageBundlePath = path.join(root, 'mcp', 'dist', 'mcp-server.js');
+  const hasPackageBundle = fs.existsSync(mcpPackageBundlePath);
+  if (!hasPackageBundle) {
     fail(`${mcpPackage.name} has no built bundle; run "npm run build" first.`);
-  } else if (!fs.readFileSync(mcpPackageBundlePath).equals(fs.readFileSync(mcpBundlePath))) {
-    fail(`${mcpPackage.name} bundle differs from the plugin bundle; rebuild to resync.`);
   }
 
-  for (const skillName of ['taskplanner', 'initialize-taskplanner', 'update-taskplanner']) {
-    const skillPath = path.join(root, 'plugins', 'taskplanner', 'skills', skillName, 'SKILL.md');
-    const skill = fs.readFileSync(skillPath, 'utf8');
-    const marker = /<!-- TASKPLANNER:VERSION:([^ >]+) -->/.exec(skill)?.[1];
-    if (marker !== expected) fail(`${skillName} skill is ${marker}; expected ${expected}.`);
-    const embedded = skill.match(/\b\d+\.\d+\.\d+\b/g) ?? [];
-    if (embedded.length !== 1) {
-      fail(`${skillName} skill names a version ${embedded.length} times; keep only its marker.`);
+  for (const host of hosts) {
+    const bundlePath = path.join(pluginRoot(host), 'dist', 'mcp-server.js');
+    const bundle = fs.readFileSync(bundlePath, 'utf8');
+    const bundleVersion = /name:"taskplanner",version:"([^"]+)"/.exec(bundle)?.[1];
+    if (bundleVersion !== expected) {
+      fail(`${host} plugin's bundled MCP server is ${bundleVersion}; expected ${expected}.`);
+    }
+    if (hasPackageBundle && !fs.readFileSync(mcpPackageBundlePath).equals(Buffer.from(bundle))) {
+      fail(`${host} plugin's MCP bundle differs from ${mcpPackage.name}'s; rebuild to resync.`);
+    }
+
+    for (const skillName of ['taskplanner', 'initialize-taskplanner', 'update-taskplanner']) {
+      const skillPath = path.join(pluginRoot(host), 'skills', skillName, 'SKILL.md');
+      const skill = fs.readFileSync(skillPath, 'utf8');
+      const marker = /<!-- TASKPLANNER:VERSION:([^ >]+) -->/.exec(skill)?.[1];
+      if (marker !== expected) fail(`${host} ${skillName} skill is ${marker}; expected ${expected}.`);
+      const embedded = skill.match(/\b\d+\.\d+\.\d+\b/g) ?? [];
+      if (embedded.length !== 1) {
+        fail(`${host} ${skillName} skill names a version ${embedded.length} times; keep only its marker.`);
+      }
     }
   }
 
-  const submission = readJson(
-    path.join(root, 'plugins', 'taskplanner', '.codex-plugin', 'submission.json'),
-  );
+  const submission = readJson(path.join(pluginRoot('codex'), '.codex-plugin', 'submission.json'));
   if (submission.version !== expected) {
     fail(`Codex submission is ${submission.version}; expected ${expected}.`);
   }

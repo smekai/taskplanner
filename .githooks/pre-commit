@@ -2,4 +2,11 @@
 # Auto-increment patch version on every commit
 
 node scripts/bump-version.js
-git add package.json package-lock.json .tasks/config.json CONTRIBUTING.md docs/CODEX_PLUGIN_SUBMISSION.md src/mcp/server.ts plugins/taskplanner/dist/mcp-server.js packages/mcp-server/package.json plugins/taskplanner/.cursor-plugin/plugin.json plugins/taskplanner/.codex-plugin/plugin.json plugins/taskplanner/.claude-plugin/plugin.json plugins/taskplanner/.codex-plugin/submission.json plugins/taskplanner/skills/taskplanner/SKILL.md plugins/taskplanner/skills/initialize-taskplanner/SKILL.md plugins/taskplanner/skills/update-taskplanner/SKILL.md
+git add package.json package-lock.json .tasks/config.json CONTRIBUTING.md docs/CODEX_PLUGIN_SUBMISSION.md \
+  mcp/src/server.ts mcp/package.json \
+  views/claude/.claude-plugin/plugin.json views/cursor/.cursor-plugin/plugin.json views/codex/.codex-plugin/plugin.json \
+  views/codex/.codex-plugin/submission.json \
+  views/claude/dist/mcp-server.js views/cursor/dist/mcp-server.js views/codex/dist/mcp-server.js \
+  views/claude/skills/taskplanner/SKILL.md views/claude/skills/initialize-taskplanner/SKILL.md views/claude/skills/update-taskplanner/SKILL.md \
+  views/cursor/skills/taskplanner/SKILL.md views/cursor/skills/initialize-taskplanner/SKILL.md views/cursor/skills/update-taskplanner/SKILL.md \
+  views/codex/skills/taskplanner/SKILL.md views/codex/skills/initialize-taskplanner/SKILL.md views/codex/skills/update-taskplanner/SKILL.md

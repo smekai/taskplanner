@@ -1,5 +1,64 @@
 # Done
 
+## TASK-073: One folder per harness: views/ and mcp/, on a domain-only core
+**Priority:** P2 | **Tags:** ui, docs | **Epic:** 3.0
+**Updated:** 2026-11-01 20:30
+
+Phase B of TASK-071.
+
+## Decisions (2026-10-30)
+
+- **No telemetry in 3.0.** In the Claude Code mod it is impossible (the mods API has no network access). In the MCP server it would be opt-in only, with no consent UI. Only the VS Code extension could do it properly (`vscode.env.createTelemetryLogger`, honouring `telemetry.telemetryLevel`), and that is the one surface we do not need data for. Revisit after 3.0 only if the public numbers are not enough.
+- **Collect the public numbers instead.** GitHub traffic expires after 14 days, so it must be saved regularly or it is lost.
+- **Keep every view, rather than choosing which to drop.** Drop a tool only once it is clearly irrelevant.
+- **Direction:** one core, with every view a separate client of it. No view depends on another view, or on the MCP server, unless it has to.
+
+## Public numbers, 2026-10-30
+
+| Source | Numbers |
+| --- | --- |
+| Open VSX (Cursor) | 4268 downloads, ★5 (1); **still at 2.4.4** |
+| VS Code Marketplace | 116 installs, 553 downloads, ★5 (1) |
+| npm `@smekai/taskplanner` | 103 downloads in the last month |
+| GitHub | 23★, 4 forks; 14 days: 153 clones (73 unique), 58 views (33 unique) |
+
+## Coupling today
+
+- **VS Code / Cursor extension** — core only (`TaskStore`, `ConfigManager`, `projectSync`). Touches MCP only to write `.mcp.json` during setup. Already independent.
+- **MCP server** — core only.
+- **MCP UI app** (`src/mcp/ui/board/`) — goes through the server's `taskplanner_board_data`, `taskplanner_get` and `taskplanner_move`. Coupled to the server by design: it runs inside the MCP host.
+- **Claude Code mod** — reads through the core parser. Writes through the server's `taskplanner_move` / `taskplanner_create`: the mod has no node `fs`, and auto-mode approval rides on those calls. It also keeps its own `boardDigestText` beside `core/ai/boardDigest`.
+- **`board` skill** — names `taskplanner_board_visual` / `taskplanner_board_data`, so it depends on the server.
+
+## To do
+
+- For each view, list what it re-implements that the core already has (start with the mod's digest versus `core/ai/boardDigest`, and the mod's board model versus `core/view/boardViewModel`), then move the shared parts into core.
+- Write down which coupling to the MCP server is required (the mod's writes, the UI app) and which is incidental.
+- Feed the list of tools each view needs into TASK-074.
+- Optional: a small script or weekly scheduled task that saves the public numbers above.
+
+### Plan
+
+Done 2026-11-01. One folder per harness on a domain-only core, and duplicating code between harnesses is fine.
+- Layout:
+  - `src/core/`;
+  - `mcp/` (server + npm package);
+  - `views/vscode` (`src/`, `test/`), `views/mcp-app`;
+  - `views/claude` (plus `mod/`), `views/cursor`, `views/codex`, each a separate plugin with its own skills and committed `dist/` and `ui/`.
+- Moved with `git mv`, imports rewritten by script. The extension-only modules (`promptComposer`, `planMode`, `codexDeepLink`, `aiInstructions`, `projectSync`) left core; `DEFAULT_WORK_LOG_CONTENT` moved to `core/store/archive.ts`.
+- Build:
+  - esbuild builds once into `mcp/` and copies to every plugin;
+  - `bump-version` / `validate-versions` cover 3 manifests and 9 skill files;
+  - each validator checks only its own folder;
+  - the marketplace `source` fields point at `views/*`.
+- Lint boundaries (`no-restricted-imports` overrides) were each verified with throwaway violations (17 caught).
+- Docs: root and per-harness `CLAUDE.md` (the Claude one sits in `mod/`, since `--strict` rejects one at the plugin root), README per plugin, CONTRIBUTING, AGENTS.md.
+- Found along the way:
+  - the VSIX shipped `.claude/settings.local.json`, `.github/` and dev configs (now excluded; 30 files);
+  - `tsc` over `mcp/src/server.ts` has a pre-existing TS2536 that nothing runs.
+- `release:check` green: 400 tests, smoke, 22 kit tests. npm `index.d.ts` is unchanged. Not done: a local Claude marketplace install from the branch.
+
+---
 ## TASK-075: Fix the known defects before 3.0
 **Priority:** P2 | **Tags:** testing | **Epic:** 3.0
 **Updated:** 2026-10-30 20:08

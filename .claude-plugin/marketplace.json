@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "taskplanner",
-      "source": "./plugins/taskplanner",
+      "source": "./views/claude",
       "description": "Task-first AI workflows over markdown tasks in your repo: MCP tools, skills, and a /taskplanner:board pane.",
       "category": "productivity"
     }

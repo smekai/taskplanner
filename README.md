@@ -61,8 +61,8 @@ Competitors often focus on UI and manual task editing. TaskPlanner is built for 
 - [**VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) — VS Code
 - [**Open VSX**](https://open-vsx.org/extension/refined/taskplanner) — Cursor IDE and other compatible editors
 - [**Cursor Marketplace (Plugin)**](https://cursor.com/marketplace) — search for `taskplanner`
-- **Codex app/CLI plugin** — install from this repository's local marketplace; see [`plugins/taskplanner/README.md`](plugins/taskplanner/README.md)
-- **npm** — `npm install @smekai/taskplanner` for the board as a library and as an MCP server; see [`packages/mcp-server/README.md`](packages/mcp-server/README.md)
+- **Codex app/CLI plugin** — install from this repository's local marketplace; see [`views/codex/README.md`](views/codex/README.md)
+- **npm** — `npm install @smekai/taskplanner` for the board as a library and as an MCP server; see [`mcp/README.md`](mcp/README.md)
 - **JetBrains IDEs** — planned
 
 ## Distribution Model
@@ -70,7 +70,7 @@ Competitors often focus on UI and manual task editing. TaskPlanner is built for 
 TaskPlanner ships as three coordinated artifacts:
 
 - **VS Code extension** (`refined.taskplanner`) for editor-native UI/runtime features (activity bar view, webviews, command contributions).
-- **Shared agent plugin** (`plugins/taskplanner/`) for Cursor and Codex (MCP tools, workflow skills, Cursor rule, and Cursor slash commands).
+- **Agent plugins**, one per host: [`views/claude/`](views/claude/README.md) for Claude Code (MCP tools, skills, and the board pane), [`views/cursor/`](views/cursor/README.md) for Cursor (MCP tools, skills, rule, and slash commands) and [`views/codex/`](views/codex/README.md) for Codex (MCP tools and skills).
 - **npm package** (`@smekai/taskplanner`) for hosts that are not an editor plugin install. It has two entry points: the core library for code that reads or edits the board directly, and `@smekai/taskplanner/mcp-server` for exposing the board to a model as MCP tools. Both are built from the same sources as the extension and the plugin.
 
 Source code lives at [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner); the Marketplace publisher remains **refined**.

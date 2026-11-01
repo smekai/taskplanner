@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-073 — 2026-11-01
+**What:** Moved to one folder per harness on a domain-only core: `mcp/`, plus `views/vscode`, `mcp-app`, `claude`, `cursor` and `codex`. The three host plugins became separate folders, each with its own skills.
+**Decisions:** Duplicating code between harnesses is fine. Each harness imports only core and itself, and `no-restricted-imports` overrides enforce it. Extension-only modules left core.
+**Outcome:** `release:check` green; npm public types unchanged. The VSIX no longer ships repo config such as `.claude/settings.local.json`.
+
+---
+
 ## TASK-075 — 2026-10-30
 **What:** Fixed the two known defects. A failed move could lose a task, and MCP create read the whole board again.
 **Decisions:** A move writes the destination first, so a failure leaves a duplicate rather than a loss. Each write gets its own temp file, and EPERM/EBUSY/EACCES renames are retried. `openBoard({ loadAllStates: false })` restores TASK-061's targeted create.

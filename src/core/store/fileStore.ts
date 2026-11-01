@@ -7,8 +7,8 @@ import { TaskPlannerConfig } from '../model/config.js';
 import { ParseResult } from '../model/parseResult.js';
 import { parseTasks } from '../parser/taskParser.js';
 import { serializeBoard, serializeStateFile, serializeTask } from '../parser/taskSerializer.js';
-import { DEFAULT_WORK_LOG_CONTENT } from '../ai/aiInstructions.js';
 import {
+  DEFAULT_WORK_LOG_CONTENT,
   joinWorkLog,
   renderWorkLogEntry,
   splitWorkLog,

@@ -9,6 +9,22 @@ export interface ArchiveKind {
 export const TASK_ARCHIVE: ArchiveKind = { filePrefix: 'DONE', label: 'Done' };
 export const WORK_LOG_ARCHIVE: ArchiveKind = { filePrefix: 'WORK_LOG', label: 'Work log' };
 
+export const DEFAULT_WORK_LOG_CONTENT = `# Work Log
+
+Top-level trace of completed work and key decisions. One entry per task moved to Done — newest at top. Keep entries short (3–5 lines); detailed steps stay in each task's \`### Plan\` in \`DONE.md\`.
+
+**Entry template** (insert after this header, before existing entries):
+
+\`\`\`markdown
+## TASK-### — YYYY-MM-DD
+**What:** One-line summary of what was delivered.
+**Decisions:** Key choices made and why (skip if none).
+**Outcome:** Result or follow-ups (skip if obvious from What).
+
+---
+\`\`\`
+`;
+
 const UNDATED_BUCKET = 'undated';
 const ARCHIVE_FILE_RE = /^(DONE|WORK_LOG)-(undated|\d{4})\.md$/;
 

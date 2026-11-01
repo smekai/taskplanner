@@ -1,4 +1,0 @@
-{
-  "description": "TaskPlanner board pane and in-progress band for Claude Code (built from src/claude-mod/)",
-  "modules": ["./register.js"]
-}

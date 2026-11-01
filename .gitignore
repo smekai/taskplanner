@@ -1,16 +1,21 @@
 node_modules/
 dist/
-!plugins/taskplanner/dist/
-!plugins/taskplanner/dist/**
+# Each plugin folder ships its own built MCP server: marketplaces copy only that folder.
+!views/claude/dist/
+!views/claude/dist/**
+!views/cursor/dist/
+!views/cursor/dist/**
+!views/codex/dist/
+!views/codex/dist/**
 # ...but never the sourcemaps a dev build drops there; the shipped bundle has none.
-plugins/taskplanner/dist/*.map
+views/*/dist/*.map
 out/
 *.vsix
 .vscode-test/
 
-# Generated npm package artifacts (built by esbuild.js from src/, published from packages/mcp-server)
-packages/mcp-server/ui/
+# Generated npm package artifacts (built by esbuild.js, published from mcp/)
+mcp/ui/
 
-# Written by Claude Code when it loads plugins/taskplanner with --plugin-dir (mod type declarations)
-plugins/taskplanner/.claude-plugin/types/
-plugins/taskplanner/tsconfig.json
+# Written by Claude Code when it loads views/claude with --plugin-dir (mod type declarations)
+views/claude/.claude-plugin/types/
+views/claude/tsconfig.json

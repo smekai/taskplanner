@@ -19,12 +19,32 @@ vitest.config.ts
 example/**
 CONTRIBUTING.md
 agent-transcripts/**
-packages/**
+mcp/**
 scripts/**
 
-# Include the shared Cursor/Codex/Claude plugin and its built bundles, minus the mod sources, tests and generated types
-!plugins/taskplanner/**
-!plugins/taskplanner/dist/**
-plugins/taskplanner/mod/**
-plugins/taskplanner/.claude-plugin/types/**
-plugins/taskplanner/tsconfig.json
+# Every harness folder stays out except the Cursor plugin, which the extension registers in Cursor.
+# Listed part by part: vsce lets a ! line win over any later exclusion, so the dev note there stays out.
+views/**
+!views/cursor/.cursor-plugin/**
+!views/cursor/assets/**
+!views/cursor/commands/**
+!views/cursor/dist/**
+!views/cursor/rules/**
+!views/cursor/skills/**
+!views/cursor/ui/**
+!views/cursor/mcp.json
+!views/cursor/README.md
+
+# Repository and agent configuration, not part of the extension
+.claude/**
+.claude-plugin/**
+.cursor-plugin/**
+.agents/**
+.github/**
+.mcp.json
+.cursorrules
+AGENTS.md
+CLAUDE.md
+docs/**
+vitest.config.mts
+tsconfig.types.json

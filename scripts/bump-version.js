@@ -7,54 +7,24 @@ const path = require('path');
 
 const pkgPath = path.resolve(__dirname, '..', 'package.json');
 const lockPath = path.resolve(__dirname, '..', 'package-lock.json');
-const mcpServerPath = path.resolve(__dirname, '..', 'src', 'mcp', 'server.ts');
-const mcpBundlePath = path.resolve(
-  __dirname,
-  '..',
-  'plugins',
-  'taskplanner',
-  'dist',
-  'mcp-server.js',
+const repo = path.resolve(__dirname, '..');
+const pluginHosts = ['claude', 'cursor', 'codex'];
+const pluginRoot = (host) => path.join(repo, 'views', host);
+const mcpServerPath = path.join(repo, 'mcp', 'src', 'server.ts');
+const projectConfigPath = path.join(repo, '.tasks', 'config.json');
+const mcpPackagePath = path.join(repo, 'mcp', 'package.json');
+const bundlePaths = [
+  path.join(repo, 'mcp', 'dist', 'mcp-server.js'),
+  ...pluginHosts.map((host) => path.join(pluginRoot(host), 'dist', 'mcp-server.js')),
+];
+const versionTextPaths = [path.join(pluginRoot('codex'), '.codex-plugin', 'submission.json')];
+const pluginManifestPaths = pluginHosts.map((host) =>
+  path.join(pluginRoot(host), `.${host}-plugin`, 'plugin.json'),
 );
-const projectConfigPath = path.resolve(__dirname, '..', '.tasks', 'config.json');
-const mcpPackagePath = path.resolve(__dirname, '..', 'packages', 'mcp-server', 'package.json');
-const mcpPackageBundlePath = path.resolve(
-  __dirname,
-  '..',
-  'packages',
-  'mcp-server',
-  'dist',
-  'mcp-server.js',
+const versionedSkills = ['taskplanner', 'initialize-taskplanner', 'update-taskplanner'];
+const skillVersionPaths = pluginHosts.flatMap((host) =>
+  versionedSkills.map((skill) => path.join(pluginRoot(host), 'skills', skill, 'SKILL.md')),
 );
-const versionTextPaths = [
-  path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.codex-plugin', 'submission.json'),
-];
-const pluginManifestPaths = [
-  path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.cursor-plugin', 'plugin.json'),
-  path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.codex-plugin', 'plugin.json'),
-  path.resolve(__dirname, '..', 'plugins', 'taskplanner', '.claude-plugin', 'plugin.json'),
-];
-const skillVersionPaths = [
-  path.resolve(__dirname, '..', 'plugins', 'taskplanner', 'skills', 'taskplanner', 'SKILL.md'),
-  path.resolve(
-    __dirname,
-    '..',
-    'plugins',
-    'taskplanner',
-    'skills',
-    'initialize-taskplanner',
-    'SKILL.md',
-  ),
-  path.resolve(
-    __dirname,
-    '..',
-    'plugins',
-    'taskplanner',
-    'skills',
-    'update-taskplanner',
-    'SKILL.md',
-  ),
-];
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 const previousVersion = pkg.version;
 
@@ -98,7 +68,7 @@ if (fs.existsSync(mcpServerPath)) {
   fs.writeFileSync(mcpServerPath, updated);
 }
 
-for (const bundlePath of [mcpBundlePath, mcpPackageBundlePath]) {
+for (const bundlePath of bundlePaths) {
   if (!fs.existsSync(bundlePath)) continue;
   const source = fs.readFileSync(bundlePath, 'utf8');
   fs.writeFileSync(bundlePath, source.replaceAll(previousVersion, pkg.version));

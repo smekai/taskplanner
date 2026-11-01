@@ -54,8 +54,8 @@ npm run package      # Create .vsix package
 TaskPlanner is distributed through three channels:
 
 - **Extension channel**: VS Code Marketplace / Open VSX (`refined.taskplanner`) for editor UI/runtime features.
-- **Plugin channel**: shared Cursor/Codex/Claude Code package (`plugins/taskplanner/`) for agent-native MCP, skills, Cursor rules, and commands.
-- **npm channel**: [`@smekai/taskplanner`](packages/mcp-server/README.md) (`packages/mcp-server/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
+- **Plugin channel**: one plugin per host, `views/claude/`, `views/cursor/` and `views/codex/`, each with its own manifest, skills and built MCP server. Cursor also gets its rules and commands, and Claude Code its board pane.
+- **npm channel**: [`@smekai/taskplanner`](mcp/README.md) (`mcp/`) — the board as a library and as an MCP server, for any host that is not an editor plugin install.
 
 Every commit must include a patch version bump. The configured pre-commit hook runs `scripts/bump-version.js` and stages all synchronized version-bearing files. If an exact release version was set manually before committing, use `--no-verify` only after `npm run validate:versions` passes to avoid a second bump.
 
@@ -63,8 +63,8 @@ When preparing a plugin publish, run `npm run release:check` before submitting t
 
 ### Cursor Marketplace submit (manual)
 
-1. Confirm [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner) is **public** and `main` includes `plugins/taskplanner/` plus both marketplace files.
-2. Run `npm run release:check`, copy `plugins/taskplanner` to `%USERPROFILE%\.cursor\plugins\local\taskplanner`, restart Cursor, and smoke-test the MCP server, skills, and board.
+1. Confirm [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner) is **public** and `main` includes `views/cursor/` plus `.cursor-plugin/marketplace.json`.
+2. Run `npm run release:check`, copy `views/cursor` to `%USERPROFILE%\.cursor\plugins\local\taskplanner`, restart Cursor, and smoke-test the MCP server, skills, and board.
 3. Sign into Cursor → open [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish) → submit repository URL `https://github.com/smekai/taskplanner`.
 4. Wait for Cursor’s manual review (not self-serve). Re-index after later updates.
 
@@ -82,28 +82,28 @@ npx ovsx publish dist/vscode/taskplanner-<version>.vsix -p <OVSX_PAT>
 
 ### npm publish (`@smekai/taskplanner`)
 
-The MCP server is published from `packages/mcp-server/`. It ships the **same bundle bytes** as
-`plugins/taskplanner/dist/mcp-server.js` — `esbuild.js` builds once and copies, and
-`npm run validate:versions` fails if the two ever diverge. There is one MCP server in this repo, in
-two install locations; do not build a second one.
+The MCP server is published from `mcp/`. Each plugin in `views/{claude,cursor,codex}/dist/` ships the
+**same bundle bytes** — `esbuild.js` builds once into `mcp/dist/` and copies, and
+`npm run validate:versions` fails if any copy diverges. There is one MCP server in this repo, in
+four install locations; do not build a second one.
 
 The package has two entry points, both built from `src/core/`:
 
 | Specifier | Output | For |
 | --- | --- | --- |
 | `@smekai/taskplanner` | `dist/index.js` + `dist/*.d.ts` | The library, from `src/core/index.ts`. Callers using their own code. |
-| `@smekai/taskplanner/mcp-server` | `dist/mcp-server.js` | The stdio server, from `src/mcp/server.ts`. Callers exposing tools to a model. |
+| `@smekai/taskplanner/mcp-server` | `dist/mcp-server.js` | The stdio server, from `mcp/src/server.ts`. Callers exposing tools to a model. |
 
 Types come from `npm run build:types` (`tsconfig.types.json`, declaration-only), which `npm run build`
 chains after esbuild. `npm run watch` does **not** rebuild them — run `build:types` if you are
 changing the library's public shape. Anything added to `src/core/index.ts` becomes public API.
 
-`packages/mcp-server/dist/` and `packages/mcp-server/ui/` are generated and gitignored, so the build
+`mcp/dist/` and `mcp/ui/` are generated and gitignored, so the build
 must run before the pack:
 
 ```bash
 npm run release:check                       # includes the build and the published-artifact smoke test
-npm publish ./packages/mcp-server --access public
+npm publish ./mcp --access public
 ```
 
 `@smekai` is the personal scope of the `smekai` npm account, so no organization is involved and
@@ -138,32 +138,35 @@ $cursorPluginTarget = Join-Path $env:USERPROFILE '.cursor\plugins\local\taskplan
 if (Test-Path -LiteralPath $cursorPluginTarget) {
   Remove-Item -LiteralPath $cursorPluginTarget -Recurse -Force
 }
-Copy-Item -LiteralPath 'plugins\taskplanner' -Destination $cursorPluginTarget -Recurse
+Copy-Item -LiteralPath 'views\cursor' -Destination $cursorPluginTarget -Recurse
 ```
 
 ## Project Structure
 
+One folder per harness on a shared core. A harness imports only `src/core/` and itself, which
+`.eslintrc.json` enforces; duplicating code between harnesses is fine. Each folder has a short
+`CLAUDE.md` for whoever works in it.
+
 ```
-src/
-├── core/           # Pure logic, zero VS Code dependencies
-│                   # Models, parser, serializer, stores, config
-├── extension/      # VS Code extension shell
-│                   # Commands, views, providers, watchers
-└── mcp/            # MCP server and its board UI, bundled into the plugin
-test/
-└── core/           # Vitest unit tests for the core library
-plugins/taskplanner/ # Shared Cursor/Codex/Claude Code plugin: manifests, skills, built bundles
-├── hooks/          # register.js, the built Claude Code mod (generated, committed)
-└── mod/            # Claude Code mod source (board pane)
-    ├── src/        # TypeScript, bundled by esbuild into hooks/register.js
-    └── test/       # *.spec.ts run by Vitest, *.test.ts by claude plugin test
-resources/          # SVG icons and templates
+src/core/           # Domain library: models, parser, serializer, stores, config. No harness code.
+test/core/          # Vitest tests for the core
+mcp/                # MCP server (src/server.ts) and the npm package @smekai/taskplanner
+views/
+├── vscode/         # VS Code / Cursor extension (src/, test/); manifest is the root package.json
+├── mcp-app/        # Board UI inside MCP hosts (browser), built into each plugin's ui/
+├── claude/         # Claude Code plugin: manifest, skills, hooks/ + mod/ (board pane), built files
+├── cursor/         # Cursor plugin: manifest, mcp.json, skills, rules, commands, built files
+└── codex/          # Codex plugin: manifest, .mcp.json, skills, built files
 dist/               # Generated output (extension bundle and release packages)
 ```
 
+Marketplaces copy only a plugin's own folder, so each of `views/{claude,cursor,codex}/` carries its
+own `dist/mcp-server.js` and `ui/board/index.html`, committed. The root marketplace manifests
+(`.claude-plugin/`, `.cursor-plugin/`, `.agents/plugins/`) point at those folders.
+
 ## Architecture Decisions
 
-- **Core is VS Code-free** — `src/core/` has no VS Code imports so it can be reused for a JetBrains plugin or CLI later.
+- **Core is harness-free** — `src/core/` imports no harness and no VS Code API (lint-enforced), so it can be reused for a JetBrains plugin or CLI later. Code only one harness needs lives in that harness.
 - **Regex-based parsing** — no YAML dependency; the markdown format is simple enough for regex.
 - **Single file per state** — one `.md` file per board column (BACKLOG.md, NEXT.md, etc.). Scales well for typical project task counts.
 - **Config in `.tasks/config.json`** — stores operational metadata (next ID, settings).
@@ -215,8 +218,8 @@ cannot reveal tasks inserted into files that have not been read.
 
 ## Testing
 
-- **Unit tests** — run `npm test` (Vitest). It runs `test/**/*.test.ts` for the core and `plugins/taskplanner/mod/test/*.spec.ts` for the mod.
-- **Claude Code mod** — the source lives with the plugin in `plugins/taskplanner/mod/src/`. `register.ts` is the only file that touches the mods API (`$`). `boardModel.ts`, `boardReader.ts` and `paneView.ts` are pure, so Vitest covers them; `plugins/taskplanner/mod/tsconfig.json` type-checks the mod without Node types, as it runs. The mod reads `.tasks/` itself with the core parser (`$.fs` needs no tool permission) and writes only through the MCP server's `taskplanner_move` and `taskplanner_create`, called from its `ui.press` and `ui.input` hooks: a `$` call from a timer or an `onPress` closure skips the mod's own `tool.check` hook, so it could not approve it there. `npm run build` bundles the mod unminified into `plugins/taskplanner/hooks/register.js`, so `claude plugin validate` can scan it and users can audit it. `npm run validate:claude-plugin` runs `claude plugin validate` and the kit tests (`plugins/taskplanner/mod/test/*.test.ts`) against Claude Code itself (set `CLAUDE_BIN` if `claude` is not on PATH). To try the pane, run `claude --plugin-dir plugins/taskplanner` in this repository and then `/taskplanner:board` or `/taskboard`. For the Desktop Code tab, add the plugin folder to `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`'s `env`, or install from this repository as a local marketplace.
+- **Unit tests** — run `npm test` (Vitest). It runs `test/**/*.test.ts` for the core, `views/vscode/test/*.test.ts` for the extension and `views/claude/mod/test/*.spec.ts` for the mod.
+- **Claude Code mod** — the source lives with the plugin in `views/claude/mod/src/`. `register.ts` is the only file that touches the mods API (`$`). `boardModel.ts`, `boardReader.ts` and `paneView.ts` are pure, so Vitest covers them; `views/claude/mod/tsconfig.json` type-checks the mod without Node types, as it runs. The mod reads `.tasks/` itself with the core parser (`$.fs` needs no tool permission) and writes only through the MCP server's `taskplanner_move` and `taskplanner_create`, called from its `ui.press` and `ui.input` hooks: a `$` call from a timer or an `onPress` closure skips the mod's own `tool.check` hook, so it could not approve it there. `npm run build` bundles the mod unminified into `views/claude/hooks/register.js`, so `claude plugin validate` can scan it and users can audit it. `npm run validate:claude-plugin` runs `claude plugin validate` and the kit tests (`views/claude/mod/test/*.test.ts`) against Claude Code itself (set `CLAUDE_BIN` if `claude` is not on PATH). To try the pane, run `claude --plugin-dir views/claude` in this repository and then `/taskplanner:board` or `/taskboard`. For the Desktop Code tab, add the plugin folder to `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`'s `env`, or install from this repository as a local marketplace.
 
 ## Code Style
 
@@ -236,7 +239,7 @@ Comments are welcome in tests, where a name plus a short note explains the failu
 against better than a comment beside the code it guards.
 
 This is enforced, not merely advised: `npm run lint` runs `scripts/check-comments.js`, which fails
-the build on any comment in `src/` and `plugins/taskplanner/mod/src/`; tests are exempt. Machine directives (`eslint-disable`,
+the build on any comment in `src/`, `mcp/src/`, `views/vscode/src/`, `views/mcp-app/` and `views/claude/mod/src/`; tests are exempt. Machine directives (`eslint-disable`,
 `@ts-expect-error`, `prettier-ignore`) are exempt. When a comment really is the right answer,
 prefix it with `WHY:` and state the reason; the check reports how many such comments exist, so the
 exceptions stay countable and reviewable.

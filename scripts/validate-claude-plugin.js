@@ -9,7 +9,7 @@ const path = require('path');
 
 const MIN_VERSION = [2, 1, 287];
 const root = path.resolve(__dirname, '..');
-const pluginDir = path.join('plugins', 'taskplanner');
+const pluginDir = path.join('views', 'claude');
 const claude = process.env.CLAUDE_BIN || 'claude';
 
 function run(args, { quiet = false } = {}) {

@@ -25,7 +25,7 @@ function assertExists(filePath, label) {
 
 function main() {
   const rootDir = path.resolve(__dirname, '..');
-  const pluginRoot = path.join(rootDir, 'plugins', 'taskplanner');
+  const pluginRoot = path.join(rootDir, 'views', 'cursor');
   const packageJson = readJson(path.join(rootDir, 'package.json'));
   const manifestPath = path.join(pluginRoot, '.cursor-plugin', 'plugin.json');
   const mcpConfigPath = path.join(pluginRoot, 'mcp.json');
@@ -73,8 +73,8 @@ function main() {
 
   const marketplace = readJson(path.join(rootDir, '.cursor-plugin', 'marketplace.json'));
   const marketplaceEntry = marketplace?.plugins?.find((plugin) => plugin.name === 'taskplanner');
-  if (marketplaceEntry?.source !== 'plugins/taskplanner') {
-    fail('Cursor marketplace source must be "plugins/taskplanner".');
+  if (marketplaceEntry?.source !== 'views/cursor') {
+    fail('Cursor marketplace source must be "views/cursor".');
   }
 
   if (process.exitCode && process.exitCode !== 0) {

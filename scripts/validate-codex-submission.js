@@ -117,7 +117,7 @@ function main() {
   const packageJson = readJson(path.join(root, 'package.json'));
   if (!packageJson) return;
 
-  const pluginRoot = path.join(root, 'plugins', 'taskplanner');
+  const pluginRoot = path.join(root, 'views', 'codex');
   const submissionPath = path.join(pluginRoot, '.codex-plugin', 'submission.json');
   const submission = readJson(submissionPath);
   if (!submission) return;
