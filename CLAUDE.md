@@ -9,7 +9,7 @@ VS Code / Cursor extension for markdown task tracking under `.tasks/`. Core is V
 **Harnesses:** a harness imports only `src/core/` and itself; duplicating code between harnesses is fine. `.eslintrc.json` overrides enforce it.
 
 ```bash
-npm install && npm run build && npm test && npm run lint
+npm install && npm run build && npm run typecheck && npm test && npm run lint
 npm run package          # VSIX
 npm run release:check    # full pre-release gate
 ```
