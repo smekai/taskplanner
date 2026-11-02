@@ -255,7 +255,7 @@ describe('shouldRefreshAfterTool', () => {
 
   it('ignores TaskPlanner reads', () => {
     expect(shouldRefreshAfterTool('mcp__taskplanner__taskplanner_list', {})).toBe(false);
-    expect(shouldRefreshAfterTool('mcp__taskplanner__taskplanner_board_data', {})).toBe(false);
+    expect(shouldRefreshAfterTool('mcp__taskplanner__taskplanner_board_visual', {})).toBe(false);
   });
 
   it('refreshes after a file edit under .tasks/ on either path style', () => {

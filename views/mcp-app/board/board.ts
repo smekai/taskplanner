@@ -27,7 +27,7 @@ interface ToolTextResult {
   structuredContent?: Record<string, unknown>;
 }
 
-interface BoardDataArgs {
+interface BoardVisualArgs {
   [key: string]: unknown;
   workspace_root?: string;
   query?: string;
@@ -280,12 +280,12 @@ async function refreshBoard(): Promise<void> {
   if (refreshInFlight) return;
   refreshInFlight = true;
   try {
-    const args: BoardDataArgs = {};
+    const args: BoardVisualArgs = {};
     if (workspaceRoot) args.workspace_root = workspaceRoot;
     if (expandedAllStates) args.limit = null;
     if (expandedCompleted) args.include_completed = true;
     const result = await app.callServerTool({
-      name: 'taskplanner_board_data',
+      name: 'taskplanner_board_visual',
       arguments: args,
     });
     captureWorkspaceRoot(result.structuredContent?.workspaceRoot);
@@ -293,13 +293,12 @@ async function refreshBoard(): Promise<void> {
       renderError(`Could not load board: ${extractText(result) || 'unknown error'}`);
       return;
     }
-    const text = extractText(result);
-    if (!text) {
-      renderError('Board data response was empty.');
+    const board = result.structuredContent?.board as TaskViewData | undefined;
+    if (!board) {
+      renderError('Board response had no board.');
       return;
     }
-    const parsed = JSON.parse(text) as TaskViewData;
-    renderBoard(parsed);
+    renderBoard(board);
   } catch (err) {
     renderError(`Could not load board: ${(err as Error).message ?? String(err)}`);
   } finally {

@@ -1,5 +1,32 @@
 # Done
 
+## TASK-074: Remove the MCP tools 3.0 does not need
+**Priority:** P2 | **Tags:** core, refactor | **Epic:** 3.0
+**Updated:** 2026-11-02 16:40
+
+Phase C of TASK-071. Depends on TASK-073 (every view stays, decoupled on one core).
+
+`src/mcp/server.ts` registers 8 tools. Since every view stays, a tool goes only once it is clearly irrelevant, not because of usage numbers (3.0 ships without telemetry, see TASK-073).
+
+Current users of the tools that are candidates to merge or drop:
+
+- `taskplanner_board_data`: the MCP UI app and the `board` skill.
+- `taskplanner_board_visual`: the `board` skill.
+- `taskplanner_board`: overview for agents; check whether `taskplanner_list` or the digest covers it.
+- `taskplanner_get` / `taskplanner_move`: the MCP UI app.
+- `taskplanner_move` / `taskplanner_create`: the Claude Code mod's writes.
+
+Removing a tool is a breaking change for `@smekai/taskplanner`. Note it in the 3.0 changelog and update the skills, rules and READMEs that name the tool.
+
+### Plan
+
+Done. Every tool had a user. `taskplanner_board_data` was removed because it duplicated `taskplanner_board_visual`; 7 tools remain.
+- `board_visual` takes `query`, `include_completed` and `limit`, and the board app refreshes through it, reading `structuredContent.board`.
+- The smoke test checks the exact 7-tool list and the "show more" refresh.
+- Skills, the plugin READMEs, the root README, `mcp/README.md`, `views/mcp-app/CLAUDE.md` and the CHANGELOG (Removed, breaking) are updated. Also fixed the repo Cursor skill's tool list, which was one line with literal `\n+`.
+- Not verified by hand: the board app refreshing in Cursor or Claude Desktop without opening a second view.
+
+---
 ## TASK-073: One folder per harness: views/ and mcp/, on a domain-only core
 **Priority:** P2 | **Tags:** ui, docs | **Epic:** 3.0
 **Updated:** 2026-11-01 20:30

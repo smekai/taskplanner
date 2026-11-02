@@ -19,9 +19,9 @@ runtime dependencies. It is CommonJS and requires Node >= 20.
 
 Pick by who is calling:
 
-| Entry | Import | Use when |
-| --- | --- | --- |
-| Library | `@smekai/taskplanner` | **Your own code** reads or edits the board. Direct calls, typed, no subprocess. |
+| Entry      | Import                           | Use when                                                                                                   |
+| ---------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Library    | `@smekai/taskplanner`            | **Your own code** reads or edits the board. Direct calls, typed, no subprocess.                            |
 | MCP server | `@smekai/taskplanner/mcp-server` | **A model** picks the tools. Spawned over stdio; ships tool schemas, descriptions, and safety annotations. |
 
 Both are built from the same `src/core/`, so they cannot disagree about what a board says. Use both
@@ -118,16 +118,15 @@ For clients that read a JSON config, resolve the path once and write it in:
 
 ## Tools
 
-| Tool                       | Purpose                                                       |
-| -------------------------- | ------------------------------------------------------------- |
-| `taskplanner_board`        | Board overview: task counts per state, optionally every task. |
-| `taskplanner_list`         | List tasks, filtered by state and/or a text query.            |
-| `taskplanner_get`          | Read one task by ID, including its `### Plan`.                |
-| `taskplanner_create`       | Create a task in a given state.                               |
-| `taskplanner_update`       | Update title, description, priority, tags, assignee, or plan. |
-| `taskplanner_move`         | Move a task to another state.                                 |
-| `taskplanner_board_data`   | Structured board view model (for UI hosts).                   |
-| `taskplanner_board_visual` | Board rendered as an MCP App UI resource.                     |
+| Tool                       | Purpose                                                          |
+| -------------------------- | ---------------------------------------------------------------- |
+| `taskplanner_board`        | Board overview: task counts per state, optionally every task.    |
+| `taskplanner_list`         | List tasks, filtered by state and/or a text query.               |
+| `taskplanner_get`          | Read one task by ID, including its `### Plan`.                   |
+| `taskplanner_create`       | Create a task in a given state.                                  |
+| `taskplanner_update`       | Update title, description, priority, tags, assignee, or plan.    |
+| `taskplanner_move`         | Move a task to another state.                                    |
+| `taskplanner_board_visual` | Board as an MCP App UI resource; the board refreshes through it. |
 
 Every tool accepts the optional `workspace_root` argument described above.
 
@@ -138,6 +137,7 @@ metadata round-trips through this server unchanged, including `**Assignee:**`:
 
 ```markdown
 ## TASK-001: Task title
+
 **Priority:** P1
 **Tags:** core
 **Assignee:** owner

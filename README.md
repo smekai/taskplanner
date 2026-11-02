@@ -202,7 +202,7 @@ Open via command palette → `TaskPlanner: Open Kanban Board`. Three columns: **
 
 ### Agent Chat Board (MCP UI)
 
-On hosts that render MCP Apps, the bundled plugin can display a board inline through `taskplanner_board_visual`. This is supported by Cursor and experimental in Codex. It is separate from the extension Kanban panel and uses the same task files. When the host does not render the UI, use `taskplanner_board_data` or the standard task tools.
+On hosts that render MCP Apps, the bundled plugin can display a board inline through `taskplanner_board_visual`. This is supported by Cursor and experimental in Codex. It is separate from the extension Kanban panel and uses the same task files. When the host does not render the UI, use `taskplanner_board` or the standard task tools.
 
 ### Sidebar Tree
 

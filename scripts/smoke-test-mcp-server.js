@@ -236,14 +236,20 @@ function createScratchWorkspace(tempRoot) {
 
 // ── assertions ──────────────────────────────────────────
 
-const REQUIRED_TOOLS = ['create', 'update', 'move', 'board', 'list', 'get'];
-const READ_ONLY_TOOLS = ['board', 'list', 'get', 'board_data', 'board_visual'];
+const EXPECTED_TOOLS = ['create', 'update', 'move', 'board', 'list', 'get', 'board_visual'];
+const READ_ONLY_TOOLS = ['board', 'list', 'get', 'board_visual'];
 const MODIFYING_TOOLS = ['move', 'update'];
 const tool = (suffix) => `taskplanner_${suffix}`;
 
 function checkTools(tools) {
   const byName = new Map(tools.map((entry) => [entry.name, entry]));
-  for (const suffix of [...REQUIRED_TOOLS, 'board_visual', 'board_data']) {
+  const names = tools.map((entry) => entry.name).sort();
+  const expected = EXPECTED_TOOLS.map(tool).sort();
+  expect(
+    JSON.stringify(names) === JSON.stringify(expected),
+    `tools/list returned ${names.join(', ')}; expected exactly ${expected.join(', ')}.`,
+  );
+  for (const suffix of EXPECTED_TOOLS) {
     const entry = byName.get(tool(suffix));
     expect(entry, `Missing tool: ${tool(suffix)}`);
     const root = entry.inputSchema?.properties?.workspace_root;
@@ -291,14 +297,23 @@ function checkEnvVarRoot(serverPath, installDir) {
     const board = await c.callTool(tool('board'), {});
     expect(board.content?.[0]?.text, 'taskplanner_board returned no content.');
 
-    const data = await c.callTool(tool('board_data'), { limit: 1 });
-    expect(data.structuredContent?.board, 'taskplanner_board_data returned no structured board.');
+    const data = await c.callTool(tool('board_visual'), { limit: 1 });
+    expect(data.structuredContent?.board, 'taskplanner_board_visual returned no structured board.');
     const resolved = path.resolve(data.structuredContent.workspaceRoot || '');
     expect(
       resolved === path.resolve(repoRoot),
       `env var resolved to ${resolved}, not ${repoRoot}.`,
     );
     log('TASKPLANNER_WORKSPACE_ROOT OK (walked up from a subdirectory to .tasks/).');
+
+    // The board app's "show more" refresh: every task, completed states included.
+    const all = await c.callTool(tool('board_visual'), { limit: null, include_completed: true });
+    const done = all.structuredContent?.board?.states?.find((state) => state.name === 'Done');
+    expect(
+      done && done.totalCount > 1 && done.tasks.length === done.totalCount,
+      'taskplanner_board_visual with limit null and include_completed did not return every Done task.',
+    );
+    log(`board_visual refresh OK (all ${done.totalCount} Done tasks with limit null).`);
   });
 }
 
@@ -309,7 +324,7 @@ function checkToolInputRootAndAssignee(serverPath, installDir, scratch) {
   const assignee = (result) => result.structuredContent?.task?.assignee;
 
   return withServer({ args: [serverPath], cwd: installDir, label: 'tool-input' }, async (c) => {
-    const board = await c.callTool(tool('board_data'), { workspace_root, limit: 1 });
+    const board = await c.callTool(tool('board_visual'), { workspace_root, limit: 1 });
     const resolved = path.resolve(board.structuredContent?.workspaceRoot || '');
     const expected = fs.realpathSync(scratch.root);
     expect(resolved === expected, `workspace_root resolved to ${resolved}, not ${expected}.`);

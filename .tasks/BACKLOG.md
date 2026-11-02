@@ -13,25 +13,6 @@ Phase E of TASK-071. Last in the epic.
 - Announce on LinkedIn; decide whether smek.ai starts as a minimal updates page.
 
 ---
-## TASK-074: Remove the MCP tools 3.0 does not need
-**Priority:** P2 | **Tags:** core, refactor | **Epic:** 3.0
-**Updated:** 2026-10-30 13:21
-
-Phase C of TASK-071. Depends on TASK-073 (every view stays, decoupled on one core).
-
-`src/mcp/server.ts` registers 8 tools. Since every view stays, a tool goes only once it is clearly irrelevant, not because of usage numbers (3.0 ships without telemetry, see TASK-073).
-
-Current users of the tools that are candidates to merge or drop:
-
-- `taskplanner_board_data`: the MCP UI app and the `board` skill.
-- `taskplanner_board_visual`: the `board` skill.
-- `taskplanner_board`: overview for agents; check whether `taskplanner_list` or the digest covers it.
-- `taskplanner_get` / `taskplanner_move`: the MCP UI app.
-- `taskplanner_move` / `taskplanner_create`: the Claude Code mod's writes.
-
-Removing a tool is a breaking change for `@smekai/taskplanner`. Note it in the 3.0 changelog and update the skills, rules and READMEs that name the tool.
-
----
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup, ci
 **Updated:** 2026-10-16 17:57

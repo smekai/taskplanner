@@ -2,7 +2,7 @@
 
 ## TASK-071: TaskPlanner 3.0 release
 **Priority:** P1 | **Tags:** feature, ui, docs, ci | **Epic:** 3.0
-**Updated:** 2026-10-29 15:16
+**Updated:** 2026-11-02 16:39
 
 Scope for the 3.0 release. To be broken into subtasks when work starts.
 
@@ -32,10 +32,10 @@ Scope for the 3.0 release. To be broken into subtasks when work starts.
 ### Plan
 
 Umbrella for epic 3.0; each phase is its own task, branch and PR. Done when 3.0 has shipped.
-- A. TASK-072 — band falls back In Progress → Next → Backlog; Set up when no board.
-- B. TASK-073 — decide which board surfaces stay; telemetry decision (default: none).
-- C. TASK-074 — remove unneeded MCP tools (follows B; breaking for the npm package).
-- D. TASK-075 — known defects, smoke `counter` regression.
+- A. TASK-072 — band falls back In Progress → Next → Backlog; Set up when no board. Done (PR #19).
+- B. TASK-073 — every view stays, one folder per harness on a domain-only core; no telemetry. Done (PR #22, #24).
+- C. TASK-074 — `taskplanner_board_data` removed (it duplicated `board_visual`); 7 tools remain.
+- D. TASK-075 — known defects. Done (PR #23).
 - E. TASK-076 — docs, 3.0.0, publish everywhere, announcement.
 
 ---
