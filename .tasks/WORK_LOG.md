@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-074 — 2026-11-02
+**What:** Removed `taskplanner_board_data`; the board app refreshes through `taskplanner_board_visual`, which took over its `query`, `include_completed` and `limit`. 7 MCP tools remain.
+**Decisions:** Every other tool has a user. `taskplanner_board` stays as the agents' compact digest, separate from the visual board, so an agent's overview does not open a board view in MCP Apps hosts.
+**Outcome:** `release:check` green; the smoke test checks the exact tool list. The board app refresh in a real MCP Apps host has not been checked by hand yet.
+
+---
+
 ## TASK-073 — 2026-11-01
 **What:** Moved to one folder per harness on a domain-only core: `mcp/`, plus `views/vscode`, `mcp-app`, `claude`, `cursor` and `codex`. The three host plugins became separate folders, each with its own skills.
 **Decisions:** Duplicating code between harnesses is fine. Each harness imports only core and itself, and `no-restricted-imports` overrides enforce it. Extension-only modules left core.

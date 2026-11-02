@@ -1,4 +1,13 @@
 import { App } from '@modelcontextprotocol/ext-apps';
+import {
+  BoardView,
+  DEFAULT_VIEW,
+  latestResponseGate,
+  refreshArgs,
+  showMore,
+  showsEveryTask,
+  viewFromToolInput,
+} from './viewOptions.js';
 
 interface TaskViewItem {
   id: string;
@@ -27,14 +36,6 @@ interface ToolTextResult {
   structuredContent?: Record<string, unknown>;
 }
 
-interface BoardDataArgs {
-  [key: string]: unknown;
-  workspace_root?: string;
-  query?: string;
-  include_completed?: boolean;
-  limit?: number | null;
-}
-
 const app = new App({ name: 'TaskPlanner Board', version: '1.0.0' });
 
 const root = document.getElementById('root')!;
@@ -44,9 +45,8 @@ const DEFAULT_EXPANDED_NARROW_STATES = new Set(['Next', 'In Progress']);
 
 let currentData: TaskViewData | null = null;
 let workspaceRoot: string | undefined;
-let refreshInFlight = false;
-let expandedAllStates = false;
-let expandedCompleted = false;
+let view: BoardView = DEFAULT_VIEW;
+const boardResponses = latestResponseGate();
 let isNarrowLayout = false;
 let compactStateInitialized = false;
 let collapsedStates = new Set<string>();
@@ -116,7 +116,7 @@ function renderColumn(state: StateViewData): string {
       : state.tasks.map((t) => renderCard(t, state.name)).join('');
   const hiddenCount = Math.max(0, state.totalCount - state.tasks.length);
   const more =
-    hiddenCount > 0 && !expandedAllStates
+    hiddenCount > 0 && !showsEveryTask(view)
       ? `<button class="more-pill show-more-btn" type="button" data-state="${escapeHtml(state.name)}">Show ${hiddenCount} more</button>`
       : '';
   const body = isCollapsed ? '' : `${cards}${more}`;
@@ -277,33 +277,27 @@ async function moveTask(taskId: string, targetState: string): Promise<void> {
 }
 
 async function refreshBoard(): Promise<void> {
-  if (refreshInFlight) return;
-  refreshInFlight = true;
+  const ticket = boardResponses.begin();
   try {
-    const args: BoardDataArgs = {};
-    if (workspaceRoot) args.workspace_root = workspaceRoot;
-    if (expandedAllStates) args.limit = null;
-    if (expandedCompleted) args.include_completed = true;
     const result = await app.callServerTool({
-      name: 'taskplanner_board_data',
-      arguments: args,
+      name: 'taskplanner_board_visual',
+      arguments: refreshArgs(view, workspaceRoot),
     });
+    if (!boardResponses.isCurrent(ticket)) return;
     captureWorkspaceRoot(result.structuredContent?.workspaceRoot);
     if (result.isError) {
       renderError(`Could not load board: ${extractText(result) || 'unknown error'}`);
       return;
     }
-    const text = extractText(result);
-    if (!text) {
-      renderError('Board data response was empty.');
+    const board = result.structuredContent?.board as TaskViewData | undefined;
+    if (!board) {
+      renderError('Board response had no board.');
       return;
     }
-    const parsed = JSON.parse(text) as TaskViewData;
-    renderBoard(parsed);
+    renderBoard(board);
   } catch (err) {
+    if (!boardResponses.isCurrent(ticket)) return;
     renderError(`Could not load board: ${(err as Error).message ?? String(err)}`);
-  } finally {
-    refreshInFlight = false;
   }
 }
 
@@ -311,11 +305,7 @@ function wireShowMore(): void {
   const buttons = root.querySelectorAll<HTMLButtonElement>('.show-more-btn');
   buttons.forEach((button) => {
     button.addEventListener('click', () => {
-      expandedAllStates = true;
-      const stateName = button.dataset.state ?? '';
-      if (stateName === 'Done' || stateName === 'Rejected') {
-        expandedCompleted = true;
-      }
+      view = showMore(view, button.dataset.state ?? '');
       void refreshBoard();
     });
   });
@@ -389,12 +379,14 @@ window.addEventListener('resize', () => {
 
 app.addEventListener('toolinput', (params) => {
   captureWorkspaceRoot(params.arguments?.workspace_root);
+  view = viewFromToolInput(params.arguments);
 });
 
 app.addEventListener('toolresult', (params) => {
   captureWorkspaceRoot(params.structuredContent?.workspaceRoot);
   const board = params.structuredContent?.board as TaskViewData | undefined;
   if (board) {
+    boardResponses.begin();
     renderBoard(board);
     return;
   }

@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Repository layout: one folder per harness on a shared core. Paths moved: `mcp/` for the MCP server and npm package, and `views/vscode`, `views/mcp-app`, `views/claude`, `views/cursor`, `views/codex`. The Claude Code, Cursor and Codex plugins are now separate folders, each with its own skills. Behaviour is unchanged, and installed plugins keep their name (TASK-073).
 
+### Removed
+
+- **Breaking for direct MCP callers:** the `taskplanner_board_data` tool is gone. It returned the same board as `taskplanner_board_visual`, which now takes its `query`, `include_completed` and `limit` and is what the board app refreshes through. Agents use `taskplanner_board` for an overview (TASK-074).
+
 ## [2.5.1] - 2026-10-16
 
 ### Changed

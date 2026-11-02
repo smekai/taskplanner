@@ -33,7 +33,14 @@ Each task is a `##` section separated by `---`.
 
 ## Available MCP tools
 
-- `taskplanner_board` — board overview (counts; optional listings)\n+- `taskplanner_list` — list tasks (by state; optional query)\n+- `taskplanner_get` — get a task by ID\n+- `taskplanner_create` — create a new task (auto ID)\n+- `taskplanner_move` — move a task to another state\n+- `taskplanner_update` — update title/description/priority/tags/assignee/plan\n+- `taskplanner_board_data` — JSON board data (used by the UI)\n+- `taskplanner_board_visual` — open the interactive board (MCP App)\n+
+- `taskplanner_board` — board overview (counts; optional listings)
+- `taskplanner_list` — list tasks (by state; optional query)
+- `taskplanner_get` — get a task by ID
+- `taskplanner_create` — create a new task (auto ID)
+- `taskplanner_move` — move a task to another state
+- `taskplanner_update` — update title/description/priority/tags/assignee/plan
+- `taskplanner_board_visual` — open the interactive board (MCP App)
+
 ## Workflow for implementing a task
 
 1. Pick a task from **Next** or **Backlog** (highest priority first).

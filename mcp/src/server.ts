@@ -210,7 +210,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.6',
+  version: '3.0.8',
 });
 
 server.registerTool(
@@ -556,47 +556,6 @@ server.registerTool(
   },
 );
 
-server.registerTool(
-  'taskplanner_board_data',
-  {
-    description: 'Get board state as JSON (states + tasks). Used by the visual board iframe.',
-    inputSchema: {
-      workspace_root: WORKSPACE_ROOT_INPUT,
-      query: z.string().optional().describe('Optional text query to filter tasks'),
-      include_completed: z
-        .boolean()
-        .optional()
-        .describe('If true, force-load Done/Rejected states before building board data'),
-      limit: z
-        .number()
-        .int()
-        .positive()
-        .nullable()
-        .optional()
-        .describe(
-          'Per-state task limit. Omit for default, set null to disable cap and return all tasks.',
-        ),
-    },
-    annotations: READ_ONLY_ANNOTATIONS,
-  },
-  async ({ workspace_root, query, include_completed, limit }) => {
-    const { taskStore, configManager, workspaceRoot } = await freshStore(workspace_root);
-    if (include_completed) {
-      taskStore.ensureStateLoaded('Done');
-      taskStore.ensureStateLoaded('Rejected');
-    }
-    const viewModel = buildBoardViewModel(taskStore, configManager, {
-      searchQuery: query,
-      limit,
-    });
-    const issues = boardIssues(taskStore);
-    return {
-      content: [{ type: 'text', text: `${JSON.stringify(viewModel)}${issueReport(issues)}` }],
-      structuredContent: { board: viewModel, workspaceRoot, ...issues },
-    };
-  },
-);
-
 const BOARD_RESOURCE_URI = 'ui://taskplanner/board';
 const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app';
 const LEGACY_UI_META_KEY = 'ui/resourceUri';
@@ -632,9 +591,23 @@ server.registerTool(
   {
     title: 'Visual Task Board',
     description:
-      'Request the interactive TaskPlanner board. Rendering depends on MCP Apps host support; use taskplanner_board_data as the guaranteed fallback.',
+      'Show the interactive TaskPlanner board on hosts that render MCP Apps; the board also calls this tool to refresh. Without MCP Apps, use taskplanner_board.',
     inputSchema: {
       workspace_root: WORKSPACE_ROOT_INPUT,
+      query: z.string().optional().describe('Optional text query to filter tasks'),
+      include_completed: z
+        .boolean()
+        .optional()
+        .describe('If true, force-load Done/Rejected states before building the board'),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .nullable()
+        .optional()
+        .describe(
+          'Per-state task limit. Omit for default, set null to disable cap and return all tasks.',
+        ),
     },
     annotations: READ_ONLY_ANNOTATIONS,
     _meta: {
@@ -642,23 +615,30 @@ server.registerTool(
       [LEGACY_UI_META_KEY]: BOARD_RESOURCE_URI,
     },
   },
-  async ({ workspace_root }) => {
+  async ({ workspace_root, query, include_completed, limit }) => {
     const { taskStore, configManager, workspaceRoot } = await freshStore(workspace_root);
-    const viewModel = buildBoardViewModel(taskStore, configManager, {});
+    if (include_completed) {
+      taskStore.ensureStateLoaded('Done');
+      taskStore.ensureStateLoaded('Rejected');
+    }
+    const viewModel = buildBoardViewModel(taskStore, configManager, {
+      searchQuery: query,
+      limit,
+    });
     const totals = viewModel.states.map((s) => `${s.name}: ${s.totalCount}`).join(' | ');
     const issues = boardIssues(taskStore);
     return {
       content: [
         {
           type: 'text',
-          text: `TaskPlanner board requested (${totals}). If no interactive view appears, call taskplanner_board_data.${issueReport(issues)}`,
+          text: `TaskPlanner board requested (${totals}). If no interactive view appears, call taskplanner_board.${issueReport(issues)}`,
         },
       ],
       structuredContent: {
         board: viewModel,
         workspaceRoot,
         renderMode: 'mcp-app',
-        fallbackTool: 'taskplanner_board_data',
+        fallbackTool: 'taskplanner_board',
         ...issues,
       },
     };
