@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Upgrading from 2.x
+
+- Your `.tasks/` files and `config.json` need no change.
+- Update the plugin where you use it. In Claude Code, run `/plugin update` or use **Plugins** in the Desktop app. In Cursor and Codex, update it from their plugin list. It keeps its name, so nothing needs reinstalling.
+- Then ask the agent to update TaskPlanner, or run the `update-taskplanner` skill. It refreshes the managed instruction blocks, and for 3.0 it checks two things:
+  - **A duplicate MCP server.** A project `.mcp.json` that runs `npx @smekai/taskplanner` next to the installed plugin makes Claude see the tools twice; the skill offers to remove that entry.
+  - **The removed `taskplanner_board_data` tool.** It lists any remaining mentions and suggests `taskplanner_board` or `taskplanner_board_visual` instead.
+- Without a plugin, a `.mcp.json` entry for `@smekai/taskplanner` keeps working and picks up 3.0 from npm.
+
 ### Added
 
 - The Claude Code band above the prompt no longer goes blank when nothing is in progress: it shows the highest-priority Next task, or Backlog task when Next is empty, with a **Start** button. In a folder without a board, the band and the pane offer **Set up**, so a freshly installed plugin shows itself (TASK-072).

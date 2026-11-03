@@ -1,5 +1,27 @@
 # Done
 
+## TASK-078: Upgrade path to 3.0 for existing projects
+**Priority:** P1 | **Tags:** docs, setup | **Epic:** 3.0
+**Updated:** 2026-11-03 20:08
+
+Before publishing 3.0 (TASK-076), give existing 2.x projects a guided upgrade.
+
+- The `update-taskplanner` skill gets an "Upgrading to 3.0" section:
+  - offer to remove a project `.mcp.json` entry that runs `@smekai/taskplanner` when the plugin's tools are already loaded, since they load twice otherwise;
+  - point out `taskplanner_board_data` mentions outside the managed markers, and change them only with the user's agreement.
+- CHANGELOG gets "Upgrading from 2.x" under `[Unreleased]`.
+- Remove this repository's own `.mcp.json`. It duplicated the plugin's tools with the old npm server (2.4.7).
+- The managed instructions ask about adding `.mcp.json` only when the TaskPlanner tools are not available.
+
+### Plan
+
+Done.
+- Removed the repository's `.mcp.json`; the `.vscodeignore` line stays.
+- `update-taskplanner` (identical in all three plugins) gained "Upgrading to 3.0", which runs once when the stored major version is below 3. It offers to remove a duplicate `@smekai/taskplanner` entry from `.mcp.json`, but only when the plugin's tools are loaded. It lists `taskplanner_board_data` mentions outside the markers and edits them only on a yes. The skill text names no literal version, because `validate-versions` allows only the marker.
+- The managed-instruction `.mcp.json` hint now applies only when the tools are not available. Regenerated in `CLAUDE.md`, `AGENTS.md`, `.cursorrules` and `example/CLAUDE.md`.
+- CHANGELOG: "Upgrading from 2.x" under `[Unreleased]`.
+
+---
 ## TASK-077: Pre-release fixes from the 3.0 code review
 **Priority:** P1 | **Tags:** core, ci, ui | **Epic:** 3.0
 **Updated:** 2026-11-03 19:02
