@@ -5,7 +5,7 @@ description: Manage tasks stored in .tasks markdown files. Use when the user men
 
 # TaskPlanner
 
-<!-- TASKPLANNER:VERSION:3.0.10 -->
+<!-- TASKPLANNER:VERSION:3.0.11 -->
 
 TaskPlanner stores a git-tracked board in `.tasks/`. Use MCP tools when available, always passing the absolute active repository as `workspace_root`. If a tool is unavailable or cannot see that repository, use the direct file workflow below without blocking the user.
 
@@ -15,7 +15,7 @@ Run this once before the first TaskPlanner operation in a Codex/Cursor task:
 
 1. Read `.tasks/config.json` and compare `taskplannerVersion` with the embedded version above. Strip SemVer build metadata such as `+codex.*` before comparing.
 2. If the stored value is missing, malformed, or older, follow the sibling `update-taskplanner` skill before continuing.
-3. If equal, continue without writes.
+3. If equal, continue without writes, except when the `upgradeChecks` array in the config is missing or lacks `"3.0"`: then run the sibling `update-taskplanner` skill's **Upgrading to 3.0** checks first.
 4. If the stored value is newer, warn that the installed plugin is older and do not downgrade managed files.
 
 The installed skill bundle is authoritative. Never query GitHub or invoke a marketplace update.
