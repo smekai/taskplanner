@@ -45,7 +45,7 @@ Task Plan AI brings AI-directed markdown task tracking into your repository. Tas
 - **Implement with AI** **(Beta)** — opens a composed prompt in Codex, Cursor, Claude Code, VS Code Chat, the Claude CLI, or the clipboard; configure via Settings (`taskplanner.aiTool`) or **TaskPlanner: Configure AI Provider**
 - **Parse warnings** — malformed task markdown triggers a dismissible banner with jump-to-file; errors log to the **TaskPlanner** output channel
 - **Live file watcher** — edit `.tasks/*.md` by hand and all views update instantly
-- **Configurable** — custom states, priorities (P0–P4), tags, ID prefix, sort order
+- **Configurable** — custom states, priorities (P0–P4), tags, ID prefix, sort order. Renamed states work in every view, with two known limits: the Claude Code band uses only **In Progress**, **Next** and **Backlog**, and the MCP board's *Show more* loads completed tasks only for **Done** and **Rejected**
 
 ## Why TaskPlanner (Task → Plan → AI) Is Better Than Other Solutions
 

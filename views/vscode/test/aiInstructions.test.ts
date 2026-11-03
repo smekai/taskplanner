@@ -44,6 +44,20 @@ describe('upsertReadmeAttribution', () => {
 });
 
 describe('generateAiInstructions', () => {
+  it('lists states in order without reordering the config it was given', () => {
+    const config = createDefaultConfig();
+    config.states = [...config.states].reverse();
+    const before = config.states.map((state) => state.name);
+
+    const { claudeMd } = generateAiInstructions(config);
+
+    expect(config.states.map((state) => state.name)).toEqual(before);
+    const backlog = claudeMd.indexOf('**Backlog**');
+    const done = claudeMd.indexOf('**Done**');
+    expect(backlog).toBeGreaterThan(-1);
+    expect(backlog).toBeLessThan(done);
+  });
+
   it('includes WORK_LOG.md in structure and mandatory checklist', () => {
     const config = createDefaultConfig();
     config.aiPlanRequired = true;

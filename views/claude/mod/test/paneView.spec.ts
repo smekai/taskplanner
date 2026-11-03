@@ -297,13 +297,20 @@ describe('renderBand', () => {
     expect(handlers.open).toHaveBeenCalled();
   });
 
-  it('labels a planned task as next and offers to start it', () => {
+  it('labels a planned task with its state and offers to start it', () => {
     const handlers = bandActions();
-    const task = { id: 'TASK-002', title: 'Second', state: 'Backlog' };
+    const task = { id: 'TASK-002', title: 'Second', state: 'Next' };
     const tree = renderBand(el, task, 80, below, handlers);
     expect(texts(tree)).toContain('Next · TASK-002 · Second');
     press(tree, 'taskplanner-start');
     expect(handlers.start).toHaveBeenCalled();
+  });
+
+  it('says Backlog, not Next, for the Backlog task it falls back to', () => {
+    const task = { id: 'TASK-003', title: 'Third', state: 'Backlog' };
+    expect(texts(renderBand(el, task, 80, below, bandActions()))).toContain(
+      'Backlog · TASK-003 · Third',
+    );
   });
 
   it('leaves room for both buttons when it truncates', () => {

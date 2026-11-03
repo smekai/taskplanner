@@ -35,14 +35,13 @@ export function generateAiInstructions(config: TaskPlannerConfig): AiInstruction
 }
 
 function buildInstructionContent(config: TaskPlannerConfig): string {
-  const stateList = config.states
+  const stateList = [...config.states]
     .sort((a, b) => a.order - b.order)
     .map((s) => `- **${s.name}** → \`${s.fileName}\``)
     .join('\n');
 
   const idExample = `${config.idPrefix}-001`;
-  const tagsHint =
-    config.tags.length > 0 ? config.tags.join(', ') : '(none configured)';
+  const tagsHint = config.tags.length > 0 ? config.tags.join(', ') : '(none configured)';
 
   const planSection = config.aiPlanRequired
     ? `

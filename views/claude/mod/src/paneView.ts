@@ -549,7 +549,7 @@ export function renderBand(
   );
   return bandRow(
     el,
-    `${isActive ? '▶' : 'Next ·'} ${task.id} · ${task.title}`,
+    `${isActive ? '▶' : `${task.state} ·`} ${task.id} · ${task.title}`,
     buttons,
     columns,
     below,

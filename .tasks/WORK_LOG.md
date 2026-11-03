@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-077 — 2026-11-03
+**What:** Fixed the pre-release review findings. A failed board UI build now fails the build, watch mode rebuilds the board, the band names the real state, instructions no longer re-sort the config, unchanged files are skipped, and a failed write leaves no `.tmp` behind.
+**Decisions:** Custom state names are documented as a known limitation rather than supported in 3.0.
+**Outcome:** `release:check` green with 412 tests. Skipping unchanged writes saves less than the review claimed, because a real edit changes `**Updated:**`.
+
+---
+
 ## TASK-074 — 2026-11-02
 **What:** Removed `taskplanner_board_data`; the board app refreshes through `taskplanner_board_visual`, which took over its `query`, `include_completed` and `limit`. 7 MCP tools remain.
 **Decisions:** Every other tool has a user. `taskplanner_board` stays as the agents' compact digest, separate from the visual board, so an agent's overview does not open a board view in MCP Apps hosts.

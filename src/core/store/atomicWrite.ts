@@ -1,6 +1,9 @@
 import * as fs from 'fs';
 
 export type RenameFile = (from: string, to: string) => void;
+export type WriteFile = (filePath: string, content: string) => void;
+
+const writeUtf8: WriteFile = (filePath, content) => fs.writeFileSync(filePath, content, 'utf-8');
 
 const RETRYABLE_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
 const RENAME_RETRY_DELAYS_MS = [10, 25, 50, 100, 200];
@@ -42,10 +45,11 @@ export function writeFileAtomic(
   filePath: string,
   content: string,
   rename: RenameFile = fs.renameSync,
+  write: WriteFile = writeUtf8,
 ): void {
   const tempPath = tempPathFor(filePath);
-  fs.writeFileSync(tempPath, content, 'utf-8');
   try {
+    write(tempPath, content);
     renameWithRetry(tempPath, filePath, rename);
   } catch (error) {
     fs.rmSync(tempPath, { force: true });

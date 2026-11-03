@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   RenameFile,
+  WriteFile,
   renameWithRetry,
   tempPathFor,
   writeFileAtomic,
@@ -72,6 +73,18 @@ describe('writeFileAtomic', () => {
     expect(() => writeFileAtomic(target, 'after', rename)).toThrow('EBUSY');
 
     expect(rename.calls).toBe(6);
+    expect(fs.readFileSync(target, 'utf8')).toBe('before');
+    expect(leftovers()).toEqual([]);
+  });
+
+  it('removes a half-written temporary file when the write itself fails', () => {
+    const diskFull: WriteFile = (file, content) => {
+      fs.writeFileSync(file, content.slice(0, 2));
+      throw errorWithCode('ENOSPC');
+    };
+
+    expect(() => writeFileAtomic(target, 'after', fs.renameSync, diskFull)).toThrow('ENOSPC');
+
     expect(fs.readFileSync(target, 'utf8')).toBe('before');
     expect(leftovers()).toEqual([]);
   });
