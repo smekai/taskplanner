@@ -19,6 +19,7 @@ import { writeFileAtomic } from './atomicWrite.js';
 export interface PreparedWrite {
   filePath: string;
   content: string;
+  isUnchanged: boolean;
 }
 
 export class FileStore {
@@ -35,17 +36,18 @@ export class FileStore {
 
   prepareState(state: TaskState, tasks: Task[]): PreparedWrite {
     const filePath = path.join(this.tasksDir, state.fileName);
-    const original = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+    const exists = fs.existsSync(filePath);
+    const original = exists ? fs.readFileSync(filePath, 'utf-8') : '';
     const content =
       original.trim().length > 0
         ? serializeBoard(parseTasks(original).segments, tasks)
         : serializeStateFile(state.name, tasks);
-    return { filePath, content };
+    return { filePath, content, isUnchanged: exists && content === original };
   }
 
   commitWrites(writes: PreparedWrite[]): void {
     for (const write of writes) {
-      writeFileAtomic(write.filePath, write.content);
+      if (!write.isUnchanged) writeFileAtomic(write.filePath, write.content);
     }
   }
 

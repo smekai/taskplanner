@@ -1,5 +1,32 @@
 # Done
 
+## TASK-077: Pre-release fixes from the 3.0 code review
+**Priority:** P1 | **Tags:** core, ci, ui | **Epic:** 3.0
+**Updated:** 2026-11-03 19:02
+
+Fixes chosen from the high-effort review of `v2.5.0..main` before publishing 3.0 (TASK-076).
+
+- A failed board UI build is swallowed in production, and the stale `mcp/ui/board/index.html` gets synced into all three plugins.
+- `npm run watch` does not rebuild the board app when `views/mcp-app/board/*` changes.
+- The Claude band labels a Backlog task "Next".
+- `buildInstructionContent` sorts `config.states` in place.
+- State files are rewritten even when their content is unchanged (TASK-064 part 1).
+- `writeFileAtomic` leaves a `.tmp` behind when the temp write itself fails.
+- Custom state names are not supported by the band or `include_completed`; document this as a known limitation.
+
+Deferred: custom state names, and the bundle version bump using `replaceAll`, which CI guards.
+
+### Plan
+
+Done: fixed 6 of the 9 review findings. One is documented as a known limit and two are deferred.
+- Build: a board UI failure in a one-shot build now fails the build. `clean-dist` removes `mcp/ui`. `npm run watch` watches `views/mcp-app/board/`.
+- The band labels the task with its own state, e.g. "Backlog · …". The view spec and the kit test changed to match.
+- `aiInstructions` sorts a copy of `config.states`.
+- `FileStore.commitWrites` skips a file whose serialized content is byte-identical (`PreparedWrite.isUnchanged`). In practice this saves little, because real edits change `**Updated:**`.
+- `writeFileAtomic` removes the temp file when the write itself fails; the write is injectable for the test.
+- Known limit: custom state names, noted in README and views/claude/README. Deferred: the bundle bump's `replaceAll`, and moving `.mcp.json` (the user is deciding).
+
+---
 ## TASK-074: Remove the MCP tools 3.0 does not need
 **Priority:** P2 | **Tags:** core, refactor | **Epic:** 3.0
 **Updated:** 2026-11-02 16:40

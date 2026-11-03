@@ -25,7 +25,9 @@ const boardHtmlOut = path.join(mcpPackageRoot, 'ui', 'board', 'index.html');
 const mcpPackageLibraryOut = path.join(mcpPackageRoot, 'dist', 'index.js');
 
 // Marketplaces copy only a plugin's own folder, so each one carries its own server and board.
-const pluginRoots = ['claude', 'cursor', 'codex'].map((host) => path.join(__dirname, 'views', host));
+const pluginRoots = ['claude', 'cursor', 'codex'].map((host) =>
+  path.join(__dirname, 'views', host),
+);
 
 const claudeModOut = path.join(__dirname, 'views', 'claude', 'hooks', 'register.js');
 
@@ -49,7 +51,9 @@ function syncPlugins() {
 
   if (production) fs.rmSync(`${mcpServerOut}.map`, { force: true });
 
-  console.log(`[plugins] synced ${pluginRoots.map((root) => path.relative(__dirname, root)).join(', ')}`);
+  console.log(
+    `[plugins] synced ${pluginRoots.map((root) => path.relative(__dirname, root)).join(', ')}`,
+  );
 }
 
 async function buildBoardUi() {
@@ -82,11 +86,29 @@ function boardUiWatchPlugin() {
         try {
           await buildBoardUi();
         } catch (e) {
+          // A one-shot build must fail here: syncPlugins() would otherwise ship the previous board.
+          if (!watch) throw e;
           console.error('[board-ui] build failed:', e.message);
         }
       });
     },
   };
+}
+
+// The board's sources are not in the server's import graph, so the server watcher never sees them change.
+function watchBoardUi() {
+  let pending = null;
+  fs.watch(boardUiDir, () => {
+    clearTimeout(pending);
+    pending = setTimeout(async () => {
+      try {
+        await buildBoardUi();
+        syncPlugins();
+      } catch (e) {
+        console.error('[board-ui] build failed:', e.message);
+      }
+    }, 100);
+  });
 }
 
 async function main() {
@@ -176,6 +198,7 @@ async function main() {
   if (watch) {
     await extensionCtx.watch();
     await mcpCtx.watch();
+    watchBoardUi();
     await libraryCtx.watch();
     await claudeModCtx.watch();
     console.log('[watch] watching for changes...');

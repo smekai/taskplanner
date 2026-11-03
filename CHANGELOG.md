@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The VS Code extension package no longer includes repository configuration that leaked into it, such as a local `.claude/settings.local.json`, `.github/`, agent instruction files and test configs (TASK-073).
 - A move that failed halfway could lose the task: it was already gone from its old state when writing the new one failed (seen on Windows as `EPERM`). The new state is now written first, each write uses its own temporary file, and a rename Windows refuses while the file is held open is retried (TASK-075).
 - Creating a task through the MCP server reads only the state it goes into again, so an unreadable file elsewhere on the board no longer blocks it (TASK-075).
+- The Claude Code band names the state of the task it suggests: a Backlog task reads *Backlog · …*, not *Next · …* (TASK-077).
+- A build whose MCP board failed to compile now fails, instead of shipping the previous board in every plugin (TASK-077).
+- A state file whose content would not change is no longer rewritten, and a failed write no longer leaves a `.tmp` file in `.tasks/` (TASK-077).
 
 ### Changed
 

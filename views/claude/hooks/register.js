@@ -1081,7 +1081,7 @@ function renderBand(el, task, columns, below, actions) {
   );
   return bandRow(
     el,
-    `${isActive ? "\u25B6" : "Next \xB7"} ${task.id} \xB7 ${task.title}`,
+    `${isActive ? "\u25B6" : `${task.state} \xB7`} ${task.id} \xB7 ${task.title}`,
     buttons,
     columns,
     below
