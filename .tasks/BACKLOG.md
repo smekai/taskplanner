@@ -1,18 +1,5 @@
 # Backlog
 
-## TASK-076: Ship 3.0 on every platform and announce it
-**Priority:** P2 | **Tags:** docs, ci | **Epic:** 3.0
-**Updated:** 2026-10-30 13:21
-
-Phase E of TASK-071. Last in the epic.
-
-- Update READMEs (root, `packages/mcp-server/`, `plugins/taskplanner/`), CONTRIBUTING and marketplace listings.
-- ~~Set 3.0.0~~: done in PR #21. Before publishing, add the `[3.0.0]` CHANGELOG section with the date, and get `npm run release:check` green.
-- Publish to the VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, the Claude Code marketplace, Cursor and Codex.
-- **Open VSX is behind:** it still serves 2.4.4 (checked 2026-10-30), and it is the largest audience (4268 downloads, mostly Cursor). Check why 2.5.x did not reach it. Consider publishing there even before 3.0.
-- Announce on LinkedIn; decide whether smek.ai starts as a minimal updates page.
-
----
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup, ci
 **Updated:** 2026-10-16 17:57

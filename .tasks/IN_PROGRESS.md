@@ -1,5 +1,27 @@
 # In Progress
 
+## TASK-076: Ship 3.0 on every platform and announce it
+**Priority:** P2 | **Tags:** docs, ci | **Epic:** 3.0
+**Updated:** 2026-11-03 20:49
+
+Phase E of TASK-071. Last in the epic.
+
+- Update READMEs (root, `packages/mcp-server/`, `plugins/taskplanner/`), CONTRIBUTING and marketplace listings.
+- ~~Set 3.0.0~~: done in PR #21. Before publishing, add the `[3.0.0]` CHANGELOG section with the date, and get `npm run release:check` green.
+- Publish to the VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, the Claude Code marketplace, Cursor and Codex.
+- **Open VSX is behind:** it still serves 2.4.4 (checked 2026-10-30), and it is the largest audience (4268 downloads, mostly Cursor). Check why 2.5.x did not reach it. Consider publishing there even before 3.0.
+- Announce on LinkedIn; decide whether smek.ai starts as a minimal updates page.
+
+### Plan
+
+- Release version: the next patch, 3.0.12, not 3.0.0. Plugins on `main` already report 3.0.11, and `update-taskplanner` treats a lower installed version as a downgrade.
+- Set it with `scripts/bump-version.js`, rename `[Unreleased]` to `[3.0.12] - 2026-11-03`, check with `validate:versions`, then commit with `--no-verify`, as CLAUDE.md allows for an exact, validated version.
+- `npm run release:check`, then `npm run package` for the VSIX and `package:codex-skills` for the Codex portal ZIP.
+- The user publishes: VS Code Marketplace and Open VSX (VSIX), npm (`npm publish ./mcp`), a Cursor marketplace re-index, and the Codex portal upload. The Claude plugin comes from `main`.
+- Then: tag `v3.0.12`, close issue #2, announce.
+- Risk: no manual local check of each channel was done before publishing. Offer a quick local VSIX install first.
+
+---
 ## TASK-071: TaskPlanner 3.0 release
 **Priority:** P1 | **Tags:** feature, ui, docs, ci | **Epic:** 3.0
 **Updated:** 2026-11-02 16:39
