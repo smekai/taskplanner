@@ -1,8 +1,8 @@
 {
   "name": "taskplanner",
-  "displayName": "Task → Plan → AI",
+  "displayName": "TaskPlanner",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
-  "version": "3.0.11",
+  "version": "3.0.12",
   "publisher": "refined",
   "license": "MIT",
   "icon": "resources/icons/taskplanner-color.png",
@@ -38,7 +38,7 @@
       "activitybar": [
         {
           "id": "taskplanner",
-          "title": "Task → Plan → AI",
+          "title": "TaskPlanner",
           "icon": "resources/icons/taskplanner.svg"
         }
       ]
@@ -50,7 +50,7 @@
           "name": "",
           "type": "webview",
           "icon": "resources/icons/taskplanner.svg",
-          "contextualTitle": "Task → Plan → AI"
+          "contextualTitle": "TaskPlanner"
         }
       ]
     },
@@ -152,7 +152,7 @@
       ]
     },
     "configuration": {
-      "title": "Task → Plan → AI",
+      "title": "TaskPlanner",
       "properties": {
         "taskplanner.taskDirectory": {
           "type": "string",

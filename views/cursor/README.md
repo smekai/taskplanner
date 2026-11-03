@@ -83,7 +83,7 @@ The local plugin path is:
 
 ### Via the VS Code extension
 
-Install the **Task → Plan → AI** VS Code extension — the plugin is auto-registered.
+Install the **TaskPlanner** VS Code extension — the plugin is auto-registered.
 
 ### Manual (macOS/Linux)
 

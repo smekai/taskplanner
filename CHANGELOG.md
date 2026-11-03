@@ -1,10 +1,17 @@
 # Changelog
 
-All notable changes to the **Task → Plan → AI** extension will be documented in this file.
+All notable changes to **TaskPlanner** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [3.0.12] - 2026-11-03
+
+TaskPlanner 3.0: the Claude Code band always shows what to work on next, one folder per host on a shared core, a smaller MCP surface and the known defects fixed.
+
+- The extension is called **TaskPlanner** again in the marketplaces, the activity bar and its views, instead of *Task → Plan → AI*. Its ID stays `refined.taskplanner`, so installs update in place (TASK-076).
+- The **Initialize Project** and **Setup** buttons in the empty task list did nothing: the webview's script policy blocked their inline handlers. They work again (TASK-076).
 
 ### Upgrading from 2.x
 

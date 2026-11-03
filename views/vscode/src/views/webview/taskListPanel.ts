@@ -292,9 +292,9 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
   private buildWelcomeHtml(): string {
     const body = `
       <div class="welcome">
-        <p>No Task → Plan → AI project found in this workspace.</p>
-        <button class="welcome-btn" onclick="vscode.postMessage({type:'command',command:'taskplanner.init'})">Initialize Project</button>
-        <button class="welcome-btn" onclick="vscode.postMessage({type:'command',command:'taskplanner.setup'})">Setup</button>
+        <p>No TaskPlanner project found in this workspace.</p>
+        <button class="welcome-btn" data-command="taskplanner.init">Initialize Project</button>
+        <button class="welcome-btn" data-command="taskplanner.setup">Setup</button>
       </div>
     `;
 
@@ -326,7 +326,15 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       </style>
     `;
 
-    return getWebviewHtml(this.view!.webview, 'Tasks', extraStyles + body, '');
+    const script = `
+      document.querySelectorAll('[data-command]').forEach((button) => {
+        button.addEventListener('click', () => {
+          vscode.postMessage({ type: 'command', command: button.dataset.command });
+        });
+      });
+    `;
+
+    return getWebviewHtml(this.view!.webview, 'Tasks', extraStyles + body, script);
   }
 
   private buildParseWarningBanner(): string {

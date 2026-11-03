@@ -30,7 +30,7 @@ Task Plan AI brings AI-directed markdown task tracking into your repository. Tas
 
 ## Overview
 
-![Task → Plan → AI overview](resources/screenshots/overview.png)
+![TaskPlanner overview](resources/screenshots/overview.png)
 
 ## Features
 
@@ -47,7 +47,7 @@ Task Plan AI brings AI-directed markdown task tracking into your repository. Tas
 - **Live file watcher** — edit `.tasks/*.md` by hand and all views update instantly
 - **Configurable** — custom states, priorities (P0–P4), tags, ID prefix, sort order. Renamed states work in every view, with two known limits: the Claude Code band uses only **In Progress**, **Next** and **Backlog**, and the MCP board's *Show more* loads completed tasks only for **Done** and **Rejected**
 
-## Why TaskPlanner (Task → Plan → AI) Is Better Than Other Solutions
+## Why TaskPlanner Is Better Than Other Solutions
 
 Competitors often focus on UI and manual task editing. TaskPlanner is built for AI execution: it keeps tasks as plain markdown artifacts next to your code, and it generates agent instruction files that teach Codex, Cursor, Claude Code, and compatible tools how to follow the workflow.
 
@@ -81,7 +81,7 @@ The extension can auto-register the bundled plugin when running inside Cursor. C
 
 1. Install the extension from the marketplace links above
 2. Open a project folder
-3. Click the Task → Plan → AI icon in the activity bar — a welcome view with **Initialize Project** appears
+3. Click the TaskPlanner icon in the activity bar — a welcome view with **Initialize Project** appears
 4. Run **Initialize AI Instructions** to generate workflow files for your AI tools
 5. Start creating tasks!
 
