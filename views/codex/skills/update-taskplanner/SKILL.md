@@ -5,7 +5,7 @@ description: Synchronize an existing TaskPlanner project with the installed skil
 
 # Update TaskPlanner Project
 
-<!-- TASKPLANNER:VERSION:3.0.9 -->
+<!-- TASKPLANNER:VERSION:3.0.10 -->
 
 ## Compare versions
 
@@ -32,5 +32,13 @@ This project uses [TaskPlanner](https://github.com/smekai/taskplanner) for task 
 4. When attribution is false, leave any existing attribution untouched and do not insert one.
 5. Never rewrite task sections, state files, or content outside managed markers.
 6. Only after all writes succeed, set `taskplannerVersion` to the marker version and save config. On failure, leave the previous value so a later invocation retries.
+
+## Upgrading to 3.0
+
+Run this once, together with the synchronization, when the stored `taskplannerVersion` is missing or its major version is below 3. Task files, IDs and the config schema need no change. Change nothing outside the managed markers unless the user agrees; record the new version even if they decline.
+
+1. **Duplicate MCP server.** If `.mcp.json` lists a server that runs `@smekai/taskplanner` (for example `npx -y @smekai/taskplanner`), and this session already has TaskPlanner tools from the installed plugin (tool names with a plugin prefix, such as `mcp__plugin_taskplanner_…`), tell the user the tools load twice and offer to remove that one entry. On a yes, remove only that entry and keep the rest of the file; if no servers remain, offer to delete the file. Without the plugin's tools, keep the entry: it is how this host reaches TaskPlanner.
+2. **Removed tool.** 3.0 removed `taskplanner_board_data`. Search the instruction files and `.cursor/`, `.claude/` and `.codex/` for it. The managed blocks are regenerated anyway; for mentions outside them, list each place and suggest `taskplanner_board` for a text overview or `taskplanner_board_visual` for the interactive board. Edit them only on a yes.
+3. Tell the user what changed and what they chose to keep, in two or three lines.
 
 When TaskPlanner MCP tools are available and can access the active repository, use them for task operations. Managed-file synchronization itself may use direct file operations; the public skills-only package must work without MCP.

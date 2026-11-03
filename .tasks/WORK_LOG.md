@@ -22,6 +22,12 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-078 — 2026-11-03
+**What:** Added the 2.x → 3.0 upgrade path: an "Upgrading to 3.0" step in `update-taskplanner`, CHANGELOG upgrade notes, and removed this repository's duplicate `.mcp.json`.
+**Decisions:** The skill only offers changes outside the managed markers: removing the duplicate `.mcp.json` entry, and only when the plugin's tools are loaded, and replacing `board_data` mentions. It never edits them silently.
+
+---
+
 ## TASK-074 — 2026-11-02
 **What:** Removed `taskplanner_board_data`; the board app refreshes through `taskplanner_board_visual`, which took over its `query`, `include_completed` and `limit`. 7 MCP tools remain.
 **Decisions:** Every other tool has a user. `taskplanner_board` stays as the agents' compact digest, separate from the visual board, so an agent's overview does not open a board view in MCP Apps hosts.

@@ -63,7 +63,7 @@ ID prefix: `TASK`. Priorities: P0, P1, P2, P3, P4.
 
 Check once per session whether the tools are available, and say which way you are working. **If they are available, do not hand-edit these files.** Instructions below that describe editing markdown are the fallback only.
 
-If the host reads `.mcp.json` and this repo has none, ask before adding a `taskplanner` server with `npx -y @smekai/taskplanner` (Setup menu can write it too). Humans may edit the markdown freely; agents with working tools must not — hand-edits desynchronise `nextId` and corrupt encodings.
+If the TaskPlanner tools are not available, the host reads `.mcp.json` and this repo has none, ask before adding a `taskplanner` server with `npx -y @smekai/taskplanner` (Setup menu can write it too). Humans may edit the markdown freely; agents with working tools must not — hand-edits desynchronise `nextId` and corrupt encodings.
 
 ## Workflow
 
