@@ -75,7 +75,7 @@ TaskPlanner ships as three coordinated artifacts:
 
 Source code lives at [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner); the Marketplace publisher remains **refined**.
 
-The extension can auto-register the bundled plugin when running inside Cursor. Codex discovers it through the repository marketplace at `.agents/plugins/marketplace.json`.
+In Cursor's editor window the extension also registers the bundled plugin. Cursor's Agents window runs no third-party extensions, so install the Cursor plugin itself to get the tools and the board in agent chats. Codex discovers it through the repository marketplace at `.agents/plugins/marketplace.json`.
 
 ## Quick Start
 

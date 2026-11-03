@@ -83,7 +83,7 @@ The local plugin path is:
 
 ### Via the VS Code extension
 
-Install the **TaskPlanner** VS Code extension — the plugin is auto-registered.
+Install the **TaskPlanner** VS Code extension. It registers this plugin only where Cursor runs extensions, which is the editor window. Cursor's Agents window runs no third-party extensions, so for agent chats install the plugin itself: from the Cursor marketplace, or at the local path above.
 
 ### Manual (macOS/Linux)
 
