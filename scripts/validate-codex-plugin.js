@@ -63,8 +63,8 @@ function main() {
       fail('plugin.json description must match package.json.');
     }
     if (manifest.license !== 'MIT') fail('plugin.json license must be MIT.');
-    if (manifest.interface?.displayName !== 'Task Plan AI') {
-      fail('plugin.json interface.displayName must be "Task Plan AI".');
+    if (manifest.interface?.displayName !== 'TaskPlanner') {
+      fail('plugin.json interface.displayName must be "TaskPlanner".');
     }
     if (manifest.skills !== './skills/') fail('plugin.json skills must point to ./skills/.');
     if (manifest.mcpServers !== './.mcp.json') {
@@ -89,6 +89,17 @@ function main() {
       'defaultPrompt',
     ]) {
       if (!manifest.interface?.[field]) fail(`plugin.json interface.${field} is required.`);
+    }
+    // OpenAI's final directory submission limits; upload accepts longer values and review then rejects them.
+    for (const field of ['displayName', 'shortDescription']) {
+      const value = String(manifest.interface?.[field] ?? '');
+      if (value.length > 30 || /\n/.test(value)) {
+        fail(`plugin.json interface.${field} must be one line of at most 30 characters.`);
+      }
+    }
+    const prompts = manifest.interface?.defaultPrompt ?? [];
+    if (prompts.length > 3 || prompts.some((prompt) => prompt.length > 128)) {
+      fail('plugin.json interface.defaultPrompt allows at most 3 prompts of at most 128 characters.');
     }
   }
 
