@@ -110,6 +110,27 @@ Start a new session after editing the file. The rule also lets Claude itself mov
 
 Nothing, apart from the prompts above, which you see in the transcript. The mod makes no network requests. The MCP server (`dist/mcp-server.js`, bundled from `mcp/src/server.ts` in this repository) runs locally over stdio and reads and writes only `.tasks/`. To find that folder it reads these environment variables, which hold paths only: `TASKPLANNER_WORKSPACE_ROOT`, `CLAUDE_PROJECT_DIR`, `CURSOR_WORKSPACE_ROOT`, `VSCODE_WORKSPACE_ROOT`, `PWD` and `INIT_CWD`. It reads no credentials and sends nothing anywhere.
 
+**Hooks, and what each does with what it sees**
+
+| Hook | What it receives | What it does |
+| --- | --- | --- |
+| `session.start` | the start of a session | Registers `/taskboard`, reads the Claude Code version, and rereads the board once it has loaded |
+| `command.run` (`/taskboard`, `/taskplanner:board`) | your command | Opens the pane, or replies with a text digest of the board where no pane can be drawn |
+| `ui.render` (Pane, AbovePrompt) | the pane's or the band's turn to draw | Draws the board and the band from the `.tasks/` files it read |
+| `ui.press`, `ui.input` | a press on one of this plugin's own buttons, or the new-task form | Calls `taskplanner_move` or `taskplanner_create` for that one action; presses on other plugins' elements pass through |
+| `tool.call` | each tool Claude runs | Reads the tool name, and `file_path` for file edits. After a TaskPlanner write or an edit under `.tasks/`, it rereads the board. It passes the call through unchanged |
+| `turn.complete` | the end of each turn | Reads nothing from the turn; it checks whether the `.tasks/` files changed and rereads them if so |
+| `ui.close` | the pane closing | Stops checking the files every 5 seconds |
+
+**Third-party code in the bundles**
+
+Two files are bundles built by `esbuild.js` in this repository; CI checks that the committed files match their sources:
+
+- `dist/mcp-server.js` is `mcp/src/server.ts` with the TaskPlanner core, the MCP SDK and zod. The SDK's ajv-based validator is replaced with a stub, because it serves only elicitation, which this server never requests.
+- `ui/board/index.html` is the MCP Apps board (`views/mcp-app/board/`) with the MCP Apps SDK and zod.
+
+URL patterns and URL-checking code inside these files belong to those libraries. Neither file fetches anything at run time.
+
 ## Task format
 
 Tasks live in `.tasks/*.md` as `## TASK-###: Title` sections separated by `---`:

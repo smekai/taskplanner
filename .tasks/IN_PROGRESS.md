@@ -2,7 +2,7 @@
 
 ## TASK-079: Claude plugin passes the Anthropic directory checks
 **Priority:** P1 | **Tags:** feature, docs, ui | **Epic:** 3.0
-**Updated:** 2026-11-04 12:06
+**Updated:** 2026-11-04 14:10
 
 List TaskPlanner in Anthropic's public plugin directory (claude.ai/directory/manage, repo `smekai/taskplanner`, folder `views/claude`).
 
@@ -21,6 +21,11 @@ Constraint: Cursor, Codex, VS Code/Open VSX and npm stay untouched; changes stay
 - `.claude-plugin/icon.png` comes from the approved graphite brand icon (640×640). `author.name` becomes `smekai`; the plugin and marketplace names stay.
 - README: what the pane reads, calls, submits and sends, and which environment variables the server reads.
 - Risk: other harnesses must not change. `git diff` stays inside `views/claude/**` plus docs and version markers.
+- Done in PR #31: no blocking findings. A live check showed that without a rule the pane asks Yes/No on every write (anthropics/claude-code#105938); the README gives the `permissions.allow` rule.
+- Second pass, for the remaining holds:
+  - In `esbuild.js`, replace the SDK's `validation/ajv-provider.js` in the server bundle with a stub. ajv is used only for elicitation, which we never call. This removes the `new Function`, the ajv URL and the fast-uri scheme table that the directory flagged.
+  - A guard fails if ajv comes back.
+  - README: a hooks table and a note on the third-party code in the bundles.
 
 ---
 ## TASK-076: Ship 3.0 on every platform and announce it
