@@ -95,6 +95,34 @@ function boardUiWatchPlugin() {
   };
 }
 
+// The MCP SDK constructs an ajv validator for every Server, but uses it only to check elicitation
+// answers, which this server never requests. Bundling ajv adds code generation (new Function) and
+// remote schema URLs that Anthropic's plugin directory flags, so the provider is replaced.
+const AJV_PROVIDER_STUB = `
+export class AjvJsonSchemaValidator {
+  getValidator() {
+    throw new Error('JSON Schema validation for elicitation is not bundled in the TaskPlanner MCP server.');
+  }
+}
+`;
+
+function withoutAjvPlugin() {
+  return {
+    name: 'without-ajv',
+    setup(build) {
+      build.onLoad(
+        {
+          filter: /[\\/]@modelcontextprotocol[\\/]sdk[\\/].*[\\/]validation[\\/]ajv-provider\.js$/,
+        },
+        () => ({
+          contents: AJV_PROVIDER_STUB,
+          loader: 'js',
+        }),
+      );
+    },
+  };
+}
+
 // The board's sources are not in the server's import graph, so the server watcher never sees them change.
 function watchBoardUi() {
   let pending = null;
@@ -138,6 +166,7 @@ async function main() {
     entryPoints: ['mcp/src/server.ts'],
     outfile: mcpServerOut,
     plugins: [
+      withoutAjvPlugin(),
       boardUiWatchPlugin(),
       {
         name: 'watch-plugin',

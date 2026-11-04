@@ -47,6 +47,15 @@ function checkDirectoryRules() {
       failures.push(`hooks/register.js calls an MCP tool by a computed name (${call[1].trim()}); use a literal.`);
     }
   }
+  const server = fs.readFileSync(path.join(root, pluginDir, 'dist', 'mcp-server.js'), 'utf8');
+  for (const [marker, meaning] of [
+    ['ajv-validator', "ajv's remote schema URL"],
+    ['new Function', 'runtime code generation'],
+  ]) {
+    if (server.includes(marker)) {
+      failures.push(`dist/mcp-server.js contains ${meaning} ("${marker}"); esbuild.js's ajv stub no longer applies.`);
+    }
+  }
   const icon = path.join(root, pluginDir, '.claude-plugin', 'icon.png');
   if (!fs.existsSync(icon)) {
     failures.push('.claude-plugin/icon.png is missing; the directory needs a square PNG of 512-2048 px.');
@@ -60,7 +69,9 @@ function checkDirectoryRules() {
   }
   for (const failure of failures) console.error(`[claude-plugin] ERROR: ${failure}`);
   if (failures.length > 0) process.exit(1);
-  console.log('[claude-plugin] Directory rules hold: no permission hook, literal MCP tool names, listing icon.');
+  console.log(
+    '[claude-plugin] Directory rules hold: no permission hook, literal MCP tool names, no ajv in the server, listing icon.',
+  );
 }
 
 function main() {
