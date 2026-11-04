@@ -1,6 +1,6 @@
 {
   "name": "taskplanner",
-  "version": "3.0.12",
+  "version": "3.0.13",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
   "author": {
     "name": "refined",
@@ -13,7 +13,7 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Task Plan AI",
+    "displayName": "TaskPlanner",
     "shortDescription": "AI-directed markdown task management in your repo",
     "longDescription": "AI-directed markdown task management in your repo. Uses git-tracked .tasks files and gives Codex tools and skills to read, create, prioritize, plan, update, and move work.",
     "developerName": "refined",

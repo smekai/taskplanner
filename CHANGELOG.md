@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [3.0.13] - 2026-11-04
+
+- The Codex plugin and the README heading are called **TaskPlanner** as well; 3.0.12 renamed only the extension, and they still said *Task Plan AI* (TASK-076).
+
 ## [3.0.12] - 2026-11-03
 
 TaskPlanner 3.0: the Claude Code band always shows what to work on next, one folder per host on a shared core, a smaller MCP surface and the known defects fixed.

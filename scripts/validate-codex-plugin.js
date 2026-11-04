@@ -63,8 +63,8 @@ function main() {
       fail('plugin.json description must match package.json.');
     }
     if (manifest.license !== 'MIT') fail('plugin.json license must be MIT.');
-    if (manifest.interface?.displayName !== 'Task Plan AI') {
-      fail('plugin.json interface.displayName must be "Task Plan AI".');
+    if (manifest.interface?.displayName !== 'TaskPlanner') {
+      fail('plugin.json interface.displayName must be "TaskPlanner".');
     }
     if (manifest.skills !== './skills/') fail('plugin.json skills must point to ./skills/.');
     if (manifest.mcpServers !== './.mcp.json') {

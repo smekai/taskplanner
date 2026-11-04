@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/icons/taskplanner-color.png" alt="Task Plan AI logo" width="112" height="112" />
+  <img src="resources/icons/taskplanner-color.png" alt="TaskPlanner logo" width="112" height="112" />
 </p>
 
-<h1 align="center">Task Plan AI</h1>
+<h1 align="center">TaskPlanner</h1>
 
 <p align="center">
   Git-tracked markdown task planning for developers and AI agents.
@@ -15,7 +15,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
 </p>
 
-Task Plan AI brings AI-directed markdown task tracking into your repository. Tasks stay readable by humans, actionable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows.
+TaskPlanner brings AI-directed markdown task tracking into your repository. Tasks stay readable by humans, actionable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows.
 
 ## Why?
 
