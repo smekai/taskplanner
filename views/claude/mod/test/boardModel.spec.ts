@@ -6,10 +6,8 @@ import {
   describeError,
   ancestorDirs,
   isOwnPlugin,
-  paneCheckDecision,
   createdTaskId,
   editPrompt,
-  isPaneWriteByOwnPlugin,
   newTaskStates,
   startDraft,
   joinPath,
@@ -84,64 +82,16 @@ describe('taskMarkdown and taskBody', () => {
 });
 
 describe('own-plugin checks', () => {
-  it('recognises only this plugin, by name or by its marketplace id', () => {
+  // The directory installs the plugin under its own marketplace id, so any marketplace counts;
+  // the check only routes pane presses and grants no permission.
+  it('recognises this plugin by name or by any marketplace id', () => {
     expect(isOwnPlugin('taskplanner')).toBe(true);
     expect(isOwnPlugin('taskplanner@refined-taskplanner')).toBe(true);
-    expect(isOwnPlugin('taskplanner@some-other-market')).toBe(false);
+    expect(isOwnPlugin('taskplanner@claude-plugins-official')).toBe(true);
+    expect(isOwnPlugin('taskplanner@')).toBe(false);
     expect(isOwnPlugin('taskplanner-extra')).toBe(false);
+    expect(isOwnPlugin('taskplanner-extra@refined-taskplanner')).toBe(false);
     expect(isOwnPlugin('engine')).toBe(false);
-  });
-
-  it('turns only an ask on its own write into an allow, and keeps every other verdict', () => {
-    const move = 'mcp__plugin_taskplanner_taskplanner__taskplanner_move';
-    const create = 'mcp__plugin_taskplanner_taskplanner__taskplanner_create';
-    const ask = { decision: 'ask' as const, reason: 'rules say ask' };
-    const deny = { decision: 'deny' as const, reason: 'deny rule' };
-    const allow = { decision: 'allow' as const, reason: 'allow rule' };
-    expect(paneCheckDecision('taskplanner', move, ask).decision).toBe('allow');
-    expect(paneCheckDecision('taskplanner@refined-taskplanner', create, ask).decision).toBe(
-      'allow',
-    );
-    expect(paneCheckDecision('taskplanner', move, deny)).toBe(deny);
-    expect(paneCheckDecision('taskplanner', move, allow)).toBe(allow);
-    expect(paneCheckDecision('engine', move, ask)).toBe(ask);
-    expect(paneCheckDecision('taskplanner@some-other-market', move, ask)).toBe(ask);
-    expect(
-      paneCheckDecision(
-        'taskplanner',
-        'mcp__plugin_taskplanner_taskplanner__taskplanner_update',
-        ask,
-      ),
-    ).toBe(ask);
-  });
-
-  it('approves only a move this plugin makes', () => {
-    const move = 'mcp__plugin_taskplanner_taskplanner__taskplanner_move';
-    expect(isPaneWriteByOwnPlugin('taskplanner', move)).toBe(true);
-    expect(
-      isPaneWriteByOwnPlugin(
-        'taskplanner@refined-taskplanner',
-        'mcp__taskplanner__taskplanner_move',
-      ),
-    ).toBe(true);
-    expect(isPaneWriteByOwnPlugin('engine', move)).toBe(false);
-    expect(isPaneWriteByOwnPlugin('other-mod', move)).toBe(false);
-    expect(
-      isPaneWriteByOwnPlugin('taskplanner', 'mcp__plugin_taskplanner_taskplanner__taskplanner_get'),
-    ).toBe(false);
-    expect(isPaneWriteByOwnPlugin('taskplanner', 'Bash')).toBe(false);
-    expect(
-      isPaneWriteByOwnPlugin(
-        'taskplanner',
-        'mcp__plugin_taskplanner_taskplanner__taskplanner_create',
-      ),
-    ).toBe(true);
-    expect(
-      isPaneWriteByOwnPlugin(
-        'taskplanner',
-        'mcp__plugin_taskplanner_taskplanner__taskplanner_update',
-      ),
-    ).toBe(false);
   });
 });
 

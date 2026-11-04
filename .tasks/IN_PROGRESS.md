@@ -1,5 +1,28 @@
 # In Progress
 
+## TASK-079: Claude plugin passes the Anthropic directory checks
+**Priority:** P1 | **Tags:** feature, docs, ui | **Epic:** 3.0
+**Updated:** 2026-11-04 12:06
+
+List TaskPlanner in Anthropic's public plugin directory (claude.ai/directory/manage, repo `smekai/taskplanner`, folder `views/claude`).
+
+The first validation reported 1 blocking finding, 11 policy holds and 3 warnings:
+- **Blocking:** the mod's `tool.check` hook answers `allow` for the pane's own writes, and a mod must leave the decision to the user.
+- **Holds:** the mod calls tools itself, submits prompts, reads tool calls, and reads environment paths. The MCP server bundle cannot be inspected. The author name "refined" looks like the publisher "Refine".
+- **Warnings:** no icon, and `npx` mentioned in the docs.
+
+Constraint: Cursor, Codex, VS Code/Open VSX and npm stay untouched; changes stay inside `views/claude/`.
+
+### Plan
+
+- `register.ts`: remove the `tool.check` hook. Claude Code then asks the first time, and "don't ask again" saves the rule. `$.mcp.call` gets literal tool names in `moveTask` and `createTask`.
+- `boardModel.ts`: remove `paneCheckDecision`, `isPaneWriteByOwnPlugin` and `PANE_WRITE_TOOL`. `isOwnPlugin` accepts `taskplanner@<any marketplace>`, so the pane works when installed from the directory.
+- Tests: the spec and the kit tests (`pane.test.ts`) follow. A pane write keeps the user's `ask` and goes through under an `allow` rule.
+- `.claude-plugin/icon.png` comes from the approved graphite brand icon (640×640). `author.name` becomes `smekai`; the plugin and marketplace names stay.
+- README: what the pane reads, calls, submits and sends, and which environment variables the server reads.
+- Risk: other harnesses must not change. `git diff` stays inside `views/claude/**` plus docs and version markers.
+
+---
 ## TASK-076: Ship 3.0 on every platform and announce it
 **Priority:** P2 | **Tags:** docs, ci | **Epic:** 3.0
 **Updated:** 2026-11-03 20:49

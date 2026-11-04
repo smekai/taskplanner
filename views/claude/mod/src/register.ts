@@ -1,4 +1,4 @@
-import type { CommandRunResult, Engine, McpToolResult, On, Timer } from './modApi.js';
+import type { CommandRunResult, Engine, On, Timer } from './modApi.js';
 import {
   BOARD_FILE_PATTERN,
   BoardFileStat,
@@ -15,7 +15,6 @@ import {
   isOwnPlugin,
   joinPath,
   moveTargetForKey,
-  paneCheckDecision,
   pickTab,
   resultText,
   SETUP_PROMPT,
@@ -104,14 +103,10 @@ async function locateBoard($: Engine): Promise<string | null> {
   return found;
 }
 
-async function callTaskplanner(
-  $: Engine,
-  tool: string,
-  args: Record<string, unknown>,
-): Promise<McpToolResult> {
+async function serverAndRoot($: Engine): Promise<{ server: string; workspace_root: string }> {
   const server = await connectServer($);
-  const root = board?.workspaceRoot ?? boardRoot ?? (await $.session.root());
-  return $.mcp.call(server, tool, { workspace_root: root, ...args });
+  const workspace_root = board?.workspaceRoot ?? boardRoot ?? (await $.session.root());
+  return { server, workspace_root };
 }
 
 async function readTextOrEmpty($: Engine, path: string): Promise<string> {
@@ -280,7 +275,9 @@ function openTask($: Engine, id: string, state: string): void {
 
 async function moveTask($: Engine, id: string, target: string): Promise<void> {
   try {
-    const result = await callTaskplanner($, 'taskplanner_move', {
+    const { server, workspace_root } = await serverAndRoot($);
+    const result = await $.mcp.call(server, 'taskplanner_move', {
+      workspace_root,
       task_id: id,
       target_state: target,
     });
@@ -304,7 +301,13 @@ async function createTask($: Engine): Promise<void> {
   }
   const { priority, state } = draft;
   try {
-    const result = await callTaskplanner($, 'taskplanner_create', { title, priority, state });
+    const { server, workspace_root } = await serverAndRoot($);
+    const result = await $.mcp.call(server, 'taskplanner_create', {
+      workspace_root,
+      title,
+      priority,
+      state,
+    });
     if (result.isError) throw new Error(resultText(result));
     const id = createdTaskId(result);
     draft = null;
@@ -487,10 +490,6 @@ export function register(on: On): void {
     await createTask($);
     return { element: e.element, value: e.value };
   }).catch((_engine, e, next) => next(e));
-
-  on('tool.check', async (_engine, e, next) =>
-    paneCheckDecision(next.origin.plugin, e.tool, await next(e)),
-  ).catch((_engine, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {
     const result = await next(e);

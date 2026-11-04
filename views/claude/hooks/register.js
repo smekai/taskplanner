@@ -6,14 +6,10 @@ var COMPLETED_STATES = ["Done", "Rejected"];
 var BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
 var DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 var TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
-var PANE_WRITE_TOOL = /^mcp__.+__taskplanner_(move|create)$/;
 var TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
 var PRIORITIES = ["P0", "P1", "P2", "P3", "P4"];
 var DEFAULT_NEW_PRIORITY = "P2";
-var OWN_PLUGIN_IDS = /* @__PURE__ */ new Set([
-  "taskplanner",
-  "taskplanner@refined-taskplanner"
-]);
+var OWN_PLUGIN_ID = /^taskplanner(@[^@\s]+)?$/;
 var FILE_EDIT_TOOLS = /* @__PURE__ */ new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 var TASKS_DIR_SEGMENT = /(^|[\\/])\.tasks[\\/]/;
 var PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
@@ -115,14 +111,7 @@ function supportsTextScale(version) {
   return true;
 }
 function isOwnPlugin(name) {
-  return OWN_PLUGIN_IDS.has(name);
-}
-function isPaneWriteByOwnPlugin(origin, tool) {
-  return isOwnPlugin(origin) && PANE_WRITE_TOOL.test(tool);
-}
-function paneCheckDecision(origin, tool, verdict) {
-  if (verdict.decision !== "ask" || !isPaneWriteByOwnPlugin(origin, tool)) return verdict;
-  return { decision: "allow", reason: "Requested from the TaskPlanner board pane." };
+  return OWN_PLUGIN_ID.test(name);
 }
 function ancestorDirs(start) {
   const dirs = [];
@@ -1174,10 +1163,10 @@ async function locateBoard($) {
   boardRoot = found;
   return found;
 }
-async function callTaskplanner($, tool, args) {
+async function serverAndRoot($) {
   const server = await connectServer($);
-  const root = board?.workspaceRoot ?? boardRoot ?? await $.session.root();
-  return $.mcp.call(server, tool, { workspace_root: root, ...args });
+  const workspace_root = board?.workspaceRoot ?? boardRoot ?? await $.session.root();
+  return { server, workspace_root };
 }
 async function readTextOrEmpty($, path) {
   try {
@@ -1329,7 +1318,9 @@ function openTask($, id, state) {
 }
 async function moveTask($, id, target) {
   try {
-    const result = await callTaskplanner($, "taskplanner_move", {
+    const { server, workspace_root } = await serverAndRoot($);
+    const result = await $.mcp.call(server, "taskplanner_move", {
+      workspace_root,
       task_id: id,
       target_state: target
     });
@@ -1352,7 +1343,13 @@ async function createTask($) {
   }
   const { priority, state } = draft;
   try {
-    const result = await callTaskplanner($, "taskplanner_create", { title, priority, state });
+    const { server, workspace_root } = await serverAndRoot($);
+    const result = await $.mcp.call(server, "taskplanner_create", {
+      workspace_root,
+      title,
+      priority,
+      state
+    });
     if (result.isError) throw new Error(resultText(result));
     const id = createdTaskId(result);
     draft = null;
@@ -1518,10 +1515,6 @@ function register(on) {
     await createTask($);
     return { element: e.element, value: e.value };
   }).catch((_engine, e, next) => next(e));
-  on(
-    "tool.check",
-    async (_engine, e, next) => paneCheckDecision(next.origin.plugin, e.tool, await next(e))
-  ).catch((_engine, e, next) => next(e));
   on("tool.call", async ($, e, next) => {
     const result = await next(e);
     if (shouldRefreshAfterTool(e.tool, e)) {

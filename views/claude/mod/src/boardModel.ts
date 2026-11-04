@@ -1,5 +1,5 @@
 import type { StateViewData } from '../../../../src/core/model/messages.js';
-import type { McpToolResult, ToolCheckResult } from './modApi.js';
+import type { McpToolResult } from './modApi.js';
 
 export const IN_PROGRESS_STATE = 'In Progress';
 export const NEXT_STATE = 'Next';
@@ -9,14 +9,10 @@ export const BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
 
 const DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 const TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
-const PANE_WRITE_TOOL = /^mcp__.+__taskplanner_(move|create)$/;
 const TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
 export const PRIORITIES: readonly string[] = ['P0', 'P1', 'P2', 'P3', 'P4'];
 export const DEFAULT_NEW_PRIORITY = 'P2';
-const OWN_PLUGIN_IDS: ReadonlySet<string> = new Set([
-  'taskplanner',
-  'taskplanner@refined-taskplanner',
-]);
+const OWN_PLUGIN_ID = /^taskplanner(@[^@\s]+)?$/;
 const FILE_EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const TASKS_DIR_SEGMENT = /(^|[\\/])\.tasks[\\/]/;
 const PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
@@ -179,20 +175,7 @@ export function supportsTextScale(version: string): boolean {
 }
 
 export function isOwnPlugin(name: string): boolean {
-  return OWN_PLUGIN_IDS.has(name);
-}
-
-export function isPaneWriteByOwnPlugin(origin: string, tool: string): boolean {
-  return isOwnPlugin(origin) && PANE_WRITE_TOOL.test(tool);
-}
-
-export function paneCheckDecision(
-  origin: string,
-  tool: string,
-  verdict: ToolCheckResult,
-): ToolCheckResult {
-  if (verdict.decision !== 'ask' || !isPaneWriteByOwnPlugin(origin, tool)) return verdict;
-  return { decision: 'allow', reason: 'Requested from the TaskPlanner board pane.' };
+  return OWN_PLUGIN_ID.test(name);
 }
 
 export function ancestorDirs(start: string): string[] {
