@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The Claude Code board pane no longer approves its own moves and creates. The first time you move or create a task there, Claude Code asks; **Yes, and don't ask again** saves the rule, so later moves need no prompt. This is required for Anthropic's plugin directory (TASK-079).
+- The Claude Code board pane no longer approves its own moves and creates, which Anthropic's plugin directory requires. Your permission rules decide: without a rule, Claude Code asks on each move or create from the pane, and auto mode may refuse them. The plugin README gives the `permissions.allow` rule that lets the pane write without a prompt (TASK-079).
 
 ### Fixed
 

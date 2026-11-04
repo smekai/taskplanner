@@ -81,7 +81,24 @@ Both carry `workspace_root`, the folder that holds `.tasks/`. Both go to this pl
 
 **Permissions**
 
-The mod does not answer permission checks. The first time you move or create a task in the pane, Claude Code asks whether to allow the TaskPlanner tool. **Yes, and don't ask again** saves that rule in your settings, and later moves go through without a prompt. A `deny` rule stops them. When Claude calls the TaskPlanner tools itself, the same rules apply. The mobile surface stays read-only.
+The mod does not answer permission checks: your rules decide each move and create.
+
+Without a rule, Claude Code currently asks **Yes / No on every** move or create the pane makes. It offers no "always allow" choice for a plugin's own calls. In auto mode it can refuse them outright with *Classifier unavailable*. See [anthropics/claude-code#105938](https://github.com/anthropics/claude-code/issues/105938).
+
+To let the pane write without a prompt, allow its two tools in `~/.claude/settings.json`, or in a project's `.claude/settings.json` or `.claude/settings.local.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_taskplanner_taskplanner__taskplanner_move",
+      "mcp__plugin_taskplanner_taskplanner__taskplanner_create"
+    ]
+  }
+}
+```
+
+Start a new session after editing the file. The rule also lets Claude itself move and create tasks without asking. A `deny` rule for the same names stops both. The Desktop Code tab reads the same settings files for local sessions. The mobile surface stays read-only.
 
 **Which prompts it submits**
 
