@@ -2,7 +2,7 @@
   "submissionType": "Skills only",
   "version": "3.0.13",
   "name": "TaskPlanner",
-  "shortDescription": "Git-tracked task planning workflows for coding agents.",
+  "shortDescription": "Markdown tasks for AI agents",
   "longDescription": "TaskPlanner helps coding agents initialize, synchronize, list, prioritize, plan, implement, and complete work stored as markdown in a repository's .tasks directory. The public package is skills-only and works with direct repository file operations; when compatible TaskPlanner MCP tools are available, the same skills prefer them.",
   "category": "Productivity",
   "developerIdentity": "smekai",
@@ -17,7 +17,7 @@
     "Show my TaskPlanner board and recommend the highest-priority task to start.",
     "Create a new TaskPlanner task for this repository. Ask me for any missing title, priority, or tags."
   ],
-  "releaseNotes": "TaskPlanner 3.0.13 introduces the graphite product identity and a corrected public skills-only plugin bundle containing the manifest, skills, and referenced brand asset. It retains initialization, version-aware project synchronization, optional voluntary README attribution, MIT licensing, and direct .tasks file fallbacks when MCP tools are unavailable. No account or test credentials are required.",
+  "releaseNotes": "TaskPlanner 3.0 renames the plugin from Task Plan AI to TaskPlanner and adds a guided upgrade for existing boards: on a 2.x project the update-taskplanner skill offers to remove a duplicate MCP server entry and to replace mentions of a removed tool, changing nothing outside its managed blocks without the user's agreement. Initialization, listing, planning and completing tasks are unchanged; the skills still work through direct .tasks file operations when MCP tools are unavailable. No account or test credentials are required.",
   "positiveTestCases": [
     {
       "prompt": "Initialize TaskPlanner in this clean repository. Keep the existing README text.",

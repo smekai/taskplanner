@@ -14,7 +14,7 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "TaskPlanner",
-    "shortDescription": "AI-directed markdown task management in your repo",
+    "shortDescription": "Markdown tasks for AI agents",
     "longDescription": "AI-directed markdown task management in your repo. Uses git-tracked .tasks files and gives Codex tools and skills to read, create, prioritize, plan, update, and move work.",
     "developerName": "refined",
     "category": "Productivity",

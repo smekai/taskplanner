@@ -156,6 +156,20 @@ function main() {
     if (!submission[field]) fail(`Missing submission field: ${field}.`);
   }
 
+  // OpenAI's final directory submission limits; upload accepts longer values and review then rejects them.
+  for (const field of ['name', 'shortDescription']) {
+    const value = String(submission[field] ?? '');
+    if (value.length > 30 || /\n/.test(value)) {
+      fail(`Submission ${field} must be one line of at most 30 characters.`);
+    }
+  }
+  if (String(submission.longDescription ?? '').length > 4000) {
+    fail('Submission longDescription must be at most 4,000 characters.');
+  }
+  if (submission.starterPrompts?.length > 3 || submission.starterPrompts?.some((p) => p.length > 128)) {
+    fail('Submission allows at most 3 starter prompts of at most 128 characters.');
+  }
+
   for (const field of ['websiteUrl', 'supportUrl', 'privacyPolicyUrl', 'termsUrl']) {
     if (!String(submission[field]).startsWith('https://')) fail(`${field} must use HTTPS.`);
   }

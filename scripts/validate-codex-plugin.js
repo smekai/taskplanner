@@ -90,6 +90,17 @@ function main() {
     ]) {
       if (!manifest.interface?.[field]) fail(`plugin.json interface.${field} is required.`);
     }
+    // OpenAI's final directory submission limits; upload accepts longer values and review then rejects them.
+    for (const field of ['displayName', 'shortDescription']) {
+      const value = String(manifest.interface?.[field] ?? '');
+      if (value.length > 30 || /\n/.test(value)) {
+        fail(`plugin.json interface.${field} must be one line of at most 30 characters.`);
+      }
+    }
+    const prompts = manifest.interface?.defaultPrompt ?? [];
+    if (prompts.length > 3 || prompts.some((prompt) => prompt.length > 128)) {
+      fail('plugin.json interface.defaultPrompt allows at most 3 prompts of at most 128 characters.');
+    }
   }
 
   if (
