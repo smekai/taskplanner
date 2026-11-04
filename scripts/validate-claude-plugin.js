@@ -5,6 +5,7 @@
  * `release:check` only.
  */
 const { spawnSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const MIN_VERSION = [2, 1, 287];
@@ -33,7 +34,37 @@ function isAtLeast(version, minimum) {
   return true;
 }
 
+// Anthropic's directory blocks a mod that answers permission checks itself, and the listing
+// icon is read once, at the first save of a submission. Checked here so neither regresses.
+function checkDirectoryRules() {
+  const failures = [];
+  const bundle = fs.readFileSync(path.join(root, pluginDir, 'hooks', 'register.js'), 'utf8');
+  if (/["']tool\.check["']/.test(bundle)) {
+    failures.push('hooks/register.js registers a tool.check hook; the directory blocks a mod that decides permissions.');
+  }
+  for (const call of bundle.matchAll(/\$\.mcp\.call\(\s*\w+\s*,\s*([^,]+),/g)) {
+    if (!/^["'][\w-]+["']$/.test(call[1].trim())) {
+      failures.push(`hooks/register.js calls an MCP tool by a computed name (${call[1].trim()}); use a literal.`);
+    }
+  }
+  const icon = path.join(root, pluginDir, '.claude-plugin', 'icon.png');
+  if (!fs.existsSync(icon)) {
+    failures.push('.claude-plugin/icon.png is missing; the directory needs a square PNG of 512-2048 px.');
+  } else {
+    const png = fs.readFileSync(icon);
+    const width = png.readUInt32BE(16);
+    const height = png.readUInt32BE(20);
+    if (width !== height || width < 512 || width > 2048 || png.length >= 2 * 1024 * 1024) {
+      failures.push(`.claude-plugin/icon.png is ${width}x${height}, ${png.length} bytes; need square 512-2048 px under 2 MB.`);
+    }
+  }
+  for (const failure of failures) console.error(`[claude-plugin] ERROR: ${failure}`);
+  if (failures.length > 0) process.exit(1);
+  console.log('[claude-plugin] Directory rules hold: no permission hook, literal MCP tool names, listing icon.');
+}
+
 function main() {
+  checkDirectoryRules();
   const probe = run(['--version'], { quiet: true });
   const match = /(\d+)\.(\d+)\.(\d+)/.exec(probe.stdout || '');
   if (probe.status !== 0 || !match) {

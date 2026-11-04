@@ -202,16 +202,6 @@ export interface Engine {
   };
 }
 
-export interface ToolCheckEvent {
-  tool: string;
-  input: unknown;
-}
-
-export interface ToolCheckResult {
-  decision: 'allow' | 'ask' | 'deny';
-  reason?: string;
-}
-
 export type Next<E, R> = ((e: E) => Promise<R>) & {
   origin: { plugin: string; tier: string };
   error?: { kind: 'throw' | 'timeout' | 're-entry' };
@@ -241,10 +231,6 @@ export interface On {
     hook: Hook<RenderEvent<AbovePromptRenderProps>, ElementNode>,
   ): Registration<RenderEvent<AbovePromptRenderProps>, ElementNode>;
   (event: 'tool.call', hook: Hook<ToolCallEvent, unknown>): Registration<ToolCallEvent, unknown>;
-  (
-    event: 'tool.check',
-    hook: Hook<ToolCheckEvent, ToolCheckResult>,
-  ): Registration<ToolCheckEvent, ToolCheckResult>;
   (event: 'ui.close', hook: Hook<PaneCloseEvent, unknown>): Registration<PaneCloseEvent, unknown>;
   (
     event: 'ui.press',

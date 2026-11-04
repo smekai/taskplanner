@@ -43,7 +43,7 @@ Then, in a project with `.tasks/`, run `/taskplanner:board` (or the shorter `/ta
 
 - The pane lists tasks per state (digits switch tabs, `r` refreshes). Open states are sorted by priority, while Done and Rejected keep file order, newest first. A long list shows 50 tasks and a **Show all** button. Pressing a task opens its description and plan. From there you can:
   - **Move to another state**: the row of state buttons (digits) changes the task's status, for example Backlog → Next.
-  - **Start with Claude** (`s`): sends "Work on TASK-… following the TaskPlanner workflow" as your next prompt.
+  - **Start with Claude** (`s`): sends "Work on TASK-… (title) following the TaskPlanner workflow." as your next prompt, or "Continue …" for a task already in progress.
   - **Edit with Claude** (`e`): puts "Update TASK-…: " in the prompt box for you to finish. Editing title, description, plan, tags or priority goes through Claude.
 - **New task** (`n`) opens a short form: title, priority and state. Enter or **Create** creates it, and the server assigns the ID. The new task then opens, ready for **Edit with Claude** to add a description.
 - In the Desktop Code tab the list is richer: a titled header with counts per state, tasks as cards with a coloured priority, and a primary **Start with Claude** button. With Claude Code 2.1.299 or later it also uses the Desktop type scale. The terminal keeps a compact list.
@@ -59,9 +59,39 @@ Requirements and limits:
 - Plugins cannot choose where a pane sits, and the mods API has no way to add a launcher icon to the Desktop top bar. A wide fullscreen terminal docks the pane beside the transcript, and a narrower one opens it above the prompt. The Desktop app places it itself.
 - The band looks for the states named **In Progress**, **Next** and **Backlog**. On a board whose `config.json` renames them, the pane works but the band stays empty.
 - `/taskplanner:board` is this plugin's `board` skill, which the mod answers by opening the pane. In Cursor and Codex the same skill shows the board through the MCP tools. `/taskboard` is the short name; `/tasks` is built into Claude Code and `/taskplanner` belongs to the plugin's main skill.
-- The mod runs unsandboxed with your permissions, like any Claude Code mod. It reads the `.tasks/` files itself with the same parser the MCP server uses, so reading the board never needs a permission. `claude plugin validate views/claude` lists every call it makes.
-- Moving and creating a task go through this plugin's MCP server (`taskplanner_move`, `taskplanner_create`), so IDs, timestamps and file layout stay exactly as the server writes them. When you move or create a task in the pane and your permission rules would only *ask*, the mod approves its own call. So there is no prompt, and the call also passes in auto mode. A `deny` rule, or any other decision your rules reach, stands. When Claude calls the TaskPlanner tools itself, your normal permission rules apply. The mobile surface stays read-only.
+- The mod runs unsandboxed with your permissions, like any Claude Code mod. [What the board pane does](#what-the-board-pane-does) lists everything it reads, calls and sends.
 - If your project's `.mcp.json` also runs `npx @smekai/taskplanner`, Claude sees the TaskPlanner tools twice. That happens because Claude Code merges servers only when their commands match. Remove the project entry once the plugin is installed.
+
+## What the board pane does
+
+The pane and the band are a Claude Code mod (`hooks/register.js`, built from `mod/src/` in this repository). This is everything they read, call and send.
+
+**What it reads**
+
+- The board files in `.tasks/` (the state files and `config.json`), through Claude Code's file API. It looks in the session folder and the folders above it. Reading the board needs no permission.
+- The session's folder and root, the surfaces attached to it, and the Claude Code version, which decides whether the Desktop type scale is used.
+- The name of each tool Claude calls, and the `file_path` of `Edit`, `Write`, `MultiEdit` and `NotebookEdit` calls. It uses them only to notice when a TaskPlanner tool ran or a file under `.tasks/` changed, and then rereads the board. It does not read prompts, replies or other tool input.
+
+**Which tools it calls itself, and when**
+
+- `taskplanner_move`, with `task_id` and `target_state`, when you press a state button on an open task.
+- `taskplanner_create`, with `title`, `priority` and `state`, when you press **Create** or submit the new-task form.
+
+Both carry `workspace_root`, the folder that holds `.tasks/`. Both go to this plugin's own MCP server, never to another server or tool. The mod runs no shell commands.
+
+**Permissions**
+
+The mod does not answer permission checks. The first time you move or create a task in the pane, Claude Code asks whether to allow the TaskPlanner tool. **Yes, and don't ask again** saves that rule in your settings, and later moves go through without a prompt. A `deny` rule stops them. When Claude calls the TaskPlanner tools itself, the same rules apply. The mobile surface stays read-only.
+
+**Which prompts it submits**
+
+- **Start with Claude** and the band's **Start**: `Work on TASK-… (title) following the TaskPlanner workflow.`, or `Continue TASK-… (title) following the TaskPlanner workflow.` for a task in progress.
+- **Set up**: `Set up TaskPlanner in this repository with the initialize-taskplanner skill.`
+- **Edit with Claude** only puts `Update TASK-… (title): ` in the prompt box. You finish it and send it yourself.
+
+**What leaves your machine**
+
+Nothing, apart from the prompts above, which you see in the transcript. The mod makes no network requests. The MCP server (`dist/mcp-server.js`, bundled from `mcp/src/server.ts` in this repository) runs locally over stdio and reads and writes only `.tasks/`. To find that folder it reads these environment variables, which hold paths only: `TASKPLANNER_WORKSPACE_ROOT`, `CLAUDE_PROJECT_DIR`, `CURSOR_WORKSPACE_ROOT`, `VSCODE_WORKSPACE_ROOT`, `PWD` and `INIT_CWD`. It reads no credentials and sends nothing anywhere.
 
 ## Task format
 

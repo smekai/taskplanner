@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The Claude Code board pane no longer approves its own moves and creates. The first time you move or create a task there, Claude Code asks; **Yes, and don't ask again** saves the rule, so later moves need no prompt. This is required for Anthropic's plugin directory (TASK-079).
+
+### Fixed
+
+- The board pane's buttons keep working when the plugin is installed from a marketplace other than `smekai/taskplanner`, such as Anthropic's directory (TASK-079).
+
+### Added
+
+- The Claude plugin has a listing icon, and its README lists everything the pane reads, calls and sends (TASK-079).
+
 ## [3.0.13] - 2026-11-04
 
 - The Codex plugin and the README heading are called **TaskPlanner** as well; 3.0.12 renamed only the extension, and they still said *Task Plan AI* (TASK-076).
