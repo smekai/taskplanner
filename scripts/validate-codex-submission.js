@@ -215,11 +215,15 @@ function main() {
     if (publicManifest.mcpServers || publicManifest.apps || publicManifest.hooks) {
       fail('Skills-only public manifest must not declare MCP servers, apps, or hooks.');
     }
-    if (publicManifest.interface?.privacyPolicyURL !== submission.privacyPolicyUrl) {
-      fail('Public manifest privacy policy must match the submission metadata.');
-    }
-    if (publicManifest.interface?.termsOfServiceURL !== submission.termsUrl) {
-      fail('Public manifest terms URL must match the submission metadata.');
+    for (const [manifestField, submissionField] of [
+      ['websiteURL', 'websiteUrl'],
+      ['supportURL', 'supportUrl'],
+      ['privacyPolicyURL', 'privacyPolicyUrl'],
+      ['termsOfServiceURL', 'termsUrl'],
+    ]) {
+      if (publicManifest.interface?.[manifestField] !== submission[submissionField]) {
+        fail(`Public manifest interface.${manifestField} must match submission ${submissionField}.`);
+      }
     }
     for (const field of ['composerIcon', 'logo']) {
       const assetPath = publicManifest.interface?.[field];

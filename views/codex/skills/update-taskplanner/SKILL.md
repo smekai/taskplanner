@@ -5,7 +5,7 @@ description: Synchronize an existing TaskPlanner project with the installed skil
 
 # Update TaskPlanner Project
 
-<!-- TASKPLANNER:VERSION:3.0.16 -->
+<!-- TASKPLANNER:VERSION:3.0.18 -->
 
 ## Compare versions
 

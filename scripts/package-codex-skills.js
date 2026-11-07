@@ -68,6 +68,8 @@ async function main() {
   publicManifest.skills = './skills/';
   publicManifest.interface = {
     ...publicManifest.interface,
+    websiteURL: submission.websiteUrl,
+    supportURL: submission.supportUrl,
     privacyPolicyURL: submission.privacyPolicyUrl,
     termsOfServiceURL: submission.termsUrl,
   };

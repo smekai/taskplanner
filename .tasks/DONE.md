@@ -1,5 +1,33 @@
 # Done
 
+## TASK-082: Clarify the Codex repository plugin and skills-only upload
+**Priority:** P2 | **Tags:** docs | **Epic:** 3.0
+**Updated:** 2026-11-07 13:30
+
+In PR #33, document the different contents and requirements of the repository-installed Codex plugin and the public skills-only ZIP. Correct the obsolete eight-tool count and remove board_data from the tool inventory. Explain that the public ZIP operates on .tasks files directly unless compatible MCP tools are already available; it does not bundle the MCP server or visual UI.
+
+**Cross-platform:** n/a — documentation only; retained npm/Codex commands apply to PowerShell and POSIX shells. One follow-up commit is planned at shared version 3.0.18 via the repository pre-commit hook.
+
+### Plan
+
+- Done: the Codex README distinguishes the repository plugin from the public skills-only ZIP, lists the seven current tools, and explains MCP/UI availability and runtime requirements.
+- Submission documentation references TASK-081 for bundled public MCP support and the OpenAI eligibility requirement.
+- Rebuilt the public skills ZIP; both Codex validators and git diff --check passed. One follow-up commit targets shared version 3.0.18.
+
+---
+## TASK-080: Codex plugin upload passes the Support URL check
+**Priority:** P1 | **Tags:** bug, setup | **Epic:** 3.0
+**Updated:** 2026-11-07 12:30
+
+The OpenAI plugin dashboard rejects the Codex upload with "Support URL is required". Per the plugin guidelines the listing URLs live in `interface` of `.codex-plugin/plugin.json` (`websiteURL`, `supportURL`, `privacyPolicyURL`, `termsOfServiceURL`); the packaged manifest only carries privacy and terms.
+
+### Plan
+- Done: the packaged Codex manifest takes all four listing URLs (`websiteURL`, `supportURL`, `privacyPolicyURL`, `termsOfServiceURL`) from `submission.json`; the source `plugin.json` carries them too.
+- `validate-codex-submission.js` fails when any of them is missing or differs from the submission.
+- The OpenAI uploader accepts the rebuilt ZIP with no further complaints.
+
+---
+
 ## TASK-078: Upgrade path to 3.0 for existing projects
 **Priority:** P1 | **Tags:** docs, setup | **Epic:** 3.0
 **Updated:** 2026-11-03 20:08

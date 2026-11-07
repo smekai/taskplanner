@@ -1,5 +1,21 @@
 # Backlog
 
+## TASK-081: Publish the Codex plugin with bundled local MCP tools
+**Priority:** P2 | **Tags:** feature, setup | **Epic:** 3.0
+**Updated:** 2026-11-07 13:28
+
+The repository-installed Codex plugin already includes a local stdio MCP server, but the public upload deliberately contains skills only. Add a supported public desktop package that includes the existing MCP tools after confirming OpenAI submission eligibility.
+
+Acceptance criteria:
+- Confirm the current OpenAI desktop-only submission requirements and obtain organization approval/allowlisting if still required; do not claim access until it is confirmed. Reference: https://developers.openai.com/plugins/deploy/desktop-only .
+- Package the existing server, its MCP configuration and board UI with the seven existing skills. Reuse the shared server build; do not change task IDs, board format, or task workflow.
+- Update the public packager, manifest and validators together so they support the MCP package rather than silently stripping its server. Keep a documented skills-only fallback while MCP publication is unavailable.
+- Verify a clean installation discovers the tools without a duplicate project MCP entry, resolves the active workspace rather than the plugin cache, and respects host permissions. Exercise list/get/create/update/move, the board, and persistence after restart.
+- Update README, submission metadata and privacy/data-access disclosures to describe the actual package and runtime requirements.
+
+**Cross-platform:** Windows and macOS (Linux follows POSIX). Use portable Node/stdio configuration and plugin-root paths, handle spaces and Windows drive paths, avoid shell-specific launch commands, and document missing-Node errors. Run the packed-artifact and installation checks on available platforms; explicitly mark any untested OS. Allocate the next shared patch version for each implementation commit when planning the work.
+
+---
 ## TASK-023: CI/CD pipeline for extension delivery
 **Priority:** P4 | **Tags:** setup, ci
 **Updated:** 2026-10-16 17:57
