@@ -15,6 +15,12 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-082 — 2026-11-07
+**What:** Clarified the Codex repository plugin versus the public skills-only ZIP and corrected the seven-tool inventory.
+**Decisions:** Public bundled MCP support is tracked separately as TASK-081, including approval and Windows/macOS installation checks.
+
+---
+
 ## TASK-080 — 2026-11-07
 **What:** The Codex upload ZIP carries `supportURL` and `websiteURL`; OpenAI no longer rejects it with "Support URL is required".
 **Decisions:** `submission.json` stays the single source; the packager copies all four listing URLs and the validator checks them.

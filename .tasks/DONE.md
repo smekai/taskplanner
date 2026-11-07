@@ -1,5 +1,20 @@
 # Done
 
+## TASK-082: Clarify the Codex repository plugin and skills-only upload
+**Priority:** P2 | **Tags:** docs | **Epic:** 3.0
+**Updated:** 2026-11-07 13:30
+
+In PR #33, document the different contents and requirements of the repository-installed Codex plugin and the public skills-only ZIP. Correct the obsolete eight-tool count and remove board_data from the tool inventory. Explain that the public ZIP operates on .tasks files directly unless compatible MCP tools are already available; it does not bundle the MCP server or visual UI.
+
+**Cross-platform:** n/a — documentation only; retained npm/Codex commands apply to PowerShell and POSIX shells. One follow-up commit is planned at shared version 3.0.18 via the repository pre-commit hook.
+
+### Plan
+
+- Done: the Codex README distinguishes the repository plugin from the public skills-only ZIP, lists the seven current tools, and explains MCP/UI availability and runtime requirements.
+- Submission documentation references TASK-081 for bundled public MCP support and the OpenAI eligibility requirement.
+- Rebuilt the public skills ZIP; both Codex validators and git diff --check passed. One follow-up commit targets shared version 3.0.18.
+
+---
 ## TASK-080: Codex plugin upload passes the Support URL check
 **Priority:** P1 | **Tags:** bug, setup | **Epic:** 3.0
 **Updated:** 2026-11-07 12:30

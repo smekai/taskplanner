@@ -1,6 +1,8 @@
 # Codex Plugins Directory Submission
 
-TaskPlanner is prepared as a **Skills only** submission. `npm run package:codex-skills` copies the existing skill tree into one public plugin root with `.codex-plugin/plugin.json`, the referenced brand asset, and no MCP declaration, then creates the upload ZIP with portable `/` archive paths. Do not submit the Git-backed local MCP server because the public package intentionally works through direct repository file operations.
+TaskPlanner is prepared as a **Skills only** submission. `npm run package:codex-skills` copies the existing skill tree into one public plugin root with `.codex-plugin/plugin.json`, the referenced brand asset, and no MCP declaration, then creates the upload ZIP with portable `/` archive paths. This upload intentionally works through direct repository file operations when compatible MCP tools are unavailable. The repository-installed Codex plugin separately includes the local MCP server and board UI; see [the package comparison](../views/codex/README.md#whats-included).
+
+Public distribution with bundled local MCP tools is tracked in TASK-081. It requires a separate package and validation update after confirming OpenAI's [desktop-only submission eligibility](https://developers.openai.com/plugins/deploy/desktop-only); the current skills-only ZIP does not provide an MCP connection.
 
 The final listing copy, three starter prompts, release notes, and exactly five positive plus three negative reviewer cases are stored beside the Codex manifest in [`views/codex/.codex-plugin/submission.json`](../views/codex/.codex-plugin/submission.json). Public legal pages are [`PRIVACY.md`](../PRIVACY.md) and [`TERMS.md`](../TERMS.md).
 
