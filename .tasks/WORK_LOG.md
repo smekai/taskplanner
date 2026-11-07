@@ -15,6 +15,12 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-080 — 2026-11-07
+**What:** The Codex upload ZIP carries `supportURL` and `websiteURL`; OpenAI no longer rejects it with "Support URL is required".
+**Decisions:** `submission.json` stays the single source; the packager copies all four listing URLs and the validator checks them.
+
+---
+
 ## TASK-077 — 2026-11-03
 **What:** Fixed the pre-release review findings. A failed board UI build now fails the build, watch mode rebuilds the board, the band names the real state, instructions no longer re-sort the config, unchanged files are skipped, and a failed write leaves no `.tmp` behind.
 **Decisions:** Custom state names are documented as a known limitation rather than supported in 3.0.

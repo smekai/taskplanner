@@ -1,6 +1,6 @@
 {
   "name": "taskplanner",
-  "version": "3.0.16",
+  "version": "3.0.17",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
   "author": {
     "name": "refined",
@@ -20,6 +20,9 @@
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "websiteURL": "https://github.com/smekai/taskplanner",
+    "supportURL": "https://github.com/smekai/taskplanner/issues",
+    "privacyPolicyURL": "https://github.com/smekai/taskplanner/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/smekai/taskplanner/blob/main/TERMS.md",
     "defaultPrompt": [
       "Show my TaskPlanner board.",
       "Pick the next task and make a plan.",
