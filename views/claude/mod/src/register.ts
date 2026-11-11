@@ -64,6 +64,7 @@ let setUpFolder: string | null = null;
 let isSetUpDismissed = false;
 let isConfirmingSetUpDismiss = false;
 let setUpBandTool: string | null = null;
+let setUpFailure: string | null = null;
 let lastSignature: string | null = null;
 let pollTimer: Timer | null = null;
 let refreshRun: Promise<void> | null = null;
@@ -175,6 +176,7 @@ async function markMissingBoard($: Engine): Promise<void> {
   if (folder !== setUpFolder) {
     isSetUpDismissed = await isSetUpDismissedAt($, folder);
     isConfirmingSetUpDismiss = false;
+    setUpFailure = null;
     setUpFolder = folder;
   }
   isMissingBoard = true;
@@ -183,13 +185,14 @@ async function markMissingBoard($: Engine): Promise<void> {
 
 async function setSetUpHidden($: Engine, isHidden: boolean): Promise<string> {
   const folder = await $.session.root();
-  setUpFolder = folder;
-  isSetUpDismissed = isHidden;
-  isConfirmingSetUpDismiss = false;
-  $.ui.invalidate('ui.render');
   const key = setUpDismissedKey(folder);
   if (isHidden) await $.store.set(key, true);
   else await $.store.delete(key);
+  setUpFolder = folder;
+  isSetUpDismissed = isHidden;
+  isConfirmingSetUpDismiss = false;
+  setUpFailure = null;
+  $.ui.invalidate('ui.render');
   return folder;
 }
 
@@ -502,17 +505,21 @@ export function register(on: On): void {
       if (isSetUpDismissed) return next(e);
       const elements = $.ui.resolve(e);
       const below = await next(e);
-      return renderSetUpBand(elements, e.props.bodyColumns, below, isConfirmingSetUpDismiss, {
+      const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
+      return renderSetUpBand(elements, e.props.bodyColumns, below, state, {
         setUp: () => {
           void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
         },
         askDismiss: () => {
           isConfirmingSetUpDismiss = true;
+          setUpFailure = null;
           $.ui.invalidate('ui.render');
         },
         confirmDismiss: () => {
           setSetUpHidden($, true).catch((error: unknown) => {
-            notice = errorMessage(error);
+            isConfirmingSetUpDismiss = false;
+            setUpFailure = errorMessage(error);
+            $.ui.invalidate('ui.render');
           });
         },
         cancelDismiss: () => {

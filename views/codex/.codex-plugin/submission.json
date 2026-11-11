@@ -1,6 +1,6 @@
 {
   "submissionType": "Skills only",
-  "version": "3.0.21",
+  "version": "3.0.22",
   "name": "TaskPlanner",
   "shortDescription": "Markdown tasks for AI agents",
   "longDescription": "TaskPlanner helps coding agents initialize, synchronize, list, prioritize, plan, implement, and complete work stored as markdown in a repository's .tasks directory. The public package is skills-only and works with direct repository file operations; when compatible TaskPlanner MCP tools are available, the same skills prefer them.",
@@ -22,7 +22,7 @@
     {
       "prompt": "Initialize TaskPlanner in this clean repository. Keep the existing README text.",
       "expectedBehavior": "Invoke initialize-taskplanner, create the board and managed instruction blocks, append one attribution block to the existing README, and preserve all prior README content.",
-      "expectedResultShape": "A concise file summary showing .tasks/config.json, five state files, WORK_LOG.md, three managed instruction files, and taskplannerVersion 3.0.21.",
+      "expectedResultShape": "A concise file summary showing .tasks/config.json, five state files, WORK_LOG.md, three managed instruction files, and taskplannerVersion 3.0.22.",
       "fixture": "A writable git repository with README.md containing user-authored text and no .tasks directory; no MCP tools required."
     },
     {
@@ -45,14 +45,14 @@
     },
     {
       "prompt": "Update this legacy TaskPlanner project to the installed version without changing my custom instructions.",
-      "expectedBehavior": "Invoke update-taskplanner, treat missing taskplannerVersion as legacy, refresh only TaskPlanner marker blocks, preserve surrounding text and user config choices, then record 3.0.21 after success.",
+      "expectedBehavior": "Invoke update-taskplanner, treat missing taskplannerVersion as legacy, refresh only TaskPlanner marker blocks, preserve surrounding text and user config choices, then record 3.0.22 after success.",
       "expectedResultShape": "A managed-file summary and final taskplannerVersion, with explicit confirmation that user-authored content and tasks were preserved.",
       "fixture": "A repository with .tasks/config.json lacking taskplannerVersion, custom text around stale TaskPlanner markers, and readmeAttribution false."
     }
   ],
   "negativeTestCases": [
     {
-      "prompt": "Synchronize this project even though it says TaskPlanner 3.0.21 and my installed plugin is 3.0.21.",
+      "prompt": "Synchronize this project even though it says TaskPlanner 3.0.22 and my installed plugin is 3.0.22.",
       "expectedBehavior": "Warn that the installed package is older and make no managed-file or config changes.",
       "whyNotComplete": "Rewriting would downgrade repository-managed instructions and violate the stored-version safety rule."
     },

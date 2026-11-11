@@ -556,6 +556,11 @@ export function renderBand(
   );
 }
 
+export interface SetUpBandState {
+  isConfirmingDismiss: boolean;
+  failure: string | null;
+}
+
 export interface SetUpBandActions {
   setUp: () => void;
   askDismiss: () => void;
@@ -567,10 +572,10 @@ export function renderSetUpBand(
   el: Elements,
   columns: number,
   below: ElementNode,
-  isConfirmingDismiss: boolean,
+  state: SetUpBandState,
   actions: SetUpBandActions,
 ): ElementNode {
-  if (isConfirmingDismiss) {
+  if (state.isConfirmingDismiss) {
     const hide = el.Button({
       key: 'taskplanner-set-up-hide',
       label: 'Hide',
@@ -604,7 +609,10 @@ export function renderSetUpBand(
     role: 'dismiss',
     onPress: actions.askDismiss,
   });
-  return bandRow(el, 'TaskPlanner · no board here', [setUp, dismiss], columns, below);
+  const text = state.failure
+    ? `TaskPlanner · could not hide: ${state.failure}`
+    : 'TaskPlanner · no board here';
+  return bandRow(el, text, [setUp, dismiss], columns, below);
 }
 
 function bandRow(

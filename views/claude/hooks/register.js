@@ -1098,8 +1098,8 @@ function renderBand(el, task, columns, below, actions) {
     below
   );
 }
-function renderSetUpBand(el, columns, below, isConfirmingDismiss, actions) {
-  if (isConfirmingDismiss) {
+function renderSetUpBand(el, columns, below, state, actions) {
+  if (state.isConfirmingDismiss) {
     const hide = el.Button({
       key: "taskplanner-set-up-hide",
       label: "Hide",
@@ -1133,7 +1133,8 @@ function renderSetUpBand(el, columns, below, isConfirmingDismiss, actions) {
     role: "dismiss",
     onPress: actions.askDismiss
   });
-  return bandRow(el, "TaskPlanner \xB7 no board here", [setUp, dismiss], columns, below);
+  const text = state.failure ? `TaskPlanner \xB7 could not hide: ${state.failure}` : "TaskPlanner \xB7 no board here";
+  return bandRow(el, text, [setUp, dismiss], columns, below);
 }
 function bandRow(el, text, buttons, columns, below) {
   const label = truncate(
@@ -1176,6 +1177,7 @@ var setUpFolder = null;
 var isSetUpDismissed = false;
 var isConfirmingSetUpDismiss = false;
 var setUpBandTool = null;
+var setUpFailure = null;
 var lastSignature = null;
 var pollTimer = null;
 var refreshRun = null;
@@ -1275,6 +1277,7 @@ async function markMissingBoard($) {
   if (folder !== setUpFolder) {
     isSetUpDismissed = await isSetUpDismissedAt($, folder);
     isConfirmingSetUpDismiss = false;
+    setUpFailure = null;
     setUpFolder = folder;
   }
   isMissingBoard = true;
@@ -1282,13 +1285,14 @@ async function markMissingBoard($) {
 }
 async function setSetUpHidden($, isHidden) {
   const folder = await $.session.root();
-  setUpFolder = folder;
-  isSetUpDismissed = isHidden;
-  isConfirmingSetUpDismiss = false;
-  $.ui.invalidate("ui.render");
   const key = setUpDismissedKey(folder);
   if (isHidden) await $.store.set(key, true);
   else await $.store.delete(key);
+  setUpFolder = folder;
+  isSetUpDismissed = isHidden;
+  isConfirmingSetUpDismiss = false;
+  setUpFailure = null;
+  $.ui.invalidate("ui.render");
   return folder;
 }
 async function answerSetUpBandTool($, e) {
@@ -1569,17 +1573,21 @@ function register(on) {
       if (isSetUpDismissed) return next(e);
       const elements2 = $.ui.resolve(e);
       const below2 = await next(e);
-      return renderSetUpBand(elements2, e.props.bodyColumns, below2, isConfirmingSetUpDismiss, {
+      const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
+      return renderSetUpBand(elements2, e.props.bodyColumns, below2, state, {
         setUp: () => {
           void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
         },
         askDismiss: () => {
           isConfirmingSetUpDismiss = true;
+          setUpFailure = null;
           $.ui.invalidate("ui.render");
         },
         confirmDismiss: () => {
           setSetUpHidden($, true).catch((error) => {
-            notice = errorMessage(error);
+            isConfirmingSetUpDismiss = false;
+            setUpFailure = errorMessage(error);
+            $.ui.invalidate("ui.render");
           });
         },
         cancelDismiss: () => {
