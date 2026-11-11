@@ -2,7 +2,7 @@
   "name": "taskplanner",
   "displayName": "TaskPlanner",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
-  "version": "3.0.19",
+  "version": "3.0.20",
   "publisher": "refined",
   "license": "MIT",
   "icon": "resources/icons/taskplanner-color.png",

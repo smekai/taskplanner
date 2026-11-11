@@ -22,23 +22,13 @@ import {
   taskMarkdown,
   startPrompt,
   truncate,
-  isSetUpDismissedIn,
-  withSetUpDismissed,
+  setUpDismissedKey,
 } from '../src/boardModel.js';
 
-describe('setup dismissal', () => {
-  it('treats an unset or garbled store as nothing dismissed', () => {
-    expect(isSetUpDismissedIn(undefined, '/repo')).toBe(false);
-    expect(isSetUpDismissedIn({ '/repo': true }, '/repo')).toBe(false);
-    expect(withSetUpDismissed('oops', '/repo')).toEqual(['/repo']);
-  });
-
-  it('remembers each folder once and only that folder', () => {
-    const stored = withSetUpDismissed([42, '/a'], '/b');
-    expect(stored).toEqual(['/a', '/b']);
-    expect(withSetUpDismissed(stored, '/a')).toEqual(['/a', '/b']);
-    expect(isSetUpDismissedIn(stored, '/b')).toBe(true);
-    expect(isSetUpDismissedIn(stored, '/c')).toBe(false);
+describe('setUpDismissedKey', () => {
+  it('gives every folder a key of its own', () => {
+    expect(setUpDismissedKey('/a')).toBe('setupDismissed:/a');
+    expect(setUpDismissedKey('/a')).not.toBe(setUpDismissedKey('/b'));
   });
 });
 import { Priority } from '../../../../src/core/model/task.js';

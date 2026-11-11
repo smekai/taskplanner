@@ -116,7 +116,7 @@ Nothing, apart from the prompts above, which you see in the transcript. The mod 
 | --- | --- | --- |
 | `session.start` | the start of a session | Registers `/taskboard`, reads the Claude Code version, and rereads the board once it has loaded |
 | `command.run` (`/taskboard`, `/taskplanner:board`) | your command | Opens the pane, or replies with a text digest of the board where no pane can be drawn |
-| `ui.render` (Pane, AbovePrompt) | the pane's or the band's turn to draw | Draws the board and the band from the `.tasks/` files it read. Where there is no board, it checks this plugin's own store for folders whose setup band you hid; that list of folder paths stays on your machine |
+| `ui.render` (Pane, AbovePrompt) | the pane's or the band's turn to draw | Draws the board and the band from the `.tasks/` files it read. Where there is no board, it checks this plugin's own store (`~/.claude/plugins/store/`) for a mark that you hid the setup band in that folder; one key per folder path, kept on your machine |
 | `ui.press`, `ui.input` | a press on one of this plugin's own buttons, or the new-task form | Calls `taskplanner_move` or `taskplanner_create` for that one action; presses on other plugins' elements pass through |
 | `tool.call` | each tool Claude runs | Reads the tool name, and `file_path` for file edits. After a TaskPlanner write or an edit under `.tasks/`, it rereads the board. It passes the call through unchanged |
 | `turn.complete` | the end of each turn | Reads nothing from the turn; it checks whether the `.tasks/` files changed and rereads them if so |

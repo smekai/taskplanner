@@ -17,10 +17,8 @@ import {
   moveTargetForKey,
   pickTab,
   resultText,
-  SETUP_DISMISSED_KEY,
   SETUP_PROMPT,
-  isSetUpDismissedIn,
-  withSetUpDismissed,
+  setUpDismissedKey,
   shouldRefreshAfterTool,
   startDraft,
   startPrompt,
@@ -161,18 +159,18 @@ function reopenDetail(): void {
   }
 }
 
-async function readDismissedFolders($: Engine): Promise<unknown> {
+async function isSetUpDismissedAt($: Engine, folder: string): Promise<boolean> {
   try {
-    return await $.store.get(SETUP_DISMISSED_KEY);
+    return (await $.store.get(setUpDismissedKey(folder))) === true;
   } catch {
-    return undefined;
+    return false;
   }
 }
 
 async function markMissingBoard($: Engine): Promise<void> {
   const folder = await $.session.root();
   if (folder !== setUpFolder) {
-    isSetUpDismissed = isSetUpDismissedIn(await readDismissedFolders($), folder);
+    isSetUpDismissed = await isSetUpDismissedAt($, folder);
     isConfirmingSetUpDismiss = false;
     setUpFolder = folder;
   }
@@ -186,7 +184,7 @@ async function dismissSetUp($: Engine): Promise<void> {
   $.ui.invalidate('ui.render');
   const folder = setUpFolder ?? (await $.session.root());
   try {
-    await $.store.set(SETUP_DISMISSED_KEY, withSetUpDismissed(await readDismissedFolders($), folder));
+    await $.store.set(setUpDismissedKey(folder), true);
   } catch (error) {
     notice = errorMessage(error);
   }

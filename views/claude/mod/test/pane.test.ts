@@ -90,11 +90,16 @@ function engine(
     boardRoots?: string[];
     backlogTasks?: number;
     store?: Record<string, unknown>;
+    failStoreReads?: boolean;
   } = {},
 ) {
   const store: Record<string, unknown> = { ...options.store };
-  on('store.get', ($: unknown, e: { key: string }) => ({ value: store[e.key] }));
+  const storeWrites: string[] = [];
+  on('store.get', ($: unknown, e: { key: string }) =>
+    options.failStoreReads ? { deny: 'store unreadable' } : { value: store[e.key] },
+  );
   on('store.set', ($: unknown, e: { key: string; value: unknown }) => {
+    storeWrites.push(e.key);
     store[e.key] = e.value;
     return { value: undefined };
   });
@@ -215,6 +220,7 @@ function engine(
     holdReads,
     changeDirectory,
     store,
+    storeWrites,
   };
 }
 
@@ -394,7 +400,8 @@ test('a folder without .tasks/ offers setup in the band and the pane, reading no
 });
 
 test('hiding the setup band asks first, then keeps it hidden in that folder', async ($, on) => {
-  const world = engine(on, { hasBoard: false });
+  const elsewhere = 'setupDismissed:/elsewhere';
+  const world = engine(on, { hasBoard: false, store: { [elsewhere]: true } });
   await startSession($, world.clock);
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
@@ -410,12 +417,33 @@ test('hiding the setup band asks first, then keeps it hidden in that folder', as
   await world.clock.settle();
   expect(await band.find({ type: 'Text', text: /no board here|Never show/ })).toBeUndefined();
   expect(await band.find({ type: 'Text', text: 'drawn by Claude Code' })).toBeDefined();
-  expect(world.store.setupDismissedFolders).toEqual([ROOT]);
+  // Another session may save its own folder meanwhile; only this folder's key is written.
+  expect(world.storeWrites).toEqual([`setupDismissed:${ROOT}`]);
+  expect(world.store).toEqual({ [elsewhere]: true, [`setupDismissed:${ROOT}`]: true });
   expect(world.submitted).toEqual([]);
 });
 
+test('an unreadable store keeps the setup band and hiding saves only this folder', async ($, on) => {
+  const elsewhere = 'setupDismissed:/elsewhere';
+  const world = engine(on, {
+    hasBoard: false,
+    failStoreReads: true,
+    store: { [elsewhere]: true },
+  });
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
+  await band.press({ key: 'taskplanner-set-up-dismiss' });
+  await band.press({ key: 'taskplanner-set-up-hide' });
+  await world.clock.settle();
+  expect(await band.find({ type: 'Text', text: /no board here/ })).toBeUndefined();
+  expect(world.storeWrites).toEqual([`setupDismissed:${ROOT}`]);
+  expect(world.store[elsewhere]).toBe(true);
+});
+
 test('a folder hidden earlier draws no setup band but the pane still offers setup', async ($, on) => {
-  const world = engine(on, { hasBoard: false, store: { setupDismissedFolders: [ROOT] } });
+  const world = engine(on, { hasBoard: false, store: { [`setupDismissed:${ROOT}`]: true } });
   await startSession($, world.clock);
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' });

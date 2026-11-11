@@ -166,17 +166,8 @@ function joinPath(root, ...parts) {
   return [root.replace(/[\\/]+$/, ""), ...parts].join("/");
 }
 var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-taskplanner skill.";
-var SETUP_DISMISSED_KEY = "setupDismissedFolders";
-function dismissedFolders(stored) {
-  if (!Array.isArray(stored)) return [];
-  return stored.filter((folder) => typeof folder === "string");
-}
-function isSetUpDismissedIn(stored, folder) {
-  return dismissedFolders(stored).includes(folder);
-}
-function withSetUpDismissed(stored, folder) {
-  const folders = dismissedFolders(stored);
-  return folders.includes(folder) ? folders : [...folders, folder];
+function setUpDismissedKey(folder) {
+  return `setupDismissed:${folder}`;
 }
 function startPrompt(task) {
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
@@ -1252,17 +1243,17 @@ function reopenDetail() {
     detail = detailFor(detail.id, detail.state);
   }
 }
-async function readDismissedFolders($) {
+async function isSetUpDismissedAt($, folder) {
   try {
-    return await $.store.get(SETUP_DISMISSED_KEY);
+    return await $.store.get(setUpDismissedKey(folder)) === true;
   } catch {
-    return void 0;
+    return false;
   }
 }
 async function markMissingBoard($) {
   const folder = await $.session.root();
   if (folder !== setUpFolder) {
-    isSetUpDismissed = isSetUpDismissedIn(await readDismissedFolders($), folder);
+    isSetUpDismissed = await isSetUpDismissedAt($, folder);
     isConfirmingSetUpDismiss = false;
     setUpFolder = folder;
   }
@@ -1275,7 +1266,7 @@ async function dismissSetUp($) {
   $.ui.invalidate("ui.render");
   const folder = setUpFolder ?? await $.session.root();
   try {
-    await $.store.set(SETUP_DISMISSED_KEY, withSetUpDismissed(await readDismissedFolders($), folder));
+    await $.store.set(setUpDismissedKey(folder), true);
   } catch (error) {
     notice = errorMessage(error);
   }
