@@ -353,7 +353,7 @@ describe('renderBand', () => {
   it('warns that a confirmed hide does not come back', () => {
     const actions = setUpActions();
     const tree = renderSetUpBand(el, 80, below, true, actions);
-    expect(texts(tree)).toContain('Never show this here again? /taskboard still offers setup.');
+    expect(texts(tree)).toContain('Never show this here again? Ask Claude to bring it back.');
     expect(byKey(tree, 'taskplanner-set-up')).toBeUndefined();
     press(tree, 'taskplanner-set-up-keep');
     expect(actions.cancelDismiss).toHaveBeenCalled();

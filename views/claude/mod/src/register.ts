@@ -1,4 +1,4 @@
-import type { CommandRunResult, Engine, On, Timer } from './modApi.js';
+import type { CommandRunResult, Engine, On, Timer, ToolCallEvent } from './modApi.js';
 import {
   BOARD_FILE_PATTERN,
   BoardFileStat,
@@ -17,7 +17,9 @@ import {
   moveTargetForKey,
   pickTab,
   resultText,
+  SETUP_BAND_TOOL,
   SETUP_PROMPT,
+  setUpBandToolText,
   setUpDismissedKey,
   shouldRefreshAfterTool,
   startDraft,
@@ -61,6 +63,7 @@ let isMissingBoard = false;
 let setUpFolder: string | null = null;
 let isSetUpDismissed = false;
 let isConfirmingSetUpDismiss = false;
+let setUpBandTool: string | null = null;
 let lastSignature: string | null = null;
 let pollTimer: Timer | null = null;
 let refreshRun: Promise<void> | null = null;
@@ -178,15 +181,25 @@ async function markMissingBoard($: Engine): Promise<void> {
   forgetBoard();
 }
 
-async function dismissSetUp($: Engine): Promise<void> {
-  isSetUpDismissed = true;
+async function setSetUpHidden($: Engine, isHidden: boolean): Promise<string> {
+  const folder = await $.session.root();
+  setUpFolder = folder;
+  isSetUpDismissed = isHidden;
   isConfirmingSetUpDismiss = false;
   $.ui.invalidate('ui.render');
-  const folder = setUpFolder ?? (await $.session.root());
+  const key = setUpDismissedKey(folder);
+  if (isHidden) await $.store.set(key, true);
+  else await $.store.delete(key);
+  return folder;
+}
+
+async function answerSetUpBandTool($: Engine, e: ToolCallEvent): Promise<unknown> {
+  if (typeof e.show !== 'boolean') return { deny: '`show` must be true or false.' };
   try {
-    await $.store.set(setUpDismissedKey(folder), true);
+    const folder = await setSetUpHidden($, !e.show);
+    return { result: setUpBandToolText(e.show, folder, !isMissingBoard) };
   } catch (error) {
-    notice = errorMessage(error);
+    return { deny: errorMessage(error) };
   }
 }
 
@@ -388,6 +401,10 @@ export function register(on: On): void {
       .catch((error: unknown) => {
         errorText = errorMessage(error);
       });
+    setUpBandTool = await $.tool
+      .register(SETUP_BAND_TOOL)
+      .then(({ tool }) => tool)
+      .catch(() => null);
     hasTextScale = await $.session
       .version()
       .then(({ version }) => supportsTextScale(version))
@@ -494,7 +511,9 @@ export function register(on: On): void {
           $.ui.invalidate('ui.render');
         },
         confirmDismiss: () => {
-          void dismissSetUp($);
+          setSetUpHidden($, true).catch((error: unknown) => {
+            notice = errorMessage(error);
+          });
         },
         cancelDismiss: () => {
           isConfirmingSetUpDismiss = false;
@@ -539,6 +558,7 @@ export function register(on: On): void {
   }).catch((_engine, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {
+    if (setUpBandTool !== null && e.tool === setUpBandTool) return answerSetUpBandTool($, e);
     const result = await next(e);
     if (shouldRefreshAfterTool(e.tool, e)) {
       $.clock.after(0, () => {

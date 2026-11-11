@@ -103,6 +103,13 @@ function engine(
     store[e.key] = e.value;
     return { value: undefined };
   });
+  on('store.delete', ($: unknown, e: { key: string }) => {
+    delete store[e.key];
+    return { value: undefined };
+  });
+  on('tool.register', ($: unknown, e: { name: string }) => ({
+    value: { tool: `mcp__taskplanner__${e.name}` },
+  }));
   const calls: McpCall[] = [];
   const opened: string[] = [];
   const submitted: string[] = [];
@@ -407,7 +414,7 @@ test('hiding the setup band asks first, then keeps it hidden in that folder', as
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
   await band.press({ key: 'taskplanner-set-up-dismiss' });
   expect(
-    await band.find({ type: 'Text', text: /Never show this here again\? \/taskboard/ }),
+    await band.find({ type: 'Text', text: /Never show this here again\? Ask Claude/ }),
   ).toBeDefined();
   await band.press({ key: 'taskplanner-set-up-keep' });
   expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
@@ -440,6 +447,24 @@ test('an unreadable store keeps the setup band and hiding saves only this folder
   expect(await band.find({ type: 'Text', text: /no board here/ })).toBeUndefined();
   expect(world.storeWrites).toEqual([`setupDismissed:${ROOT}`]);
   expect(world.store[elsewhere]).toBe(true);
+});
+
+test('Claude can hide the setup band and bring it back with the setup_band tool', async ($, on) => {
+  const world = engine(on, { hasBoard: false });
+  await startSession($, world.clock);
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  const hidden = await $.tool.call({ tool: 'mcp__taskplanner__setup_band', show: false });
+  expect(hidden.result).toBe(
+    `The TaskPlanner setup band is hidden in ${ROOT} for good; ask to show it again any time.`,
+  );
+  expect(world.store[`setupDismissed:${ROOT}`]).toBe(true);
+  expect(await band.find({ type: 'Text', text: /no board here/ })).toBeUndefined();
+
+  const shown = await $.tool.call({ tool: 'mcp__taskplanner__setup_band', show: true });
+  expect(shown.result).toBe(`The TaskPlanner setup band shows again in ${ROOT}.`);
+  expect(`setupDismissed:${ROOT}` in world.store).toBe(false);
+  expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
 });
 
 test('a folder hidden earlier draws no setup band but the pane still offers setup', async ($, on) => {

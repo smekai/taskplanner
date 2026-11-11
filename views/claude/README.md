@@ -49,7 +49,7 @@ Then, in a project with `.tasks/`, run `/taskplanner:board` (or the shorter `/ta
 - In the Desktop Code tab the list is richer: a titled header with counts per state, tasks as cards with a coloured priority, and a primary **Start with Claude** button. With Claude Code 2.1.299 or later it also uses the Desktop type scale. The terminal keeps a compact list.
 - The pane follows the board while it is open. It rereads `.tasks/` after TaskPlanner tools or file edits there, and checks the files every 5 seconds for changes made elsewhere.
 - A band above the prompt names the task **In Progress**; its **Board** button opens the pane. With nothing in progress it shows the highest-priority **Next** task, or **Backlog** task when Next is empty, skipping tasks that are still waiting, and adds a **Start** button that asks Claude to work on it.
-- In a folder without `.tasks/`, the band reads *TaskPlanner · no board here* with a **Set up** button, and the pane offers **Set up TaskPlanner**. Both ask Claude to initialize the board. The band's close button asks once more, then hides the band in that folder for good; the pane keeps its setup button.
+- In a folder without `.tasks/`, the band reads *TaskPlanner · no board here* with a **Set up** button, and the pane offers **Set up TaskPlanner**. Both ask Claude to initialize the board. The band's close button asks once more, then hides the band in that folder for good; the pane keeps its setup button. You can also ask Claude to hide the band or bring it back: the plugin gives Claude a `setup_band` tool that does exactly that for the current folder.
 - Like the MCP server, the pane finds `.tasks/` in the session folder or in any folder above it, so it also works from a package subfolder.
 
 Requirements and limits:
@@ -114,11 +114,11 @@ Nothing, apart from the prompts above, which you see in the transcript. The mod 
 
 | Hook | What it receives | What it does |
 | --- | --- | --- |
-| `session.start` | the start of a session | Registers `/taskboard`, reads the Claude Code version, and rereads the board once it has loaded |
+| `session.start` | the start of a session | Registers `/taskboard` and the `setup_band` tool, reads the Claude Code version, and rereads the board once it has loaded |
 | `command.run` (`/taskboard`, `/taskplanner:board`) | your command | Opens the pane, or replies with a text digest of the board where no pane can be drawn |
 | `ui.render` (Pane, AbovePrompt) | the pane's or the band's turn to draw | Draws the board and the band from the `.tasks/` files it read. Where there is no board, it checks this plugin's own store (`~/.claude/plugins/store/`) for a mark that you hid the setup band in that folder; one key per folder path, kept on your machine |
 | `ui.press`, `ui.input` | a press on one of this plugin's own buttons, or the new-task form | Calls `taskplanner_move` or `taskplanner_create` for that one action; presses on other plugins' elements pass through |
-| `tool.call` | each tool Claude runs | Reads the tool name, and `file_path` for file edits. After a TaskPlanner write or an edit under `.tasks/`, it rereads the board. It passes the call through unchanged |
+| `tool.call` | each tool Claude runs | Answers its own `setup_band` tool by saving or clearing this folder's mark in the plugin store. For other tools it reads the tool name, and `file_path` for file edits. After a TaskPlanner write or an edit under `.tasks/`, it rereads the board. It passes the call through unchanged |
 | `turn.complete` | the end of each turn | Reads nothing from the turn; it checks whether the `.tasks/` files changed and rereads them if so |
 | `ui.close` | the pane closing | Stops checking the files every 5 seconds |
 

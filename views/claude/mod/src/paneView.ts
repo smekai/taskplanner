@@ -585,7 +585,7 @@ export function renderSetUpBand(
     });
     return bandRow(
       el,
-      'Never show this here again? /taskboard still offers setup.',
+      'Never show this here again? Ask Claude to bring it back.',
       [hide, keep],
       columns,
       below,

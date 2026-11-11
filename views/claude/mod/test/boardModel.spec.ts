@@ -23,7 +23,23 @@ import {
   startPrompt,
   truncate,
   setUpDismissedKey,
+  setUpBandToolText,
 } from '../src/boardModel.js';
+
+describe('setUpBandToolText', () => {
+  it('says what changed in which folder', () => {
+    expect(setUpBandToolText(false, '/a', false)).toBe(
+      'The TaskPlanner setup band is hidden in /a for good; ask to show it again any time.',
+    );
+    expect(setUpBandToolText(true, '/a', false)).toBe(
+      'The TaskPlanner setup band shows again in /a.',
+    );
+  });
+
+  it('explains that a folder with a board shows tasks, not setup', () => {
+    expect(setUpBandToolText(true, '/a', true)).toMatch(/already has a board/);
+  });
+});
 
 describe('setUpDismissedKey', () => {
   it('gives every folder a key of its own', () => {

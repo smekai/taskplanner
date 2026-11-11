@@ -185,6 +185,14 @@ export interface Engine {
   store: {
     get: (key: string) => Promise<unknown>;
     set: (key: string, value: unknown) => Promise<void>;
+    delete: (key: string) => Promise<void>;
+  };
+  tool: {
+    register: (spec: {
+      name: string;
+      description: string;
+      inputSchema?: Record<string, unknown>;
+    }) => Promise<{ tool: string }>;
   };
   clock: {
     after: (ms: number, fn: () => void) => Timer;

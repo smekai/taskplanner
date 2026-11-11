@@ -169,6 +169,25 @@ var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-ta
 function setUpDismissedKey(folder) {
   return `setupDismissed:${folder}`;
 }
+var SETUP_BAND_TOOL = {
+  name: "setup_band",
+  description: 'Show or hide the TaskPlanner "no board here" setup band above the prompt in the current folder. Use when the user asks to hide, dismiss, bring back or show the TaskPlanner setup band, banner or hint. Hiding lasts across sessions in this folder; showing undoes it.',
+  inputSchema: {
+    type: "object",
+    properties: {
+      show: {
+        type: "boolean",
+        description: "true shows the band again in this folder, false hides it for good"
+      }
+    },
+    required: ["show"],
+    additionalProperties: false
+  }
+};
+function setUpBandToolText(show, folder, hasBoard) {
+  const done = show ? `The TaskPlanner setup band shows again in ${folder}.` : `The TaskPlanner setup band is hidden in ${folder} for good; ask to show it again any time.`;
+  return hasBoard ? `${done} This folder already has a board, so the band shows tasks instead of setup.` : done;
+}
 function startPrompt(task) {
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
@@ -1095,7 +1114,7 @@ function renderSetUpBand(el, columns, below, isConfirmingDismiss, actions) {
     });
     return bandRow(
       el,
-      "Never show this here again? /taskboard still offers setup.",
+      "Never show this here again? Ask Claude to bring it back.",
       [hide, keep],
       columns,
       below
@@ -1156,6 +1175,7 @@ var isMissingBoard = false;
 var setUpFolder = null;
 var isSetUpDismissed = false;
 var isConfirmingSetUpDismiss = false;
+var setUpBandTool = null;
 var lastSignature = null;
 var pollTimer = null;
 var refreshRun = null;
@@ -1260,15 +1280,24 @@ async function markMissingBoard($) {
   isMissingBoard = true;
   forgetBoard();
 }
-async function dismissSetUp($) {
-  isSetUpDismissed = true;
+async function setSetUpHidden($, isHidden) {
+  const folder = await $.session.root();
+  setUpFolder = folder;
+  isSetUpDismissed = isHidden;
   isConfirmingSetUpDismiss = false;
   $.ui.invalidate("ui.render");
-  const folder = setUpFolder ?? await $.session.root();
+  const key = setUpDismissedKey(folder);
+  if (isHidden) await $.store.set(key, true);
+  else await $.store.delete(key);
+  return folder;
+}
+async function answerSetUpBandTool($, e) {
+  if (typeof e.show !== "boolean") return { deny: "`show` must be true or false." };
   try {
-    await $.store.set(setUpDismissedKey(folder), true);
+    const folder = await setSetUpHidden($, !e.show);
+    return { result: setUpBandToolText(e.show, folder, !isMissingBoard) };
   } catch (error) {
-    notice = errorMessage(error);
+    return { deny: errorMessage(error) };
   }
 }
 async function loadBoard($) {
@@ -1449,6 +1478,7 @@ function register(on) {
     }).catch((error) => {
       errorText = errorMessage(error);
     });
+    setUpBandTool = await $.tool.register(SETUP_BAND_TOOL).then(({ tool }) => tool).catch(() => null);
     hasTextScale = await $.session.version().then(({ version }) => supportsTextScale(version)).catch(() => false);
     $.clock.after(0, () => {
       void resumeAfterLoad($);
@@ -1548,7 +1578,9 @@ function register(on) {
           $.ui.invalidate("ui.render");
         },
         confirmDismiss: () => {
-          void dismissSetUp($);
+          setSetUpHidden($, true).catch((error) => {
+            notice = errorMessage(error);
+          });
         },
         cancelDismiss: () => {
           isConfirmingSetUpDismiss = false;
@@ -1590,6 +1622,7 @@ function register(on) {
     return { element: e.element, value: e.value };
   }).catch((_engine, e, next) => next(e));
   on("tool.call", async ($, e, next) => {
+    if (setUpBandTool !== null && e.tool === setUpBandTool) return answerSetUpBandTool($, e);
     const result = await next(e);
     if (shouldRefreshAfterTool(e.tool, e)) {
       $.clock.after(0, () => {

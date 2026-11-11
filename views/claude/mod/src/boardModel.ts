@@ -248,6 +248,34 @@ export function setUpDismissedKey(folder: string): string {
   return `setupDismissed:${folder}`;
 }
 
+export const SETUP_BAND_TOOL = {
+  name: 'setup_band',
+  description:
+    'Show or hide the TaskPlanner "no board here" setup band above the prompt in the current folder. ' +
+    'Use when the user asks to hide, dismiss, bring back or show the TaskPlanner setup band, banner or hint. ' +
+    'Hiding lasts across sessions in this folder; showing undoes it.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      show: {
+        type: 'boolean',
+        description: 'true shows the band again in this folder, false hides it for good',
+      },
+    },
+    required: ['show'],
+    additionalProperties: false,
+  },
+};
+
+export function setUpBandToolText(show: boolean, folder: string, hasBoard: boolean): string {
+  const done = show
+    ? `The TaskPlanner setup band shows again in ${folder}.`
+    : `The TaskPlanner setup band is hidden in ${folder} for good; ask to show it again any time.`;
+  return hasBoard
+    ? `${done} This folder already has a board, so the band shows tasks instead of setup.`
+    : done;
+}
+
 export function startPrompt(task: TaskDetail): string {
   const verb = task.state === IN_PROGRESS_STATE ? 'Continue' : 'Work on';
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
