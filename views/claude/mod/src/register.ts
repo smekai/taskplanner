@@ -1,4 +1,4 @@
-import type { CommandRunResult, Engine, On, Timer } from './modApi.js';
+import type { CommandRunResult, Engine, On, Timer, ToolCallEvent } from './modApi.js';
 import {
   BOARD_FILE_PATTERN,
   BoardFileStat,
@@ -17,7 +17,10 @@ import {
   moveTargetForKey,
   pickTab,
   resultText,
+  SETUP_BAND_TOOL,
   SETUP_PROMPT,
+  setUpBandToolText,
+  setUpDismissedKey,
   shouldRefreshAfterTool,
   startDraft,
   startPrompt,
@@ -57,6 +60,11 @@ let pendingDetail: TaskRef | null = null;
 let errorText: string | null = null;
 let isLoading = false;
 let isMissingBoard = false;
+let setUpFolder: string | null = null;
+let isSetUpDismissed = false;
+let isConfirmingSetUpDismiss = false;
+let setUpBandTool: string | null = null;
+let setUpFailure: string | null = null;
 let lastSignature: string | null = null;
 let pollTimer: Timer | null = null;
 let refreshRun: Promise<void> | null = null;
@@ -155,11 +163,53 @@ function reopenDetail(): void {
   }
 }
 
+async function isSetUpDismissedAt($: Engine, folder: string): Promise<boolean> {
+  try {
+    return (await $.store.get(setUpDismissedKey(folder))) === true;
+  } catch {
+    return false;
+  }
+}
+
+async function markMissingBoard($: Engine): Promise<void> {
+  const folder = await $.session.root();
+  if (folder !== setUpFolder) {
+    isSetUpDismissed = await isSetUpDismissedAt($, folder);
+    isConfirmingSetUpDismiss = false;
+    setUpFailure = null;
+    setUpFolder = folder;
+  }
+  isMissingBoard = true;
+  forgetBoard();
+}
+
+async function setSetUpHidden($: Engine, isHidden: boolean): Promise<string> {
+  const folder = await $.session.root();
+  const key = setUpDismissedKey(folder);
+  if (isHidden) await $.store.set(key, true);
+  else await $.store.delete(key);
+  setUpFolder = folder;
+  isSetUpDismissed = isHidden;
+  isConfirmingSetUpDismiss = false;
+  setUpFailure = null;
+  $.ui.invalidate('ui.render');
+  return folder;
+}
+
+async function answerSetUpBandTool($: Engine, e: ToolCallEvent): Promise<unknown> {
+  if (typeof e.show !== 'boolean') return { deny: '`show` must be true or false.' };
+  try {
+    const folder = await setSetUpHidden($, !e.show);
+    return { result: setUpBandToolText(e.show, folder, !isMissingBoard) };
+  } catch (error) {
+    return { deny: errorMessage(error) };
+  }
+}
+
 async function loadBoard($: Engine): Promise<void> {
   const root = await locateBoard($);
   if (!root) {
-    isMissingBoard = true;
-    forgetBoard();
+    await markMissingBoard($);
     return;
   }
   isMissingBoard = false;
@@ -215,8 +265,7 @@ async function syncIfChanged($: Engine): Promise<void> {
     const root = await locateBoard($);
     if (!root) {
       if (!isMissingBoard || board) {
-        isMissingBoard = true;
-        forgetBoard();
+        await markMissingBoard($);
         $.ui.invalidate('ui.render');
       }
       return;
@@ -355,6 +404,10 @@ export function register(on: On): void {
       .catch((error: unknown) => {
         errorText = errorMessage(error);
       });
+    setUpBandTool = await $.tool
+      .register(SETUP_BAND_TOOL)
+      .then(({ tool }) => tool)
+      .catch(() => null);
     hasTextScale = await $.session
       .version()
       .then(({ version }) => supportsTextScale(version))
@@ -449,10 +502,30 @@ export function register(on: On): void {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e);
     if (isMissingBoard) {
+      if (isSetUpDismissed) return next(e);
       const elements = $.ui.resolve(e);
       const below = await next(e);
-      return renderSetUpBand(elements, e.props.bodyColumns, below, () => {
-        void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+      const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
+      return renderSetUpBand(elements, e.props.bodyColumns, below, state, {
+        setUp: () => {
+          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+        },
+        askDismiss: () => {
+          isConfirmingSetUpDismiss = true;
+          setUpFailure = null;
+          $.ui.invalidate('ui.render');
+        },
+        confirmDismiss: () => {
+          setSetUpHidden($, true).catch((error: unknown) => {
+            isConfirmingSetUpDismiss = false;
+            setUpFailure = errorMessage(error);
+            $.ui.invalidate('ui.render');
+          });
+        },
+        cancelDismiss: () => {
+          isConfirmingSetUpDismiss = false;
+          $.ui.invalidate('ui.render');
+        },
       });
     }
     const focus = focusTask(focusCandidates);
@@ -492,6 +565,7 @@ export function register(on: On): void {
   }).catch((_engine, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {
+    if (setUpBandTool !== null && e.tool === setUpBandTool) return answerSetUpBandTool($, e);
     const result = await next(e);
     if (shouldRefreshAfterTool(e.tool, e)) {
       $.clock.after(0, () => {

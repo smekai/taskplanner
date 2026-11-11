@@ -324,14 +324,50 @@ describe('renderBand', () => {
     expect(label.endsWith('…')).toBe(true);
   });
 
+  const idle = { isConfirmingDismiss: false, failure: null };
+
+  it('says why hiding failed and keeps both buttons', () => {
+    const tree = renderSetUpBand(el, 80, below, { ...idle, failure: 'disk full' }, setUpActions());
+    expect(texts(tree)).toContain('TaskPlanner · could not hide: disk full');
+    expect(byKey(tree, 'taskplanner-set-up')).toBeDefined();
+    expect(byKey(tree, 'taskplanner-set-up-dismiss')).toBeDefined();
+  });
+
+  const setUpActions = () => ({
+    setUp: vi.fn(),
+    askDismiss: vi.fn(),
+    confirmDismiss: vi.fn(),
+    cancelDismiss: vi.fn(),
+  });
+
   it('offers setup where there is no board, keeping what was drawn below', () => {
-    const onSetUp = vi.fn();
-    const tree = renderSetUpBand(el, 80, below, onSetUp);
+    const actions = setUpActions();
+    const tree = renderSetUpBand(el, 80, below, idle, actions);
     expect(tree.children?.[0]).toBe(below);
     expect(texts(tree)).toContain('TaskPlanner · no board here');
     expect(byKey(tree, 'taskplanner-board')).toBeUndefined();
     press(tree, 'taskplanner-set-up');
-    expect(onSetUp).toHaveBeenCalled();
+    expect(actions.setUp).toHaveBeenCalled();
+  });
+
+  it('asks before hiding the setup band for good', () => {
+    const actions = setUpActions();
+    const tree = renderSetUpBand(el, 80, below, idle, actions);
+    expect(byKey(tree, 'taskplanner-set-up-dismiss')?.props.role).toBe('dismiss');
+    press(tree, 'taskplanner-set-up-dismiss');
+    expect(actions.askDismiss).toHaveBeenCalled();
+    expect(actions.confirmDismiss).not.toHaveBeenCalled();
+  });
+
+  it('warns that a confirmed hide does not come back', () => {
+    const actions = setUpActions();
+    const tree = renderSetUpBand(el, 80, below, { ...idle, isConfirmingDismiss: true }, actions);
+    expect(texts(tree)).toContain('Never show this here again? Ask Claude to bring it back.');
+    expect(byKey(tree, 'taskplanner-set-up')).toBeUndefined();
+    press(tree, 'taskplanner-set-up-keep');
+    expect(actions.cancelDismiss).toHaveBeenCalled();
+    press(tree, 'taskplanner-set-up-hide');
+    expect(actions.confirmDismiss).toHaveBeenCalled();
   });
 });
 

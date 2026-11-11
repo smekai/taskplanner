@@ -166,6 +166,28 @@ function joinPath(root, ...parts) {
   return [root.replace(/[\\/]+$/, ""), ...parts].join("/");
 }
 var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-taskplanner skill.";
+function setUpDismissedKey(folder) {
+  return `setupDismissed:${folder}`;
+}
+var SETUP_BAND_TOOL = {
+  name: "setup_band",
+  description: 'Show or hide the TaskPlanner "no board here" setup band above the prompt in the current folder. Use when the user asks to hide, dismiss, bring back or show the TaskPlanner setup band, banner or hint. Hiding lasts across sessions in this folder; showing undoes it.',
+  inputSchema: {
+    type: "object",
+    properties: {
+      show: {
+        type: "boolean",
+        description: "true shows the band again in this folder, false hides it for good"
+      }
+    },
+    required: ["show"],
+    additionalProperties: false
+  }
+};
+function setUpBandToolText(show, folder, hasBoard) {
+  const done = show ? `The TaskPlanner setup band shows again in ${folder}.` : `The TaskPlanner setup band is hidden in ${folder} for good; ask to show it again any time.`;
+  return hasBoard ? `${done} This folder already has a board, so the band shows tasks instead of setup.` : done;
+}
 function startPrompt(task) {
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
@@ -1076,14 +1098,43 @@ function renderBand(el, task, columns, below, actions) {
     below
   );
 }
-function renderSetUpBand(el, columns, below, onSetUp) {
-  const button = el.Button({
+function renderSetUpBand(el, columns, below, state, actions) {
+  if (state.isConfirmingDismiss) {
+    const hide = el.Button({
+      key: "taskplanner-set-up-hide",
+      label: "Hide",
+      plain: true,
+      onPress: actions.confirmDismiss
+    });
+    const keep = el.Button({
+      key: "taskplanner-set-up-keep",
+      label: "Cancel",
+      plain: true,
+      onPress: actions.cancelDismiss
+    });
+    return bandRow(
+      el,
+      "Never show this here again? Ask Claude to bring it back.",
+      [hide, keep],
+      columns,
+      below
+    );
+  }
+  const setUp = el.Button({
     key: "taskplanner-set-up",
     label: "Set up",
     plain: true,
-    onPress: onSetUp
+    onPress: actions.setUp
   });
-  return bandRow(el, "TaskPlanner \xB7 no board here", [button], columns, below);
+  const dismiss = el.Button({
+    key: "taskplanner-set-up-dismiss",
+    label: "Hide",
+    plain: true,
+    role: "dismiss",
+    onPress: actions.askDismiss
+  });
+  const text = state.failure ? `TaskPlanner \xB7 could not hide: ${state.failure}` : "TaskPlanner \xB7 no board here";
+  return bandRow(el, text, [setUp, dismiss], columns, below);
 }
 function bandRow(el, text, buttons, columns, below) {
   const label = truncate(
@@ -1122,6 +1173,11 @@ var pendingDetail = null;
 var errorText = null;
 var isLoading = false;
 var isMissingBoard = false;
+var setUpFolder = null;
+var isSetUpDismissed = false;
+var isConfirmingSetUpDismiss = false;
+var setUpBandTool = null;
+var setUpFailure = null;
 var lastSignature = null;
 var pollTimer = null;
 var refreshRun = null;
@@ -1209,11 +1265,49 @@ function reopenDetail() {
     detail = detailFor(detail.id, detail.state);
   }
 }
+async function isSetUpDismissedAt($, folder) {
+  try {
+    return await $.store.get(setUpDismissedKey(folder)) === true;
+  } catch {
+    return false;
+  }
+}
+async function markMissingBoard($) {
+  const folder = await $.session.root();
+  if (folder !== setUpFolder) {
+    isSetUpDismissed = await isSetUpDismissedAt($, folder);
+    isConfirmingSetUpDismiss = false;
+    setUpFailure = null;
+    setUpFolder = folder;
+  }
+  isMissingBoard = true;
+  forgetBoard();
+}
+async function setSetUpHidden($, isHidden) {
+  const folder = await $.session.root();
+  const key = setUpDismissedKey(folder);
+  if (isHidden) await $.store.set(key, true);
+  else await $.store.delete(key);
+  setUpFolder = folder;
+  isSetUpDismissed = isHidden;
+  isConfirmingSetUpDismiss = false;
+  setUpFailure = null;
+  $.ui.invalidate("ui.render");
+  return folder;
+}
+async function answerSetUpBandTool($, e) {
+  if (typeof e.show !== "boolean") return { deny: "`show` must be true or false." };
+  try {
+    const folder = await setSetUpHidden($, !e.show);
+    return { result: setUpBandToolText(e.show, folder, !isMissingBoard) };
+  } catch (error) {
+    return { deny: errorMessage(error) };
+  }
+}
 async function loadBoard($) {
   const root = await locateBoard($);
   if (!root) {
-    isMissingBoard = true;
-    forgetBoard();
+    await markMissingBoard($);
     return;
   }
   isMissingBoard = false;
@@ -1266,8 +1360,7 @@ async function syncIfChanged($) {
     const root = await locateBoard($);
     if (!root) {
       if (!isMissingBoard || board) {
-        isMissingBoard = true;
-        forgetBoard();
+        await markMissingBoard($);
         $.ui.invalidate("ui.render");
       }
       return;
@@ -1389,6 +1482,7 @@ function register(on) {
     }).catch((error) => {
       errorText = errorMessage(error);
     });
+    setUpBandTool = await $.tool.register(SETUP_BAND_TOOL).then(({ tool }) => tool).catch(() => null);
     hasTextScale = await $.session.version().then(({ version }) => supportsTextScale(version)).catch(() => false);
     $.clock.after(0, () => {
       void resumeAfterLoad($);
@@ -1476,10 +1570,30 @@ function register(on) {
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e);
     if (isMissingBoard) {
+      if (isSetUpDismissed) return next(e);
       const elements2 = $.ui.resolve(e);
       const below2 = await next(e);
-      return renderSetUpBand(elements2, e.props.bodyColumns, below2, () => {
-        void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+      const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
+      return renderSetUpBand(elements2, e.props.bodyColumns, below2, state, {
+        setUp: () => {
+          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+        },
+        askDismiss: () => {
+          isConfirmingSetUpDismiss = true;
+          setUpFailure = null;
+          $.ui.invalidate("ui.render");
+        },
+        confirmDismiss: () => {
+          setSetUpHidden($, true).catch((error) => {
+            isConfirmingSetUpDismiss = false;
+            setUpFailure = errorMessage(error);
+            $.ui.invalidate("ui.render");
+          });
+        },
+        cancelDismiss: () => {
+          isConfirmingSetUpDismiss = false;
+          $.ui.invalidate("ui.render");
+        }
       });
     }
     const focus = focusTask(focusCandidates);
@@ -1516,6 +1630,7 @@ function register(on) {
     return { element: e.element, value: e.value };
   }).catch((_engine, e, next) => next(e));
   on("tool.call", async ($, e, next) => {
+    if (setUpBandTool !== null && e.tool === setUpBandTool) return answerSetUpBandTool($, e);
     const result = await next(e);
     if (shouldRefreshAfterTool(e.tool, e)) {
       $.clock.after(0, () => {

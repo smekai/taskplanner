@@ -89,8 +89,30 @@ function engine(
     cwd?: string;
     boardRoots?: string[];
     backlogTasks?: number;
+    store?: Record<string, unknown>;
+    failStoreReads?: boolean;
+    failStoreWrites?: boolean;
   } = {},
 ) {
+  const store: Record<string, unknown> = { ...options.store };
+  const storeWrites: string[] = [];
+  on('store.get', ($: unknown, e: { key: string }) =>
+    options.failStoreReads ? { deny: 'store unreadable' } : { value: store[e.key] },
+  );
+  on('store.set', ($: unknown, e: { key: string; value: unknown }) => {
+    if (options.failStoreWrites) return { deny: 'write failed' };
+    storeWrites.push(e.key);
+    store[e.key] = e.value;
+    return { value: undefined };
+  });
+  on('store.delete', ($: unknown, e: { key: string }) => {
+    if (options.failStoreWrites) return { deny: 'delete failed' };
+    delete store[e.key];
+    return { value: undefined };
+  });
+  on('tool.register', ($: unknown, e: { name: string }) => ({
+    value: { tool: `mcp__taskplanner__${e.name}` },
+  }));
   const calls: McpCall[] = [];
   const opened: string[] = [];
   const submitted: string[] = [];
@@ -207,6 +229,8 @@ function engine(
     touch,
     holdReads,
     changeDirectory,
+    store,
+    storeWrites,
   };
 }
 
@@ -383,6 +407,111 @@ test('a folder without .tasks/ offers setup in the band and the pane, reading no
   await ui.press({ key: 'set-up' });
   const setUp = 'Set up TaskPlanner in this repository with the initialize-taskplanner skill.';
   expect(world.submitted).toEqual([setUp, setUp]);
+});
+
+test('hiding the setup band asks first, then keeps it hidden in that folder', async ($, on) => {
+  const elsewhere = 'setupDismissed:/elsewhere';
+  const world = engine(on, { hasBoard: false, store: { [elsewhere]: true } });
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  await band.press({ key: 'taskplanner-set-up-dismiss' });
+  expect(
+    await band.find({ type: 'Text', text: /Never show this here again\? Ask Claude/ }),
+  ).toBeDefined();
+  await band.press({ key: 'taskplanner-set-up-keep' });
+  expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
+
+  await band.press({ key: 'taskplanner-set-up-dismiss' });
+  await band.press({ key: 'taskplanner-set-up-hide' });
+  await world.clock.settle();
+  expect(await band.find({ type: 'Text', text: /no board here|Never show/ })).toBeUndefined();
+  expect(await band.find({ type: 'Text', text: 'drawn by Claude Code' })).toBeDefined();
+  // Another session may save its own folder meanwhile; only this folder's key is written.
+  expect(world.storeWrites).toEqual([`setupDismissed:${ROOT}`]);
+  expect(world.store).toEqual({ [elsewhere]: true, [`setupDismissed:${ROOT}`]: true });
+  expect(world.submitted).toEqual([]);
+});
+
+test('an unreadable store keeps the setup band and hiding saves only this folder', async ($, on) => {
+  const elsewhere = 'setupDismissed:/elsewhere';
+  const world = engine(on, {
+    hasBoard: false,
+    failStoreReads: true,
+    store: { [elsewhere]: true },
+  });
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
+  await band.press({ key: 'taskplanner-set-up-dismiss' });
+  await band.press({ key: 'taskplanner-set-up-hide' });
+  await world.clock.settle();
+  expect(await band.find({ type: 'Text', text: /no board here/ })).toBeUndefined();
+  expect(world.storeWrites).toEqual([`setupDismissed:${ROOT}`]);
+  expect(world.store[elsewhere]).toBe(true);
+});
+
+test('Claude can hide the setup band and bring it back with the setup_band tool', async ($, on) => {
+  const world = engine(on, { hasBoard: false });
+  await startSession($, world.clock);
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  const hidden = await $.tool.call({ tool: 'mcp__taskplanner__setup_band', show: false });
+  expect(hidden.result).toBe(
+    `The TaskPlanner setup band is hidden in ${ROOT} for good; ask to show it again any time.`,
+  );
+  expect(world.store[`setupDismissed:${ROOT}`]).toBe(true);
+  expect(await band.find({ type: 'Text', text: /no board here/ })).toBeUndefined();
+
+  const shown = await $.tool.call({ tool: 'mcp__taskplanner__setup_band', show: true });
+  expect(shown.result).toBe(`The TaskPlanner setup band shows again in ${ROOT}.`);
+  expect(`setupDismissed:${ROOT}` in world.store).toBe(false);
+  expect(await band.find({ type: 'Text', text: 'TaskPlanner · no board here' })).toBeDefined();
+});
+
+test('a failed save keeps the setup band and says why', async ($, on) => {
+  const world = engine(on, { hasBoard: false, failStoreWrites: true });
+  await startSession($, world.clock);
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  await band.press({ key: 'taskplanner-set-up-dismiss' });
+  await band.press({ key: 'taskplanner-set-up-hide' });
+  await world.clock.settle();
+  expect(await band.find({ type: 'Text', text: /could not hide: .*write failed/ })).toBeDefined();
+  expect(await band.find({ key: 'taskplanner-set-up' })).toBeDefined();
+
+  const hidden = await $.tool.call({ tool: 'mcp__taskplanner__setup_band', show: false });
+  expect(hidden.deny).toMatch(/write failed/);
+  expect(await band.find({ type: 'Text', text: /TaskPlanner · / })).toBeDefined();
+  expect(world.store).toEqual({});
+});
+
+test('a failed delete keeps a hidden setup band hidden', async ($, on) => {
+  const key = `setupDismissed:${ROOT}`;
+  const world = engine(on, { hasBoard: false, failStoreWrites: true, store: { [key]: true } });
+  await startSession($, world.clock);
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  const shown = await $.tool.call({ tool: 'mcp__taskplanner__setup_band', show: true });
+  expect(shown.deny).toMatch(/delete failed/);
+  expect(await band.find({ type: 'Text', text: /TaskPlanner · / })).toBeUndefined();
+  expect(world.store[key]).toBe(true);
+});
+
+test('a folder hidden earlier draws no setup band but the pane still offers setup', async ($, on) => {
+  const world = engine(on, { hasBoard: false, store: { [`setupDismissed:${ROOT}`]: true } });
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  expect(await band.find({ type: 'Text', text: /no board here/ })).toBeUndefined();
+
+  await $.command.run({ command: 'taskboard', args: '' });
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+  await ui.press({ key: 'set-up' });
+  expect(world.submitted).toEqual([
+    'Set up TaskPlanner in this repository with the initialize-taskplanner skill.',
+  ]);
 });
 
 test('with no surface attached the commands answer with the board digest', async ($, on) => {
