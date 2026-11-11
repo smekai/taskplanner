@@ -15,6 +15,12 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-083 — 2026-11-11
+**What:** Claude's "no board here" band can be hidden for good per folder, after a confirm step.
+**Decisions:** Per folder (session root) in the plugin's `$.store`; Claude only — other hosts have no such band.
+
+---
+
 ## TASK-082 — 2026-11-07
 **What:** Clarified the Codex repository plugin versus the public skills-only ZIP and corrected the seven-tool inventory.
 **Decisions:** Public bundled MCP support is tracked separately as TASK-081, including approval and Windows/macOS installation checks.

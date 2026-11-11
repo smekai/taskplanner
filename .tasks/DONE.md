@@ -1,5 +1,18 @@
 # Done
 
+## TASK-083: Claude: dismiss the "no board here" setup band per folder
+**Priority:** P2 | **Tags:** ui, feature
+**Updated:** 2026-11-11 21:52
+
+In Claude Code the band above the prompt says `TaskPlanner · no board here` with `Set up` in every folder without `.tasks/config.json`, and cannot be closed.
+
+Add a close button; pressing it asks for confirmation that the band will not come back in this folder (`/taskboard` still offers setup). On confirm, remember the folder in the plugin store (`$.store`) and stop drawing the band there. Other platforms have no such band.
+
+### Plan
+
+Done: the setup band has a close button (`role: 'dismiss'`) that switches to "Never show this here again? /taskboard still offers setup." with Hide / Cancel. Hide stores the session root under `setupDismissedFolders` in `$.store`; the store is read before the band first draws, so it never flashes. Pane setup is unchanged. Covered by paneView/boardModel specs and two mod kit tests.
+
+---
 ## TASK-082: Clarify the Codex repository plugin and skills-only upload
 **Priority:** P2 | **Tags:** docs | **Epic:** 3.0
 **Updated:** 2026-11-07 13:30

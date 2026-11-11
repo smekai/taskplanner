@@ -244,6 +244,22 @@ export function joinPath(root: string, ...parts: string[]): string {
 export const SETUP_PROMPT =
   'Set up TaskPlanner in this repository with the initialize-taskplanner skill.';
 
+export const SETUP_DISMISSED_KEY = 'setupDismissedFolders';
+
+function dismissedFolders(stored: unknown): string[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((folder): folder is string => typeof folder === 'string');
+}
+
+export function isSetUpDismissedIn(stored: unknown, folder: string): boolean {
+  return dismissedFolders(stored).includes(folder);
+}
+
+export function withSetUpDismissed(stored: unknown, folder: string): string[] {
+  const folders = dismissedFolders(stored);
+  return folders.includes(folder) ? folders : [...folders, folder];
+}
+
 export function startPrompt(task: TaskDetail): string {
   const verb = task.state === IN_PROGRESS_STATE ? 'Continue' : 'Work on';
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;

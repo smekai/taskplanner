@@ -36,6 +36,7 @@ export interface ButtonProps {
   plain?: true;
   dimColor?: boolean;
   variant?: 'primary' | 'secondary';
+  role?: 'dismiss';
   onPress: () => void;
 }
 
@@ -180,6 +181,10 @@ export interface Engine {
     exists: (path: string) => Promise<boolean>;
     list: (path?: string) => Promise<FsEntry[]>;
     stat: (path: string) => Promise<FsStat>;
+  };
+  store: {
+    get: (key: string) => Promise<unknown>;
+    set: (key: string, value: unknown) => Promise<void>;
   };
   clock: {
     after: (ms: number, fn: () => void) => Timer;

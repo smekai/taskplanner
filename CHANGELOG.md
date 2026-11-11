@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- In Claude Code the *TaskPlanner · no board here* band has a close button. It asks once more, then never shows the band in that folder again; the board pane still offers setup (TASK-083).
 - The Codex README distinguishes the repository plugin's seven MCP tools and board UI from the public skills-only upload, including their different runtime requirements (TASK-082).
 - The Codex plugin upload now includes the support and website URLs, so OpenAI's plugin dashboard accepts it instead of reporting "Support URL is required" (TASK-080).
 - The MCP server bundle no longer includes the JSON Schema validator ajv, which it never used: the SDK needs it only for elicitation. The bundle is 134 KB smaller and contains no runtime code generation. Tools behave as before in every host (TASK-079).

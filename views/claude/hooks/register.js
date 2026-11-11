@@ -166,6 +166,18 @@ function joinPath(root, ...parts) {
   return [root.replace(/[\\/]+$/, ""), ...parts].join("/");
 }
 var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-taskplanner skill.";
+var SETUP_DISMISSED_KEY = "setupDismissedFolders";
+function dismissedFolders(stored) {
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((folder) => typeof folder === "string");
+}
+function isSetUpDismissedIn(stored, folder) {
+  return dismissedFolders(stored).includes(folder);
+}
+function withSetUpDismissed(stored, folder) {
+  const folders = dismissedFolders(stored);
+  return folders.includes(folder) ? folders : [...folders, folder];
+}
 function startPrompt(task) {
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
@@ -1076,14 +1088,42 @@ function renderBand(el, task, columns, below, actions) {
     below
   );
 }
-function renderSetUpBand(el, columns, below, onSetUp) {
-  const button = el.Button({
+function renderSetUpBand(el, columns, below, isConfirmingDismiss, actions) {
+  if (isConfirmingDismiss) {
+    const hide = el.Button({
+      key: "taskplanner-set-up-hide",
+      label: "Hide",
+      plain: true,
+      onPress: actions.confirmDismiss
+    });
+    const keep = el.Button({
+      key: "taskplanner-set-up-keep",
+      label: "Cancel",
+      plain: true,
+      onPress: actions.cancelDismiss
+    });
+    return bandRow(
+      el,
+      "Never show this here again? /taskboard still offers setup.",
+      [hide, keep],
+      columns,
+      below
+    );
+  }
+  const setUp = el.Button({
     key: "taskplanner-set-up",
     label: "Set up",
     plain: true,
-    onPress: onSetUp
+    onPress: actions.setUp
   });
-  return bandRow(el, "TaskPlanner \xB7 no board here", [button], columns, below);
+  const dismiss = el.Button({
+    key: "taskplanner-set-up-dismiss",
+    label: "Hide",
+    plain: true,
+    role: "dismiss",
+    onPress: actions.askDismiss
+  });
+  return bandRow(el, "TaskPlanner \xB7 no board here", [setUp, dismiss], columns, below);
 }
 function bandRow(el, text, buttons, columns, below) {
   const label = truncate(
@@ -1122,6 +1162,9 @@ var pendingDetail = null;
 var errorText = null;
 var isLoading = false;
 var isMissingBoard = false;
+var setUpFolder = null;
+var isSetUpDismissed = false;
+var isConfirmingSetUpDismiss = false;
 var lastSignature = null;
 var pollTimer = null;
 var refreshRun = null;
@@ -1209,11 +1252,38 @@ function reopenDetail() {
     detail = detailFor(detail.id, detail.state);
   }
 }
+async function readDismissedFolders($) {
+  try {
+    return await $.store.get(SETUP_DISMISSED_KEY);
+  } catch {
+    return void 0;
+  }
+}
+async function markMissingBoard($) {
+  const folder = await $.session.root();
+  if (folder !== setUpFolder) {
+    isSetUpDismissed = isSetUpDismissedIn(await readDismissedFolders($), folder);
+    isConfirmingSetUpDismiss = false;
+    setUpFolder = folder;
+  }
+  isMissingBoard = true;
+  forgetBoard();
+}
+async function dismissSetUp($) {
+  isSetUpDismissed = true;
+  isConfirmingSetUpDismiss = false;
+  $.ui.invalidate("ui.render");
+  const folder = setUpFolder ?? await $.session.root();
+  try {
+    await $.store.set(SETUP_DISMISSED_KEY, withSetUpDismissed(await readDismissedFolders($), folder));
+  } catch (error) {
+    notice = errorMessage(error);
+  }
+}
 async function loadBoard($) {
   const root = await locateBoard($);
   if (!root) {
-    isMissingBoard = true;
-    forgetBoard();
+    await markMissingBoard($);
     return;
   }
   isMissingBoard = false;
@@ -1266,8 +1336,7 @@ async function syncIfChanged($) {
     const root = await locateBoard($);
     if (!root) {
       if (!isMissingBoard || board) {
-        isMissingBoard = true;
-        forgetBoard();
+        await markMissingBoard($);
         $.ui.invalidate("ui.render");
       }
       return;
@@ -1476,10 +1545,24 @@ function register(on) {
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e);
     if (isMissingBoard) {
+      if (isSetUpDismissed) return next(e);
       const elements2 = $.ui.resolve(e);
       const below2 = await next(e);
-      return renderSetUpBand(elements2, e.props.bodyColumns, below2, () => {
-        void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+      return renderSetUpBand(elements2, e.props.bodyColumns, below2, isConfirmingSetUpDismiss, {
+        setUp: () => {
+          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+        },
+        askDismiss: () => {
+          isConfirmingSetUpDismiss = true;
+          $.ui.invalidate("ui.render");
+        },
+        confirmDismiss: () => {
+          void dismissSetUp($);
+        },
+        cancelDismiss: () => {
+          isConfirmingSetUpDismiss = false;
+          $.ui.invalidate("ui.render");
+        }
       });
     }
     const focus = focusTask(focusCandidates);

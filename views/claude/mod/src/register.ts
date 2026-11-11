@@ -17,7 +17,10 @@ import {
   moveTargetForKey,
   pickTab,
   resultText,
+  SETUP_DISMISSED_KEY,
   SETUP_PROMPT,
+  isSetUpDismissedIn,
+  withSetUpDismissed,
   shouldRefreshAfterTool,
   startDraft,
   startPrompt,
@@ -57,6 +60,9 @@ let pendingDetail: TaskRef | null = null;
 let errorText: string | null = null;
 let isLoading = false;
 let isMissingBoard = false;
+let setUpFolder: string | null = null;
+let isSetUpDismissed = false;
+let isConfirmingSetUpDismiss = false;
 let lastSignature: string | null = null;
 let pollTimer: Timer | null = null;
 let refreshRun: Promise<void> | null = null;
@@ -155,11 +161,41 @@ function reopenDetail(): void {
   }
 }
 
+async function readDismissedFolders($: Engine): Promise<unknown> {
+  try {
+    return await $.store.get(SETUP_DISMISSED_KEY);
+  } catch {
+    return undefined;
+  }
+}
+
+async function markMissingBoard($: Engine): Promise<void> {
+  const folder = await $.session.root();
+  if (folder !== setUpFolder) {
+    isSetUpDismissed = isSetUpDismissedIn(await readDismissedFolders($), folder);
+    isConfirmingSetUpDismiss = false;
+    setUpFolder = folder;
+  }
+  isMissingBoard = true;
+  forgetBoard();
+}
+
+async function dismissSetUp($: Engine): Promise<void> {
+  isSetUpDismissed = true;
+  isConfirmingSetUpDismiss = false;
+  $.ui.invalidate('ui.render');
+  const folder = setUpFolder ?? (await $.session.root());
+  try {
+    await $.store.set(SETUP_DISMISSED_KEY, withSetUpDismissed(await readDismissedFolders($), folder));
+  } catch (error) {
+    notice = errorMessage(error);
+  }
+}
+
 async function loadBoard($: Engine): Promise<void> {
   const root = await locateBoard($);
   if (!root) {
-    isMissingBoard = true;
-    forgetBoard();
+    await markMissingBoard($);
     return;
   }
   isMissingBoard = false;
@@ -215,8 +251,7 @@ async function syncIfChanged($: Engine): Promise<void> {
     const root = await locateBoard($);
     if (!root) {
       if (!isMissingBoard || board) {
-        isMissingBoard = true;
-        forgetBoard();
+        await markMissingBoard($);
         $.ui.invalidate('ui.render');
       }
       return;
@@ -449,10 +484,24 @@ export function register(on: On): void {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e);
     if (isMissingBoard) {
+      if (isSetUpDismissed) return next(e);
       const elements = $.ui.resolve(e);
       const below = await next(e);
-      return renderSetUpBand(elements, e.props.bodyColumns, below, () => {
-        void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+      return renderSetUpBand(elements, e.props.bodyColumns, below, isConfirmingSetUpDismiss, {
+        setUp: () => {
+          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+        },
+        askDismiss: () => {
+          isConfirmingSetUpDismiss = true;
+          $.ui.invalidate('ui.render');
+        },
+        confirmDismiss: () => {
+          void dismissSetUp($);
+        },
+        cancelDismiss: () => {
+          isConfirmingSetUpDismiss = false;
+          $.ui.invalidate('ui.render');
+        },
       });
     }
     const focus = focusTask(focusCandidates);
