@@ -21,6 +21,7 @@ CONTRIBUTING.md
 agent-transcripts/**
 mcp/**
 scripts/**
+resources/screenshots/*.gif
 
 # Every harness folder stays out except the Cursor plugin, which the extension registers in Cursor.
 # Listed part by part: vsce lets a ! line win over any later exclusion, so the dev note there stays out.

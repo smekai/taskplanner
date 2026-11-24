@@ -12,80 +12,134 @@
   <a href="https://github.com/smekai/taskplanner/actions/workflows/ci.yml"><img src="https://github.com/smekai/taskplanner/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=refined.taskplanner"><img src="https://vsmarketplacebadges.dev/version-short/refined.taskplanner.svg" alt="VS Code Marketplace version" /></a>
   <a href="https://open-vsx.org/extension/refined/taskplanner"><img src="https://img.shields.io/open-vsx/v/refined/taskplanner?label=Open%20VSX" alt="Open VSX version" /></a>
+  <a href="https://www.npmjs.com/package/@smekai/taskplanner"><img src="https://img.shields.io/npm/v/@smekai/taskplanner?label=npm" alt="npm version" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
 </p>
 
-TaskPlanner brings AI-directed markdown task tracking into your repository. Tasks stay readable by humans, actionable by AI agents, and backed by generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` workflows.
+TaskPlanner keeps your tasks as plain markdown in `.tasks/`, next to the code. You and your AI agent work from the same board: the agent picks a task, writes a plan, builds it and moves it to Done, and every step lands in git.
+
+It runs in **Claude Code and Claude Desktop**, **Codex**, **Cursor** and **VS Code**, all on the same task files.
+
+<p align="center">
+  <img src="resources/screenshots/claude-board.gif" alt="TaskPlanner in the Claude Desktop Code tab: the band names the next task, the board pane lists tasks by state, and an opened task offers Start with Claude" width="900" />
+</p>
+
+<p align="center"><sub>The board pane in the Claude Desktop Code tab, on this repository's own tasks.</sub></p>
 
 ## Why?
 
-- **AI-native workflow** — agents read `NEXT.md`, pick a task, plan, build, and move it to `DONE.md`
-- **Agent-ready workflow artifacts** — initialize generates `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` so different AI tools follow the same task state machine
-- **Tasks next to code** — no context switching to Jira/Linear/Asana
-- **Git-tracked** — full history of every task change in your commits
-- **Human-readable** — plain markdown, works without the extension installed
-- **Zero config** — run "Initialize Project" and start creating tasks
-
-> **Help shape AI workflows** — if you use Claude Code, upvote [anthropics/claude-code#42000](https://github.com/anthropics/claude-code/issues/42000) to enable direct prompt-to-sidebar integration.
-
-## Overview
-
-![TaskPlanner overview](resources/screenshots/overview.png)
-
-## Features
-
-- **Filtered task list** — main view with grouping by status, assignee, date, or no grouping; search across all fields; Backlog/Done/Rejected hidden by default
-- **Kanban board** — drag-and-drop cards between columns, visual priority indicators
-- **Cursor and Codex plugin** **(Beta)** — the shared plugin exposes TaskPlanner MCP tools and workflow skills; the interactive board renders on MCP Apps hosts with JSON/text fallback elsewhere
-- **Sidebar tree view** — tasks grouped by state (Backlog → Next → In Progress → Done)
-- **Drag-and-drop** — move tasks between states in tree view and Kanban board
-- **Assignee & timestamps** — track who owns each task and when it was last updated
-- **AI instruction generation** — auto-generates `AGENTS.md`, `CLAUDE.md`, and `.cursorrules` while preserving user-authored content outside the TaskPlanner marker block
-- **AI planning mode** — agents write a `### Plan` inside the task before coding; the plan is preserved when moving to Done
-- **Implement with AI** **(Beta)** — opens a composed prompt in Codex, Cursor, Claude Code, VS Code Chat, the Claude CLI, or the clipboard; configure via Settings (`taskplanner.aiTool`) or **TaskPlanner: Configure AI Provider**
-- **Parse warnings** — malformed task markdown triggers a dismissible banner with jump-to-file; errors log to the **TaskPlanner** output channel
-- **Live file watcher** — edit `.tasks/*.md` by hand and all views update instantly
-- **Configurable** — custom states, priorities (P0–P4), tags, ID prefix, sort order. Renamed states work in every view, with two known limits: the Claude Code band uses only **In Progress**, **Next** and **Backlog**, and the MCP board's *Show more* loads completed tasks only for **Done** and **Rejected**
-
-## Why TaskPlanner Is Better Than Other Solutions
-
-Competitors often focus on UI and manual task editing. TaskPlanner is built for AI execution: it keeps tasks as plain markdown artifacts next to your code, and it generates agent instruction files that teach Codex, Cursor, Claude Code, and compatible tools how to follow the workflow.
-
-- Agent workflow contract (generated `AGENTS.md`, `CLAUDE.md`, and `.cursorrules`)
-- Git-tracked audit trail for every move and edit
-- Optional planning gate to reduce implementation churn
-- Works as plain markdown even without the extension
+- **Your agent follows a workflow** — it picks the highest-priority task, moves it to In Progress, writes a `### Plan`, implements, and moves it to Done
+- **Tasks next to code** — no context switching to Jira, Linear or Asana
+- **Git-tracked** — every task change is in your history and reviewed in your PRs
+- **Human-readable** — plain markdown that works without any plugin installed
+- **One board, every tool** — Claude, Codex, Cursor and VS Code read and write the same files; generated `AGENTS.md`, `CLAUDE.md` and `.cursorrules` teach each agent the same rules
 
 ## Install
 
-- [**VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) — VS Code
-- [**Open VSX**](https://open-vsx.org/extension/refined/taskplanner) — Cursor IDE and other compatible editors
-- [**Cursor Marketplace (Plugin)**](https://cursor.com/marketplace) — search for `taskplanner`
-- **Codex app/CLI plugin** — install from this repository's local marketplace; see [`views/codex/README.md`](views/codex/README.md)
-- **npm** — `npm install @smekai/taskplanner` for the board as a library and as an MCP server; see [`mcp/README.md`](mcp/README.md)
-- **JetBrains IDEs** — planned
+Pick your tool. Every option works on the same `.tasks/` folder, so a team can mix them.
 
-## Distribution Model
+### Claude Code and Claude Desktop
 
-TaskPlanner ships as three coordinated artifacts:
+TaskPlanner is not in Anthropic's official plugin directory yet. This repository is its own plugin marketplace, so you install it from there.
 
-- **VS Code extension** (`refined.taskplanner`) for editor-native UI/runtime features (activity bar view, webviews, command contributions).
-- **Agent plugins**, one per host: [`views/claude/`](views/claude/README.md) for Claude Code (MCP tools, skills, and the board pane), [`views/cursor/`](views/cursor/README.md) for Cursor (MCP tools, skills, rule, and slash commands) and [`views/codex/`](views/codex/README.md) for Codex (MCP tools and skills).
-- **npm package** (`@smekai/taskplanner`) for hosts that are not an editor plugin install. It has two entry points: the core library for code that reads or edits the board directly, and `@smekai/taskplanner/mcp-server` for exposing the board to a model as MCP tools. Both are built from the same sources as the extension and the plugin.
+In a Claude Code session:
 
-Source code lives at [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner); the Marketplace publisher remains **refined**.
+```
+/plugin marketplace add smekai/taskplanner
+/plugin install taskplanner@refined-taskplanner
+```
 
-The extension can auto-register the bundled plugin when running inside Cursor. Codex discovers it through the repository marketplace at `.agents/plugins/marketplace.json`.
+Or from a shell, in one step:
+
+```bash
+claude plugin install taskplanner --marketplace smekai/taskplanner
+```
+
+In the **Claude Desktop** app: click **+** next to the prompt box, then **Plugins → Add marketplace**, enter `smekai/taskplanner`, and add **taskplanner**. A plugin installed at user scope also loads in the Desktop Code tab.
+
+Then, in any project, ask Claude to *set up TaskPlanner*, or open the board with `/taskboard`. You get:
+
+- **MCP tools** to list, create, move and update tasks, and **skills** for the workflow (next task, continue task, initialize, update)
+- **A board pane** beside the transcript, with a list per state, task details, **Start with Claude** and a new-task form
+- **A band above the prompt** that names the task in progress, or the next one to pick
+
+The pane and the band are a Claude Code *mod*, an API Anthropic marks as early access. They need Claude Code 2.1.287 or later in the terminal, or 2.1.286 or later in the Desktop Code tab. Details, limits and everything the mod reads and sends: [`views/claude/README.md`](views/claude/README.md).
+
+### Codex
+
+Add this repository as a plugin marketplace, then install the plugin:
+
+```bash
+codex plugin marketplace add smekai/taskplanner
+codex plugin add taskplanner@refined-taskplanner
+```
+
+Start a new Codex task afterwards. Open **Plugins → TaskPlanner** to check that the skills and MCP tools are enabled. Node.js must be installed, because the MCP server runs locally. The listing in the public Codex directory carries the skills only, without the MCP tools. See [`views/codex/README.md`](views/codex/README.md).
+
+### Cursor
+
+- **Extension** — install **TaskPlanner** from the Extensions view; Cursor pulls it from [Open VSX](https://open-vsx.org/extension/refined/taskplanner). It adds the sidebar, the Kanban board and the setup menu, and registers the Cursor plugin for you.
+- **Plugin** — the plugin adds MCP tools, skills, a workflow rule, slash commands and an inline board in Agent chat. Search for `taskplanner` in the [Cursor Marketplace](https://cursor.com/marketplace), or install it locally as described in [`views/cursor/README.md`](views/cursor/README.md).
+
+### VS Code
+
+Install **TaskPlanner** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner), open a folder, and click the TaskPlanner icon in the activity bar. The welcome view offers **Initialize Project**.
+
+### Any MCP host
+
+The MCP server ships on npm. Add it to your host's MCP config, with the absolute path of the project that holds `.tasks/`:
+
+```json
+{
+  "mcpServers": {
+    "taskplanner": {
+      "command": "npx",
+      "args": ["-y", "@smekai/taskplanner"],
+      "env": {
+        "TASKPLANNER_WORKSPACE_ROOT": "/absolute/path/to/project"
+      }
+    }
+  }
+}
+```
+
+Without it, some hosts start the server in another folder: it runs but finds no tasks.
+
+The same package is a library for code that reads or edits the board directly. See [`mcp/README.md`](mcp/README.md).
+
+### Usage
+
+<!-- README-STATS:START -->
+| Channel | Version | Usage |
+| --- | --- | --- |
+| [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) | 3.0.12 | 126 installs |
+| [Open VSX](https://open-vsx.org/extension/refined/taskplanner) (Cursor and other editors) | 3.0.12 | 4,812 downloads |
+| [npm `@smekai/taskplanner`](https://www.npmjs.com/package/@smekai/taskplanner) | 3.0.12 | 432 downloads last month |
+| Claude Code plugin ([repository marketplace](#claude-code-and-claude-desktop)) | 3.0.22 | installs from `main` |
+| [Codex plugin directory](https://chatgpt.com/plugins/plugins_6a61139e52e88191907919d50300a246) | 3.0.18 | listed |
+| [GitHub](https://github.com/smekai/taskplanner) | v3.0.12 | 25 stars · 4 forks |
+
+<sub>Numbers as of 2026-11-24, refreshed by a daily check.</sub>
+<!-- README-STATS:END -->
 
 ## Quick Start
 
-1. Install the extension from the marketplace links above
-2. Open a project folder
-3. Click the TaskPlanner icon in the activity bar — a welcome view with **Initialize Project** appears
-4. Run **Initialize AI Instructions** to generate workflow files for your AI tools
-5. Start creating tasks!
+1. Install TaskPlanner for your tool (above).
+2. Ask your agent to **set up TaskPlanner**, or run **TaskPlanner: Initialize Project** in VS Code or Cursor. This creates `.tasks/` and the agent instruction files.
+3. Add tasks: ask the agent (*"create a P1 task for the login bug"*), use the board's **New task**, or edit `.tasks/BACKLOG.md` by hand.
+4. Ask the agent to **work on the next task**, or press **Start with Claude** on a card.
 
-You can also run `TaskPlanner: Initialize Project` from the command palette (`Ctrl+Shift+P`).
+## Features
+
+- **Claude board pane and band** — a live board beside the Claude transcript, and the current task above the prompt
+- **MCP tools and skills** — the same tools and workflow skills for Claude, Codex, Cursor and any MCP host
+- **Inline board in agent chat** — an interactive board through MCP Apps in Cursor (experimental in Codex), with a text fallback elsewhere
+- **VS Code and Cursor extension** — filtered task list with grouping and search, Kanban board with drag-and-drop, sidebar tree, setup menu
+- **AI planning mode** — agents write a `### Plan` inside the task before coding; it stays as a summary when the task is done
+- **Agent instruction files** — `AGENTS.md`, `CLAUDE.md` and `.cursorrules` are generated and kept up to date without touching your own content outside the TaskPlanner block
+- **Implement with AI** **(Beta)** — the extension opens a composed prompt in Codex, Cursor, Claude Code, VS Code Chat, the Claude CLI or the clipboard (`taskplanner.aiTool`)
+- **Live updates** — edit `.tasks/*.md` by hand and every view follows
+- **Configurable** — custom states, priorities (P0–P4), tags, ID prefix, sort order. Renamed states work in every view, with two known limits: the Claude band uses only **In Progress**, **Next** and **Backlog**, and the MCP board's *Show more* loads completed tasks only for **Done** and **Rejected**
 
 ## Task Format
 
@@ -139,15 +193,15 @@ Each task can have an optional **Assignee** (who owns the task) and an **Updated
 
 ## AI Agent Workflow
 
-TaskPlanner is designed as a task interface between you and AI coding agents. Supported instruction targets include **Codex** (via `AGENTS.md` and the plugin), **Claude Code** (via `CLAUDE.md`), and **Cursor** (via `.cursorrules` and the plugin).
+TaskPlanner is a task interface between you and your AI agents. Setup writes the workflow into **`AGENTS.md`** (Codex and compatible agents), **`CLAUDE.md`** (Claude Code) and **`.cursorrules`** (Cursor). It teaches agents to:
 
-Run **Initialize AI Instructions** (Setup menu or command palette) to generate instruction files. The generated workflow teaches agents to:
-
-1. Read `.tasks/NEXT.md` and pick the highest-priority task
+1. Pick the highest-priority task from `.tasks/NEXT.md` or `BACKLOG.md`
 2. Move it to `.tasks/IN_PROGRESS.md`
 3. Write a `### Plan` subsection under the task (if AI Planning is enabled)
 4. Implement the task
 5. Move it to `.tasks/DONE.md`
+
+With a plugin installed, agents do each step through the TaskPlanner MCP tools instead of editing the files.
 
 ### AI Planning
 
@@ -184,7 +238,9 @@ TaskPlanner records the last synchronized product version in `.tasks/config.json
 
 Initialization also adds a small managed TaskPlanner attribution block to an existing root `README.md` by default. The attribution is voluntary, removable, and is not an MIT license requirement. Disable future insertion with **Setup → README Attribution** or set `readmeAttribution` to `false`; disabling it does not delete an existing block.
 
-## Views
+## VS Code and Cursor Extension
+
+![TaskPlanner in VS Code](resources/screenshots/overview.png)
 
 ### Filtered Task List (Main View)
 
@@ -202,13 +258,17 @@ Open via command palette → `TaskPlanner: Open Kanban Board`. Three columns: **
 
 ### Agent Chat Board (MCP UI)
 
-On hosts that render MCP Apps, the bundled plugin can display a board inline through `taskplanner_board_visual`. This is supported by Cursor and experimental in Codex. It is separate from the extension Kanban panel and uses the same task files. When the host does not render the UI, use `taskplanner_board` or the standard task tools.
+On hosts that render MCP Apps, the plugin can display a board inline through `taskplanner_board_visual`. This is supported by Cursor and experimental in Codex. It is separate from the extension Kanban panel and uses the same task files. When the host does not render the UI, use `taskplanner_board` or the standard task tools.
 
 ### Sidebar Tree
 
 Always visible in the activity bar. Tasks grouped under collapsible state nodes with task counts. Drag-and-drop between states. Priority shown as colored icons.
 
-## Setup Menu
+### Parse Warnings
+
+Malformed task markdown triggers a dismissible banner with jump-to-file; errors log to the **TaskPlanner** output channel.
+
+### Setup Menu
 
 Click the **gear icon** in the TaskPlanner sidebar title bar:
 
@@ -219,7 +279,7 @@ Click the **gear icon** in the TaskPlanner sidebar title bar:
 - **Sort By** — change task sort order (Priority / Name / ID / File order)
 - **Open Settings** — open VS Code extension settings
 
-## Settings
+### Settings
 
 Extension settings (accessible via VS Code Settings UI):
 
@@ -235,6 +295,16 @@ Extension settings (accessible via VS Code Settings UI):
 
 Project config is stored in `.tasks/config.json`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full config reference.
 
+## How It Ships
+
+TaskPlanner is one TypeScript core with a folder per host:
+
+- **Agent plugins**: [`views/claude/`](views/claude/README.md) for Claude Code (MCP tools, skills, board pane and band), [`views/codex/`](views/codex/README.md) for Codex (MCP tools and skills) and [`views/cursor/`](views/cursor/README.md) for Cursor (MCP tools, skills, rule and slash commands). Claude and Codex install them from this repository's marketplaces, `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`.
+- **VS Code extension** (`refined.taskplanner`) for the editor UI: activity bar views, webviews and commands. Inside Cursor it registers the bundled Cursor plugin.
+- **npm package** (`@smekai/taskplanner`) with two entry points: the core library, and `@smekai/taskplanner/mcp-server` for any MCP host.
+
+All of them are built from the same sources. Source code lives at [github.com/smekai/taskplanner](https://github.com/smekai/taskplanner); the Marketplace publisher remains **refined**.
+
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, project structure, architecture decisions, and PR guidelines.
@@ -245,7 +315,7 @@ Before creating a release, run:
 npm run release:check
 ```
 
-This builds the extension and shared plugin, runs tests and lint, validates both Cursor and Codex manifests/marketplaces, and smoke-tests the MCP server.
+This builds the extension and the plugins, runs tests and lint, validates the Claude, Cursor and Codex manifests and marketplaces, and smoke-tests the MCP server.
 
 ## License
 

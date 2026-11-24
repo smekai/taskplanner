@@ -1,5 +1,14 @@
 # Backlog
 
+## TASK-085: LinkedIn post with the TaskPlanner-in-Claude animation
+**Priority:** P0 | **Tags:** docs
+**Updated:** 2026-11-24 08:25
+
+After TASK-084. Draft a LinkedIn post announcing TaskPlanner 3.x with the same animation recorded for the README: what it is, how it looks in Claude, how to install it on Claude, Codex and Cursor. Covers the "Announce on LinkedIn" item of TASK-076.
+
+The user publishes the post; we hand over the text and the media file (GIF, plus MP4 if LinkedIn needs it).
+
+---
 ## TASK-081: Publish the Codex plugin with bundled local MCP tools
 **Priority:** P2 | **Tags:** feature, setup | **Epic:** 3.0
 **Updated:** 2026-11-07 13:28

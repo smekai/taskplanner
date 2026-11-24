@@ -2,7 +2,7 @@
   "name": "taskplanner",
   "displayName": "TaskPlanner",
   "description": "AI-directed markdown task management in your repo. Generates AGENTS.md, CLAUDE.md, and .cursorrules workflows. Tracked by git.",
-  "version": "3.0.22",
+  "version": "3.0.24",
   "publisher": "refined",
   "license": "MIT",
   "icon": "resources/icons/taskplanner-color.png",
@@ -245,7 +245,8 @@
     "lint": "eslint src test mcp/src views/vscode views/mcp-app views/claude/mod --ext ts && node scripts/check-comments.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"views/**/*.ts\" \"mcp/src/**/*.ts\" \"esbuild.js\"",
     "package": "node scripts/package-vsix.js",
-    "package:codex-skills": "node scripts/package-codex-skills.js"
+    "package:codex-skills": "node scripts/package-codex-skills.js",
+    "readme:stats": "node scripts/update-readme-stats.js"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.24.3",
