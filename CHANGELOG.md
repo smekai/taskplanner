@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- The README opens with an animation of the board in Claude Desktop, explains how to install TaskPlanner in Claude Code and Desktop, Codex, Cursor, VS Code and any MCP host, and shows versions and usage per store (TASK-084).
 - In Claude Code the *TaskPlanner · no board here* band has a close button. It asks once more, then never shows the band in that folder again; the board pane still offers setup. You can also ask Claude to hide the band or bring it back (TASK-083).
 - The Codex README distinguishes the repository plugin's seven MCP tools and board UI from the public skills-only upload, including their different runtime requirements (TASK-082).
 - The Codex plugin upload now includes the support and website URLs, so OpenAI's plugin dashboard accepts it instead of reporting "Support URL is required" (TASK-080).
