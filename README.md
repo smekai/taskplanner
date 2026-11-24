@@ -87,15 +87,23 @@ Install **TaskPlanner** from the [VS Code Marketplace](https://marketplace.visua
 
 ### Any MCP host
 
-The MCP server ships on npm. Add it to your host's MCP config:
+The MCP server ships on npm. Add it to your host's MCP config, with the absolute path of the project that holds `.tasks/`:
 
 ```json
 {
   "mcpServers": {
-    "taskplanner": { "command": "npx", "args": ["-y", "@smekai/taskplanner"] }
+    "taskplanner": {
+      "command": "npx",
+      "args": ["-y", "@smekai/taskplanner"],
+      "env": {
+        "TASKPLANNER_WORKSPACE_ROOT": "/absolute/path/to/project"
+      }
+    }
   }
 }
 ```
+
+Without it, some hosts start the server in another folder: it runs but finds no tasks.
 
 The same package is a library for code that reads or edits the board directly. See [`mcp/README.md`](mcp/README.md).
 
