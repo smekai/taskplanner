@@ -8,7 +8,11 @@ async function main() {
   const destination = path.join(root, 'dist', 'vscode', `${pkg.name}-${pkg.version}.vsix`);
 
   fs.mkdirSync(path.dirname(destination), { recursive: true });
-  await createVSIX({ cwd: root, packagePath: destination });
+  await createVSIX({
+    cwd: root,
+    packagePath: destination,
+    readmePath: 'views/vscode/README.md',
+  });
 }
 
 main().catch((error) => {

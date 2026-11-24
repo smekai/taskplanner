@@ -31,10 +31,11 @@ All TaskPlanner tools accept `workspace_root`. Agent workflows pass the absolute
 
 ## Installation
 
-The repository marketplace lives at `.claude-plugin/marketplace.json`. In a Claude Code terminal session:
+The plugin is not in Anthropic's plugin directory yet, so install it from this repository's marketplace (`.claude-plugin/marketplace.json`). In a Claude Code terminal session:
 
 ```
-/plugin install taskplanner --marketplace smekai/taskplanner
+/plugin marketplace add smekai/taskplanner
+/plugin install taskplanner@refined-taskplanner
 ```
 
 From a shell: `claude plugin install taskplanner --marketplace smekai/taskplanner`. In the Claude Desktop app, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `smekai/taskplanner`, then **Add plugin**. A plugin installed at user scope also loads in the Desktop Code tab's local sessions.

@@ -40,9 +40,7 @@ If your host does not support MCP Apps UI, `taskplanner_board_visual` may not re
 
 ## Installation
 
-### Via Cursor Marketplace
-
-Search for "taskplanner" in the Cursor marketplace panel.
+The plugin is not in the Cursor Marketplace yet. Install the **TaskPlanner** extension from Open VSX, which registers this plugin, or copy this folder into Cursor's local plugin directory as below. Both are described for users in [the install guide](../../docs/INSTALL.md#cursor).
 
 ### Local test on Windows (recommended before publish)
 
