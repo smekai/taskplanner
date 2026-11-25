@@ -572,6 +572,17 @@ export function renderBand(
   );
 }
 
+export function renderDueBand(
+  el: Elements,
+  recurringDue: number,
+  columns: number,
+  below: ElementNode,
+  open: () => void,
+): ElementNode {
+  const board = el.Button({ key: 'taskplanner-board', label: 'Board', plain: true, onPress: open });
+  return bandRow(el, `Recurring · ${recurringDue} due`, [board], columns, below);
+}
+
 export interface SetUpBandState {
   isConfirmingDismiss: boolean;
   failure: string | null;

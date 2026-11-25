@@ -8,6 +8,7 @@ import { Task, Priority } from '../../../../../src/core/model/task.js';
 import { isValidCron } from '../../../../../src/core/util/cron.js';
 import { TaskFilter, GroupViewData, TaskViewItem } from '../../../../../src/core/model/messages.js';
 import { getWebviewHtml } from './webviewHelper.js';
+import { scriptJson } from './scriptJson.js';
 import {
   getSortBy,
   getGroupBy,
@@ -496,10 +497,10 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       const sortByBtn = document.getElementById('sortByBtn');
       const sortByMenu = document.getElementById('sortByMenu');
 
-      let currentGroupBy = ${JSON.stringify(groupBy)};
-      let currentSortBy = ${JSON.stringify(this.sortBy)};
-      let currentStatus = ${JSON.stringify(this.filter.status ?? '')};
-      let currentTag = ${JSON.stringify(this.filter.tag ?? '')};
+      let currentGroupBy = ${scriptJson(groupBy)};
+      let currentSortBy = ${scriptJson(this.sortBy)};
+      let currentStatus = ${scriptJson(this.filter.status ?? '')};
+      let currentTag = ${scriptJson(this.filter.tag ?? '')};
       let taskListSuppressClickUntil = 0;
 
       let debounceTimer;
@@ -1210,18 +1211,17 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     `;
 
     const script = `
-      const taskId = ${JSON.stringify(task.id)};
+      const taskId = ${scriptJson(task.id)};
       let debounceTimer = null;
 
       // Track last-saved values to avoid no-op saves
       let lastSaved = {
-        title: ${JSON.stringify(task.title)},
-        priority: ${JSON.stringify(task.priority)},
-        assignee: ${JSON.stringify(task.assignee ?? '')},
-        epic: ${JSON.stringify(task.epic ?? '')},
-        repeats: ${JSON.stringify(task.repeats ?? '')},
-        tags: ${JSON.stringify(task.tags.join(', '))},
-        description: ${JSON.stringify(task.description)}
+        title: ${scriptJson(task.title)},
+        priority: ${scriptJson(task.priority)},
+        assignee: ${scriptJson(task.assignee ?? '')},
+        epic: ${scriptJson(task.epic ?? '')},
+        tags: ${scriptJson(task.tags.join(', '))},
+        description: ${scriptJson(task.description)}
       };
 
       function collectFields() {
@@ -1233,7 +1233,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
           priority: document.getElementById('fieldPriority').value,
           assignee: document.getElementById('fieldAssignee').value,
           epic: document.getElementById('fieldEpic').value,
-          repeats: document.getElementById('fieldRepeats').value,
           tags: tagsRaw.split(',').map(t => t.trim()).filter(Boolean),
           description: document.getElementById('fieldDescription').value
         };
@@ -1245,7 +1244,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
           document.getElementById('fieldPriority').value !== lastSaved.priority ||
           document.getElementById('fieldAssignee').value !== lastSaved.assignee ||
           document.getElementById('fieldEpic').value !== lastSaved.epic ||
-          document.getElementById('fieldRepeats').value !== lastSaved.repeats ||
           document.getElementById('fieldTags').value !== lastSaved.tags ||
           document.getElementById('fieldDescription').value !== lastSaved.description
         );
@@ -1256,7 +1254,6 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         lastSaved.priority = document.getElementById('fieldPriority').value;
         lastSaved.assignee = document.getElementById('fieldAssignee').value;
         lastSaved.epic = document.getElementById('fieldEpic').value;
-        lastSaved.repeats = document.getElementById('fieldRepeats').value;
         lastSaved.tags = document.getElementById('fieldTags').value;
         lastSaved.description = document.getElementById('fieldDescription').value;
       }
@@ -1281,7 +1278,9 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       ['fieldTitle', 'fieldTags', 'fieldAssignee', 'fieldEpic', 'fieldDescription'].forEach(id => {
         document.getElementById(id).addEventListener('input', debouncedSave);
       });
-      document.getElementById('fieldRepeats').addEventListener('change', saveNow);
+      document.getElementById('fieldRepeats').addEventListener('change', (event) => {
+        vscode.postMessage({ type: 'saveTask', taskId, repeats: event.target.value });
+      });
 
       function closeAllDetailMenus() {
         document.querySelectorAll('.detail-select-menu.open').forEach((m) => m.classList.remove('open'));

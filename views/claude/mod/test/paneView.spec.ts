@@ -5,6 +5,7 @@ import {
   PaneActions,
   PaneModel,
   renderBand,
+  renderDueBand,
   renderPane,
   renderSetUpBand,
   slug,
@@ -388,6 +389,12 @@ describe('renderBand', () => {
     expect(texts(renderBand(el, task, 80, below, bandActions()))).toContain(
       'Backlog · TASK-003 · Third',
     );
+  });
+
+  it('counts due recurring tasks when there is no other work to show', () => {
+    const tree = renderDueBand(el, 2, 80, below, vi.fn());
+
+    expect(texts(tree)).toContain('Recurring · 2 due');
   });
 
   it('adds how many recurring tasks are due to the task it shows', () => {

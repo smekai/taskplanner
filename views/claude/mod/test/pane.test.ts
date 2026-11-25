@@ -373,6 +373,37 @@ test('the band shows the In Progress task beside what others draw and opens the 
   expect(world.opened).toEqual(['taskplanner']);
 });
 
+function onlyRecurringWork(world: ReturnType<typeof engine>) {
+  delete world.files['IN_PROGRESS.md'];
+  delete world.files['BACKLOG.md'];
+  const states = [...STATES, { name: 'Recurring', fileName: 'RECURRING.md', order: 5 }];
+  world.files['config.json'] = JSON.stringify({ version: 4, idPrefix: 'TASK', nextId: 6, states });
+  // Never run, so it is due whatever the real clock says.
+  world.files['RECURRING.md'] =
+    '# Recurring\n\n## TASK-005: Hourly check\n**Priority:** P2\n**Repeats:** @hourly\n\n---\n';
+}
+
+test('with only recurring work due, the band counts it', async ($, on) => {
+  const world = engine(on);
+  onlyRecurringWork(world);
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  expect(await band.find({ type: 'Text', text: 'Recurring · 1 due' })).toBeDefined();
+});
+
+test('with only recurring work due, the band opens the board', async ($, on) => {
+  const world = engine(on);
+  onlyRecurringWork(world);
+  await startSession($, world.clock);
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  await band.press({ key: 'taskplanner-board' });
+
+  expect(world.opened).toEqual(['taskplanner']);
+});
+
 test('with nothing in progress the band offers the Backlog task to start, named by its state', async ($, on) => {
   const world = engine(on);
   delete world.files['IN_PROGRESS.md'];

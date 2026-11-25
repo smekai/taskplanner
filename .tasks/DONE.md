@@ -2,7 +2,7 @@
 
 ## TASK-090: 3.1 phase C: show recurring tasks in every view
 **Priority:** P0 | **Tags:** feature, ui | **Epic:** 3.1
-**Updated:** 2026-11-25 16:22
+**Updated:** 2026-11-25 16:55
 
 Phase C of TASK-088. Starts after TASK-087 (core). It can run alongside phase B.
 
@@ -31,18 +31,21 @@ Done:
   - Tab label "Recurring 2 · 1 due".
   - Task detail shows Repeats (UTC), Last run and the Runs history.
   - Start on a recurring task asks for a run plus `taskplanner_record_run`, never Done.
-  - The band adds "· N recurring due".
+  - The band adds "· N recurring due". With no other work it shows "Recurring · N due" with a Board button.
+  - While the pane polls, it rebuilds from the files it already read when a schedule fires (`scheduleFiredSince`), not only when a file changes.
 - **MCP App board:** a `due` / `🔁 schedule` badge on cards. The drawer already got the schedule and history from `taskplanner_get`.
 - **VS Code:**
   - Kanban and list cards show `🔁 schedule · due`.
-  - The task view has a Repeats (cron, UTC) field, saved on change and checked with core `isValidCron` (a warning on invalid input), plus a read-only Last run and Runs list.
+  - The task view has a Repeats (cron, UTC) field, sent on its own when the field commits (never inside another field's autosave) and checked with core `isValidCron` (a warning on invalid input), plus a read-only Last run and Runs list.
+  - Values inlined into webview scripts go through `scriptJson`, which escapes `<`, so board text cannot end the `<script>`. Title, description and filters had the same exposure.
 - **Agent instructions and skills:**
   - `aiInstructions.ts`: `taskplanner_record_run` and schedule rows, plus a "Recurring tasks" section with the markdown fallback.
   - The `taskplanner` skill in all three hosts covers the same.
   - `initialize-taskplanner` now asks for schema 4 and six states; it was still at schema 2 and five states.
   - The Codex submission expects six state files.
   - This repo's managed blocks were regenerated, and its config migrated to Recurring and schema 4.
-- **Tests:** 507 pass, `release:check` green including the mod kit and the plugin validators. The new pane tests fail without the change.
+- **Review on PR #43:** the four points above (stale due flag while polling, a band for recurring-only boards, the schedule inside other fields' autosave, raw text in inline scripts).
+- **Tests:** 513 pass, `release:check` green including the mod kit (two new band tests) and the plugin validators. The new pane and `scriptJson` tests fail without their change.
 - **Not checked by eye:** the Claude pane, the MCP board and the VS Code webviews. `docs/INSTALL.md` still shows five state files; that's TASK-093.
 
 ---

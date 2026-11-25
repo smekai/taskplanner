@@ -851,6 +851,13 @@ function focusTask(candidates, now = /* @__PURE__ */ new Date()) {
     ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now)
   ) ?? null;
 }
+function scheduleFiredSince(index, since, now) {
+  return [...index.values()].flat().some(({ task }) => {
+    const schedule = parseCron(task.repeats);
+    const fired = schedule ? previousFire(schedule, now) : void 0;
+    return fired !== void 0 && fired.getTime() > since.getTime();
+  });
+}
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
   return {
@@ -1297,6 +1304,10 @@ function renderBand(el, task, columns, below, actions) {
     below
   );
 }
+function renderDueBand(el, recurringDue, columns, below, open) {
+  const board2 = el.Button({ key: "taskplanner-board", label: "Board", plain: true, onPress: open });
+  return bandRow(el, `Recurring \xB7 ${recurringDue} due`, [board2], columns, below);
+}
 function renderSetUpBand(el, columns, below, state, actions) {
   if (state.isConfirmingDismiss) {
     const hide = el.Button({
@@ -1378,6 +1389,8 @@ var isConfirmingSetUpDismiss = false;
 var setUpBandTool = null;
 var setUpFailure = null;
 var lastSignature = null;
+var lastInput = null;
+var builtAt = /* @__PURE__ */ new Date(0);
 var pollTimer = null;
 var refreshRun = null;
 var needsRefresh = false;
@@ -1448,6 +1461,7 @@ function forgetBoard() {
   detail = null;
   pendingDetail = null;
   lastSignature = null;
+  lastInput = null;
 }
 function detailFor(id, state) {
   const indexed = findTask(taskIndex, id, state);
@@ -1503,6 +1517,18 @@ async function answerSetUpBandTool($, e) {
     return { deny: errorMessage(error) };
   }
 }
+function applyBoard(input) {
+  const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
+  const read = buildBoard(input.states, input.texts, { loadCompleted, expandedStates }, input.root);
+  board = read.snapshot;
+  taskIndex = read.tasks;
+  focusCandidates = read.focusCandidates;
+  issueCount = read.issueCount;
+  activeTab = pickTab(board, activeTab);
+  lastInput = input;
+  builtAt = /* @__PURE__ */ new Date();
+  reopenDetail();
+}
 async function loadBoard($) {
   const root = await locateBoard($);
   if (!root) {
@@ -1517,15 +1543,8 @@ async function loadBoard($) {
   for (const state of states) {
     texts.set(state.fileName, await readTextOrEmpty($, joinPath(tasksDir, state.fileName)));
   }
-  const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
-  const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
-  board = read.snapshot;
-  taskIndex = read.tasks;
-  focusCandidates = read.focusCandidates;
-  issueCount = read.issueCount;
-  activeTab = pickTab(board, activeTab);
+  applyBoard({ states, texts, root });
   lastSignature = signature;
-  reopenDetail();
 }
 async function runRefresh($) {
   isLoading = true;
@@ -1564,7 +1583,13 @@ async function syncIfChanged($) {
       }
       return;
     }
-    if (board && await readSignature($, joinPath(root, ".tasks")) === lastSignature) return;
+    if (board && await readSignature($, joinPath(root, ".tasks")) === lastSignature) {
+      if (lastInput && scheduleFiredSince(taskIndex, builtAt, /* @__PURE__ */ new Date())) {
+        applyBoard(lastInput);
+        $.ui.invalidate("ui.render");
+      }
+      return;
+    }
   } catch (error) {
     errorText = errorMessage(error);
     $.ui.invalidate("ui.render");
@@ -1796,19 +1821,19 @@ function register(on) {
       });
     }
     const focus = focusTask(focusCandidates);
-    if (!focus) return next(e);
+    const recurringDue = board ? boardDueCount(board) : 0;
+    if (!focus && recurringDue === 0) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);
-    const band = {
-      id: focus.task.id,
-      title: focus.task.title,
-      state: focus.state,
-      recurringDue: board ? boardDueCount(board) : 0
+    const open = () => {
+      void openPane($);
     };
+    if (!focus) {
+      return renderDueBand(elements, recurringDue, e.props.bodyColumns, below, open);
+    }
+    const band = { id: focus.task.id, title: focus.task.title, state: focus.state, recurringDue };
     return renderBand(elements, band, e.props.bodyColumns, below, {
-      open: () => {
-        void openPane($);
-      },
+      open,
       start: () => {
         void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
       }

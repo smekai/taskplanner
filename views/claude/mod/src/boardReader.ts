@@ -4,6 +4,7 @@ import { DEFAULT_STATES, TaskState } from '../../../../src/core/model/state.js';
 import type { Task } from '../../../../src/core/model/task.js';
 import { countTaskHeadings, parseTasks } from '../../../../src/core/parser/taskParser.js';
 import { isWaiting } from '../../../../src/core/util/time.js';
+import { parseCron, previousFire } from '../../../../src/core/util/cron.js';
 import {
   BACKLOG_STATE,
   BoardSnapshot,
@@ -122,6 +123,18 @@ export function focusTask(
       ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now),
     ) ?? null
   );
+}
+
+export function scheduleFiredSince(
+  index: ReadonlyMap<string, readonly IndexedTask[]>,
+  since: Date,
+  now: Date,
+): boolean {
+  return [...index.values()].flat().some(({ task }) => {
+    const schedule = parseCron(task.repeats);
+    const fired = schedule ? previousFire(schedule, now) : undefined;
+    return fired !== undefined && fired.getTime() > since.getTime();
+  });
 }
 
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {

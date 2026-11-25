@@ -33,9 +33,17 @@ import {
   findTask,
   focusTask,
   readConfigStates,
+  scheduleFiredSince,
   taskDetailOf,
 } from './boardReader.js';
-import { renderBand, renderPane, renderSetUpBand } from './paneView.js';
+import { renderBand, renderDueBand, renderPane, renderSetUpBand } from './paneView.js';
+import type { TaskState } from '../../../../src/core/model/state.js';
+
+interface BoardInput {
+  states: TaskState[];
+  texts: Map<string, string>;
+  root: string;
+}
 
 const PANE_ID = 'taskplanner';
 const PANE_TITLE = 'TaskPlanner';
@@ -67,6 +75,8 @@ let isConfirmingSetUpDismiss = false;
 let setUpBandTool: string | null = null;
 let setUpFailure: string | null = null;
 let lastSignature: string | null = null;
+let lastInput: BoardInput | null = null;
+let builtAt = new Date(0);
 let pollTimer: Timer | null = null;
 let refreshRun: Promise<void> | null = null;
 let needsRefresh = false;
@@ -145,6 +155,7 @@ function forgetBoard(): void {
   detail = null;
   pendingDetail = null;
   lastSignature = null;
+  lastInput = null;
 }
 
 function detailFor(id: string, state?: string): TaskDetail | null {
@@ -207,6 +218,19 @@ async function answerSetUpBandTool($: Engine, e: ToolCallEvent): Promise<unknown
   }
 }
 
+function applyBoard(input: BoardInput): void {
+  const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
+  const read = buildBoard(input.states, input.texts, { loadCompleted, expandedStates }, input.root);
+  board = read.snapshot;
+  taskIndex = read.tasks;
+  focusCandidates = read.focusCandidates;
+  issueCount = read.issueCount;
+  activeTab = pickTab(board, activeTab);
+  lastInput = input;
+  builtAt = new Date();
+  reopenDetail();
+}
+
 async function loadBoard($: Engine): Promise<void> {
   const root = await locateBoard($);
   if (!root) {
@@ -221,15 +245,8 @@ async function loadBoard($: Engine): Promise<void> {
   for (const state of states) {
     texts.set(state.fileName, await readTextOrEmpty($, joinPath(tasksDir, state.fileName)));
   }
-  const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
-  const read = buildBoard(states, texts, { loadCompleted, expandedStates }, root);
-  board = read.snapshot;
-  taskIndex = read.tasks;
-  focusCandidates = read.focusCandidates;
-  issueCount = read.issueCount;
-  activeTab = pickTab(board, activeTab);
+  applyBoard({ states, texts, root });
   lastSignature = signature;
-  reopenDetail();
 }
 
 async function runRefresh($: Engine): Promise<void> {
@@ -271,7 +288,13 @@ async function syncIfChanged($: Engine): Promise<void> {
       }
       return;
     }
-    if (board && (await readSignature($, joinPath(root, '.tasks'))) === lastSignature) return;
+    if (board && (await readSignature($, joinPath(root, '.tasks'))) === lastSignature) {
+      if (lastInput && scheduleFiredSince(taskIndex, builtAt, new Date())) {
+        applyBoard(lastInput);
+        $.ui.invalidate('ui.render');
+      }
+      return;
+    }
   } catch (error) {
     errorText = errorMessage(error);
     $.ui.invalidate('ui.render');
@@ -530,19 +553,19 @@ export function register(on: On): void {
       });
     }
     const focus = focusTask(focusCandidates);
-    if (!focus) return next(e);
+    const recurringDue = board ? boardDueCount(board) : 0;
+    if (!focus && recurringDue === 0) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);
-    const band = {
-      id: focus.task.id,
-      title: focus.task.title,
-      state: focus.state,
-      recurringDue: board ? boardDueCount(board) : 0,
+    const open = () => {
+      void openPane($);
     };
+    if (!focus) {
+      return renderDueBand(elements, recurringDue, e.props.bodyColumns, below, open);
+    }
+    const band = { id: focus.task.id, title: focus.task.title, state: focus.state, recurringDue };
     return renderBand(elements, band, e.props.bodyColumns, below, {
-      open: () => {
-        void openPane($);
-      },
+      open,
       start: () => {
         void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
       },

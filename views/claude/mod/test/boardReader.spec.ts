@@ -5,6 +5,7 @@ import {
   findTask,
   focusTask,
   readConfigStates,
+  scheduleFiredSince,
   taskDetailOf,
 } from '../src/boardReader.js';
 import { DEFAULT_STATES } from '../../../../src/core/model/state.js';
@@ -149,6 +150,35 @@ ${section('TASK-007', 'Next copy', 'P2')}`,
     expect(findTask(tasks, 'TASK-007', 'Done')).toBeNull();
     expect(findTask(tasks, 'TASK-007')?.task.title).toBe('Backlog copy');
     expect(findTask(tasks, 'TASK-404')).toBeNull();
+  });
+});
+
+// The pane rebuilds when a schedule fires even though no board file changed.
+describe('scheduleFiredSince', () => {
+  const BUILT_AT = new Date('2026-11-25T10:30:00Z');
+  const hourly = `# Recurring\n\n## TASK-030: Hourly check\n**Priority:** P2\n**Repeats:** @hourly\n**Last run:** 2026-11-25 10:00\n\n---\n`;
+
+  function indexOf(recurring: string) {
+    const states = [{ name: 'Recurring', fileName: 'RECURRING.md', order: 0 }];
+    return buildBoard(states, new Map([['RECURRING.md', recurring]]), COLLAPSED, null).tasks;
+  }
+
+  it('is true once the clock passes the next fire, with the files unchanged', () => {
+    const fired = scheduleFiredSince(indexOf(hourly), BUILT_AT, new Date('2026-11-25T11:00:30Z'));
+
+    expect(fired).toBe(true);
+  });
+
+  it('is false while no schedule has fired since the board was built', () => {
+    const fired = scheduleFiredSince(indexOf(hourly), BUILT_AT, new Date('2026-11-25T10:59:00Z'));
+
+    expect(fired).toBe(false);
+  });
+
+  it('is false for a board without schedules', () => {
+    const fired = scheduleFiredSince(new Map(), BUILT_AT, new Date('2026-11-26T00:00:00Z'));
+
+    expect(fired).toBe(false);
   });
 });
 
