@@ -1,10 +1,19 @@
 # Backlog
 
+## TASK-087: Recurring tasks for work that never finishes
+**Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
+**Updated:** 2026-11-24 10:07
+
+Some work never moves to Done: the daily store-status watch (Claude directory, Cursor Marketplace, Codex directory, VS Code Marketplace, Open VSX, npm) runs every day, and today it lives outside the board in a scheduled task.
+
+Decide how the board represents it, for example a built-in Recurring state, a custom state, schedule and last-run fields, how the board, band and MCP tools show and update it, and how the watch writes its result back. Before the LinkedIn post (TASK-085).
+
+---
 ## TASK-085: LinkedIn post with the TaskPlanner-in-Claude animation
 **Priority:** P0 | **Tags:** docs
-**Updated:** 2026-11-24 08:25
+**Updated:** 2026-11-24 10:07
 
-After TASK-084. Draft a LinkedIn post announcing TaskPlanner 3.x with the same animation recorded for the README: what it is, how it looks in Claude, how to install it on Claude, Codex and Cursor. Covers the "Announce on LinkedIn" item of TASK-076.
+After TASK-086 (product README, install guide) and TASK-087 (recurring tasks, 3.1). Draft a LinkedIn post announcing TaskPlanner with the animation recorded for the README (TASK-084): what it is, how it looks in Claude, and where it runs, linking to the install guide. Covers the "Announce on LinkedIn" item of TASK-076.
 
 The user publishes the post; we hand over the text and the media file (GIF, plus MP4 if LinkedIn needs it).
 

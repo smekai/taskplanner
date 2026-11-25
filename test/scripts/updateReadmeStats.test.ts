@@ -31,7 +31,7 @@ describe('update-readme-stats', () => {
     expect(block).toContain('| 3.0.12 | 126 installs |');
     expect(block).toContain('| 3.0.12 | 4,812 downloads |');
     expect(block).toContain('| 3.0.12 | 432 downloads last month |');
-    expect(block).toContain('| 3.0.22 | installs from `main` |');
+    expect(block).toContain('(docs/INSTALL.md#claude-code-and-claude-desktop)) | 3.0.22 | installs from `main` |');
     expect(block).toContain('| 3.0.18 | listed |');
     expect(block).toContain('| v3.0.12 | 25 stars · 4 forks |');
     expect(block).toContain('as of 2026-11-24');
