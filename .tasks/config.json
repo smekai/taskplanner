@@ -1,11 +1,11 @@
 {
   "version": 3,
-  "taskplannerVersion": "3.0.32",
+  "taskplannerVersion": "3.0.35",
   "upgradeChecks": [
     "3.0"
   ],
   "idPrefix": "TASK",
-  "nextId": 94,
+  "nextId": 95,
   "states": [
     {
       "name": "Backlog",
