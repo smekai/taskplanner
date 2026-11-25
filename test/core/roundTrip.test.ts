@@ -312,6 +312,56 @@ describe('recurring fields', () => {
 });
 
 // Boards written before 3.1 may use "### Runs" as an ordinary heading; only Repeats makes it run history.
+// A schedule that was removed leaves Last run behind, and that line keeps the history readable.
+// A hand-edited schedule the cron evaluator cannot read would otherwise leave the task never due, silently.
+describe('a schedule that is not cron', () => {
+  const board = (repeats: string) =>
+    `## TASK-001: Watch\n**Priority:** P1\n**Repeats:** ${repeats}\n\n---\n`;
+
+  it('is reported on the line that holds it', () => {
+    const { warnings } = parseTasks(board('every morning'));
+
+    expect(warnings).toEqual([expect.objectContaining({ line: 3 })]);
+    expect(warnings[0].message).toContain('"every morning"');
+  });
+
+  it('is not reported when the schedule is valid', () => {
+    const { warnings } = parseTasks(board('@daily'));
+
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe('run history after the schedule is removed', () => {
+  const PAUSED = {
+    lastRun: '2026-11-25 07:12',
+    runs: ['2026-11-25 07:12 — ok'],
+  };
+
+  it('reads back as run history, not as description text', () => {
+    const [parsed] = roundTripped({ ...PAUSED, description: 'Check the stores.' });
+
+    expect(parsed.runs).toEqual(PAUSED.runs);
+    expect(parsed.description).toBe('Check the stores.');
+  });
+
+  it('lets the schedule be set again', () => {
+    const [paused] = roundTripped(PAUSED);
+
+    expect(() => serializeTask({ ...paused, repeats: '0 7 * * *' })).not.toThrow();
+  });
+
+  it('refuses a ### Runs heading in the description, which would be read as history', () => {
+    expect(() =>
+      serializeTask(task({ ...PAUSED, description: 'Text.\n\n### Runs\n\n- fake' })),
+    ).toThrow(/### Runs/);
+  });
+
+  it('refuses run history with neither Repeats nor Last run, which would come back as text', () => {
+    expect(() => serializeTask(task({ runs: ['2026-11-25 07:12 — ok'] }))).toThrow(/Last run/);
+  });
+});
+
 describe('### Runs in a task that does not repeat', () => {
   const EXISTING = [
     '# Backlog',

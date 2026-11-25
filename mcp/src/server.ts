@@ -7,12 +7,13 @@ import { z } from 'zod';
 import { ConfigManager } from '../../src/core/config/configManager.js';
 import { TaskStore } from '../../src/core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../../src/core/model/task.js';
-import { TaskState } from '../../src/core/model/state.js';
+import { RECURRING_STATE_NAME, TaskState } from '../../src/core/model/state.js';
 import { ParseIssue } from '../../src/core/model/parseResult.js';
 import { buildBoardViewModel } from '../../src/core/view/boardViewModel.js';
 import { renderBoardDigest } from '../../src/core/ai/boardDigest.js';
 import { openBoard } from '../../src/core/store/openBoard.js';
 import { isWaiting } from '../../src/core/util/time.js';
+import { isDue, isValidCron } from '../../src/core/util/cron.js';
 
 function findExistingTasksDir(rootDir: string): string | null {
   let current = path.resolve(rootDir);
@@ -164,6 +165,10 @@ function formatTask(task: Task, stateName: string): string {
       `Waiting until: ${task.waitingUntil}${isWaiting(task.waitingUntil) ? ' (not startable yet)' : ''}`,
     );
   }
+  if (task.repeats) {
+    meta.push(`Repeats: ${task.repeats} UTC${isDue(task.repeats, task.lastRun) ? ' (due)' : ''}`);
+  }
+  if (task.lastRun) meta.push(`Last run: ${task.lastRun}`);
   if (task.updatedAt) meta.push(`Updated: ${task.updatedAt}`);
   lines.push(meta.join(' | '));
   if (task.description.trim()) {
@@ -172,12 +177,32 @@ function formatTask(task: Task, stateName: string): string {
   if (task.plan?.trim()) {
     lines.push('', '### Plan', task.plan.trim());
   }
+  if (task.runs && task.runs.length > 0) {
+    lines.push('', '### Runs', ...task.runs.map((run) => `- ${run}`));
+  }
   return lines.join('\n');
 }
 
 function structuredTask(task: Task, stateName: string): Record<string, unknown> {
-  return { ...task, state: stateName, waiting: isWaiting(task.waitingUntil) };
+  return {
+    ...task,
+    state: stateName,
+    waiting: isWaiting(task.waitingUntil),
+    ...(task.repeats ? { due: isDue(task.repeats, task.lastRun) } : {}),
+  };
 }
+
+const REPEATS_FORMAT =
+  'a 5-field cron expression in UTC (minute hour day-of-month month day-of-week), such as "0 7 * * *", or one of @hourly, @daily, @weekly, @monthly, @yearly';
+
+function invalidRepeats(repeats: string) {
+  return {
+    content: [{ type: 'text' as const, text: `Repeats "${repeats}" is not ${REPEATS_FORMAT}.` }],
+    isError: true,
+  };
+}
+
+const REPEATS_INPUT_DESCRIPTION = `Schedule that makes this a recurring task: ${REPEATS_FORMAT}. A recurring task never moves to Done; record each run with taskplanner_record_run.`;
 
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
@@ -200,6 +225,13 @@ const MODIFY_ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 
+const APPEND_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+} as const;
+
 const WORKSPACE_ROOT_INPUT = z
   .string()
   .min(1)
@@ -210,7 +242,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.34',
+  version: '3.0.36',
 });
 
 server.registerTool(
@@ -260,10 +292,16 @@ server.registerTool(
           'State name to filter by (e.g. "Backlog", "Next", "In Progress", "Done", "Rejected"). Omit for all states.',
         ),
       query: z.string().optional().describe('Text query to filter tasks by ID, title, or assignee'),
+      due: z
+        .boolean()
+        .optional()
+        .describe(
+          'If true, only recurring tasks whose schedule has fired since their last run (the ones to do now)',
+        ),
     },
     annotations: READ_ONLY_ANNOTATIONS,
   },
-  async ({ workspace_root, state, query }) => {
+  async ({ workspace_root, state, query, due }) => {
     const { taskStore } = await freshStore(workspace_root);
     const config = taskStore.config;
     const statesToList = state
@@ -299,6 +337,9 @@ server.registerTool(
             (t.assignee && t.assignee.toLowerCase().includes(q)),
         );
       }
+      if (due) {
+        tasks = tasks.filter((t) => isDue(t.repeats, t.lastRun));
+      }
       if (tasks.length === 0) continue;
 
       lines.push(`## ${s.name} (${tasks.length})`);
@@ -320,6 +361,7 @@ server.registerTool(
           totalCount: 0,
           state: state ?? null,
           query: query ?? null,
+          due: due === true,
           ...issues,
         },
       };
@@ -337,6 +379,7 @@ server.registerTool(
         totalCount,
         state: state ?? null,
         query: query ?? null,
+        due: due === true,
         ...issues,
       },
     };
@@ -394,7 +437,11 @@ server.registerTool(
         .string()
         .optional()
         .describe('ISO date (YYYY-MM-DD) before which this task cannot be started'),
-      state: z.string().optional().describe('Target state (default: "Backlog")'),
+      repeats: z.string().optional().describe(REPEATS_INPUT_DESCRIPTION),
+      state: z
+        .string()
+        .optional()
+        .describe('Target state (default: "Backlog", or "Recurring" when repeats is set)'),
     },
     annotations: CREATE_ANNOTATIONS,
   },
@@ -407,10 +454,20 @@ server.registerTool(
     assignee,
     epic,
     waiting_until,
+    repeats,
     state: targetState,
   }) => {
-    const stateName = targetState || 'Backlog';
-    const { taskStore, targetState: validState } = await freshStore(workspace_root, stateName);
+    const schedule = repeats?.trim() || undefined;
+    if (schedule && !isValidCron(schedule)) return invalidRepeats(repeats ?? '');
+
+    const stateName = targetState || (schedule ? RECURRING_STATE_NAME : 'Backlog');
+    const opened = await freshStore(workspace_root, stateName);
+    const { taskStore, configManager } = opened;
+    let validState = opened.targetState;
+    if (!validState && !targetState && schedule) {
+      validState = findStateByName(configManager, 'Backlog');
+      if (validState) taskStore.reloadState(validState.name);
+    }
     if (!validState) {
       return {
         content: [{ type: 'text', text: `Unknown state "${stateName}".` }],
@@ -428,6 +485,7 @@ server.registerTool(
         assignee,
         epic,
         waitingUntil: waiting_until,
+        ...(schedule ? { repeats: schedule } : {}),
       },
       validState.name,
     );
@@ -506,6 +564,12 @@ server.registerTool(
         .string()
         .optional()
         .describe('New ISO date (YYYY-MM-DD) before which this task cannot be started'),
+      repeats: z
+        .string()
+        .optional()
+        .describe(
+          `${REPEATS_INPUT_DESCRIPTION} An empty string removes the schedule; the last run and run history stay, and apply again when a schedule is set.`,
+        ),
       plan: z.string().optional().describe('New or updated plan text'),
     },
     annotations: MODIFY_ANNOTATIONS,
@@ -520,8 +584,12 @@ server.registerTool(
     assignee,
     epic,
     waiting_until,
+    repeats,
     plan,
   }) => {
+    const schedule = repeats?.trim();
+    if (schedule && !isValidCron(schedule)) return invalidRepeats(repeats ?? '');
+
     const { taskStore } = await freshStore(workspace_root);
     const existing = taskStore.findTask(task_id);
     const updates: Partial<Omit<Task, 'id'>> = {};
@@ -532,6 +600,7 @@ server.registerTool(
     if (assignee !== undefined) updates.assignee = assignee;
     if (epic !== undefined) updates.epic = epic;
     if (waiting_until !== undefined) updates.waitingUntil = waiting_until;
+    if (schedule !== undefined) updates.repeats = schedule || undefined;
     if (plan !== undefined) updates.plan = plan;
 
     const result = taskStore.updateTask(task_id, updates);
@@ -552,6 +621,55 @@ server.registerTool(
       structuredContent: {
         task: structuredTask(result, existing?.stateName ?? 'Unknown'),
       },
+    };
+  },
+);
+
+server.registerTool(
+  'taskplanner_record_run',
+  {
+    description:
+      'Record one run of a recurring task after doing its work: sets Last run to now (UTC) and adds the result to its Runs history, which keeps the last 7. Recurring tasks are never moved to Done.',
+    inputSchema: {
+      workspace_root: WORKSPACE_ROOT_INPUT,
+      task_id: z.string().describe('ID of a task that has a repeats schedule'),
+      result: z
+        .string()
+        .optional()
+        .describe('One-line outcome of this run, e.g. "all stores current, Open VSX behind"'),
+    },
+    annotations: APPEND_ANNOTATIONS,
+  },
+  async ({ workspace_root, task_id, result }) => {
+    const { taskStore } = await freshStore(workspace_root);
+    const found = taskStore.findTask(task_id);
+    if (!found) {
+      return {
+        content: [{ type: 'text', text: `Task "${task_id}" not found.` }],
+        isError: true,
+      };
+    }
+    if (!found.task.repeats) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `${found.task.id} has no schedule, so it has no runs to record. Give it one with taskplanner_update (repeats), or finish it with taskplanner_move.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const recorded = taskStore.recordRun(found.task.id, result ?? '') ?? found.task;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Recorded a run of ${recorded.id}: ${recorded.title} at ${recorded.lastRun} UTC.`,
+        },
+      ],
+      structuredContent: { task: structuredTask(recorded, found.stateName) },
     };
   },
 );

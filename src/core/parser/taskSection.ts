@@ -1,5 +1,6 @@
 import { Task, Priority } from '../model/task.js';
 import { ParseIssue } from '../model/parseResult.js';
+import { isValidCron } from '../util/cron.js';
 import {
   BuiltInField,
   LINE_BREAK,
@@ -106,6 +107,7 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
   let inMetadata = true;
   let body: Body = 'description';
   let priorityLine = startLine;
+  let repeatsLine = startLine;
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
@@ -115,6 +117,9 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
       if (readFieldOrFieldGroup(collected, line)) {
         if (collected.fields.priority !== undefined && priorityLine === startLine) {
           priorityLine = startLine + i;
+        }
+        if (collected.fields.repeats !== undefined && repeatsLine === startLine) {
+          repeatsLine = startLine + i;
         }
         continue;
       }
@@ -126,7 +131,9 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
       body = 'plan';
       continue;
     }
-    if (isRunsHeadingLine(line) && collected.fields.repeats !== undefined) {
+    const keepsRunHistory =
+      collected.fields.repeats !== undefined || collected.fields.lastRun !== undefined;
+    if (isRunsHeadingLine(line) && keepsRunHistory) {
       body = 'runs';
       continue;
     }
@@ -136,6 +143,14 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
       continue;
     }
     collected[body].push(line);
+  }
+
+  const repeats = collected.fields.repeats;
+  if (repeats !== undefined && !isValidCron(repeats)) {
+    warnings.push({
+      line: repeatsLine,
+      message: `**Repeats:** "${repeats}" is not a cron schedule, so the task is never due; expected 5 fields in UTC such as "0 7 * * *", or @daily.`,
+    });
   }
 
   const plan = collected.plan.join('\n').trim();

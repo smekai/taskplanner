@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-089 — 2026-11-25
+**What:** MCP tools for recurring tasks: `repeats` on create/update, new `taskplanner_record_run`, `due` filter on list, due/schedule/runs in task output and the board digest.
+**Decisions:** `record_run` is annotated as writing but not destructive (it only appends history). Create with `repeats` and no state goes to Recurring, falling back to Backlog on boards without it.
+**Outcome:** The smoke test still expected config schema 3 after TASK-087; fixed here and now covers the recurring flow end to end.
+
+---
+
 ## TASK-087 — 2026-11-25
 **What:** Core for recurring tasks: Recurring state with a one-time config migration (schema 4), `Repeats` / `Last run` fields, a `### Runs` history capped at 7, `isDue`, `TaskStore.recordRun`.
 **Decisions:** Hand-written 5-field UTC cron evaluator instead of `cron-parser`, which with Luxon would add 100 KB to a 145 KB extension (+1.7 KB as written). The migration is gated on the schema version, so a removed Recurring state stays removed.

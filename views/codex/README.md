@@ -11,7 +11,7 @@ TaskPlanner has two Codex packages:
 | Component | Repository installation (`views/codex/`) | Public directory upload ZIP |
 |-----------|----------------------------------------|-----------------------------|
 | **7 skills** | TaskPlanner, initialize, update, list, next-task, continue-task, and board | The same seven workflows |
-| **Local MCP server** | 7 tools: `taskplanner_board`, `taskplanner_list`, `taskplanner_get`, `taskplanner_create`, `taskplanner_move`, `taskplanner_update`, `taskplanner_board_visual` | Not bundled |
+| **Local MCP server** | 8 tools: `taskplanner_board`, `taskplanner_list`, `taskplanner_get`, `taskplanner_create`, `taskplanner_move`, `taskplanner_update`, `taskplanner_record_run`, `taskplanner_board_visual` | Not bundled |
 | **Interactive MCP board** | Included; rendering depends on host support | Not bundled |
 | **Manifest and icon** | Included | Included |
 | **MIT license** | Repository license | License file included |
