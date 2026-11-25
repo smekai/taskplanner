@@ -524,7 +524,8 @@ function parseTaskSection(raw, startLine) {
       body = "plan";
       continue;
     }
-    if (isRunsHeadingLine(line) && collected.fields.repeats !== void 0) {
+    const keepsRunHistory = collected.fields.repeats !== void 0 || collected.fields.lastRun !== void 0;
+    if (isRunsHeadingLine(line) && keepsRunHistory) {
       body = "runs";
       continue;
     }

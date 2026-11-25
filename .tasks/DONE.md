@@ -2,7 +2,7 @@
 
 ## TASK-089: 3.1 phase B: MCP tools for recurring tasks
 **Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
-**Updated:** 2026-11-25 12:55
+**Updated:** 2026-11-25 14:25
 
 Phase B of TASK-088. Starts after TASK-087 (core).
 
@@ -19,7 +19,7 @@ Files: `mcp/src/server.ts`, `scripts/smoke-test-mcp-server.js`. Changelog entry.
 Done:
 - **Create and update** (`mcp/src/server.ts`) take `repeats`, checked with `isValidCron`.
   - An invalid schedule returns `isError` with the expected format.
-  - An empty string on update clears it.
+  - An empty string on update clears the schedule but keeps `Last run` and the history.
   - A create with `repeats` and no state goes to Recurring, falling back to Backlog on boards without it.
 - **`taskplanner_record_run(task_id, result?)`** wraps `TaskStore.recordRun`. It is annotated as writing but not destructive. It refuses an unknown task or one without a schedule, and tells the caller how to fix it.
 - **Output:**
@@ -29,10 +29,13 @@ Done:
   - The board digest in core marks recurring tasks (`🔁 0 7 * * * UTC, due`).
 - **Smoke test:**
   - Covers 8 tools and the `record_run` annotations.
-  - A recurring flow on a 3.0 board: migrated state, an invalid schedule refused, due → record_run → not due, the due filter, record_run refused on a one-off task, clearing the schedule.
+  - A recurring flow on a 3.0 board: migrated state, an invalid schedule refused, due → record_run → not due, the due filter, record_run refused on a one-off task, clearing and restoring the schedule with the history intact.
   - Fixed: it still expected config schema 3 after TASK-087.
 - **Docs:** the `mcp/README.md` tool table and the Codex README tool list. Agent instructions and skills come in TASK-090.
-- **Checks:** `release:check` green (487 tests, packed smoke test).
+- **Review on PR #42:**
+  - **History after clearing the schedule:** `### Runs` is now run history when the task has `Repeats` or `Last run`, so a paused task keeps its history and can be scheduled again. History with neither line is refused on write.
+  - **CI clean-build check:** the `record_run` example text contained the version, which `bump-version.js` rewrote inside the bundles only. The example no longer contains a version; the script itself is listed in TASK-094.
+- **Checks:** 491 tests and the packed smoke test pass.
 
 ---
 ## TASK-087: 3.1 phase A: recurring tasks in core

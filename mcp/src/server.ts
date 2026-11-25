@@ -242,7 +242,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.31',
+  version: '3.0.32',
 });
 
 server.registerTool(
@@ -567,7 +567,9 @@ server.registerTool(
       repeats: z
         .string()
         .optional()
-        .describe(`${REPEATS_INPUT_DESCRIPTION} An empty string removes the schedule.`),
+        .describe(
+          `${REPEATS_INPUT_DESCRIPTION} An empty string removes the schedule; the last run and run history stay, and apply again when a schedule is set.`,
+        ),
       plan: z.string().optional().describe('New or updated plan text'),
     },
     annotations: MODIFY_ANNOTATIONS,
@@ -634,7 +636,7 @@ server.registerTool(
       result: z
         .string()
         .optional()
-        .describe('One-line outcome of this run, e.g. "all stores on 3.0.30, Open VSX behind"'),
+        .describe('One-line outcome of this run, e.g. "all stores current, Open VSX behind"'),
     },
     annotations: APPEND_ANNOTATIONS,
   },

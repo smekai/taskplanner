@@ -9,14 +9,18 @@ function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function bodyOrThrow(field: 'description' | 'plan', value: string, recurring: boolean): string {
+function bodyOrThrow(
+  field: 'description' | 'plan',
+  value: string,
+  keepsRunHistory: boolean,
+): string {
   const body = value.trim();
   if (endsTaskSection(body)) {
     throw new Error(
       `Task ${field} contains a line that would end the task section; remove the separator or heading before serializing.`,
     );
   }
-  if (recurring && containsRunsHeading(body)) {
+  if (keepsRunHistory && containsRunsHeading(body)) {
     throw new Error(
       `Task ${field} contains a "### Runs" heading, which is reserved for the run history; rename the heading before serializing.`,
     );
@@ -24,8 +28,14 @@ function bodyOrThrow(field: 'description' | 'plan', value: string, recurring: bo
   return body;
 }
 
-function runLines(runs: string[] | undefined): string[] {
-  return (runs ?? []).map(oneLine).filter(Boolean);
+function runLinesOrThrow(runs: string[] | undefined, keepsRunHistory: boolean): string[] {
+  const lines = (runs ?? []).map(oneLine).filter(Boolean);
+  if (lines.length > 0 && !keepsRunHistory) {
+    throw new Error(
+      'Task runs need a **Repeats:** or **Last run:** line to be read back as run history; set lastRun before serializing.',
+    );
+  }
+  return lines;
 }
 
 function attributeLineOrThrow(rawKey: string, rawValue: string): string {
@@ -61,20 +71,21 @@ export function serializeTask(task: Task): string {
   if (task.updatedAt) lines.push(`**Updated:** ${oneLine(task.updatedAt)}`);
   if (task.waitingUntil) lines.push(`**Waiting until:** ${oneLine(task.waitingUntil)}`);
   const repeats = oneLine(task.repeats ?? '');
-  const recurring = repeats.length > 0;
-  if (recurring) lines.push(`**Repeats:** ${repeats}`);
-  if (task.lastRun) lines.push(`**Last run:** ${oneLine(task.lastRun)}`);
+  const lastRun = oneLine(task.lastRun ?? '');
+  const keepsRunHistory = repeats.length > 0 || lastRun.length > 0;
+  if (repeats) lines.push(`**Repeats:** ${repeats}`);
+  if (lastRun) lines.push(`**Last run:** ${lastRun}`);
   for (const [key, value] of Object.entries(task.attributes ?? {})) {
     lines.push(attributeLineOrThrow(key, value));
   }
 
   if (task.description.trim()) {
-    lines.push('', bodyOrThrow('description', task.description, recurring));
+    lines.push('', bodyOrThrow('description', task.description, keepsRunHistory));
   }
   if (task.plan?.trim()) {
-    lines.push('', '### Plan', '', bodyOrThrow('plan', task.plan, recurring));
+    lines.push('', '### Plan', '', bodyOrThrow('plan', task.plan, keepsRunHistory));
   }
-  const runs = runLines(task.runs);
+  const runs = runLinesOrThrow(task.runs, keepsRunHistory);
   if (runs.length > 0) {
     lines.push('', '### Runs', '', ...runs.map((run) => `- ${run}`));
   }

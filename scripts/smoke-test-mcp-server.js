@@ -556,10 +556,19 @@ async function checkRecurring(serverPath, installDir, tempRoot) {
     expect(notRecurring.isError, 'record_run accepted a task without a schedule.');
 
     await c.callTool(tool('update'), { workspace_root, task_id: task.id, repeats: '' });
-    const cleared = await c.callTool(tool('get'), { workspace_root, task_id: task.id });
-    expect(cleared.structuredContent.task.repeats === undefined, 'repeats "" did not clear it.');
+    const cleared = (await c.callTool(tool('get'), { workspace_root, task_id: task.id }))
+      .structuredContent.task;
+    expect(cleared.repeats === undefined, 'repeats "" did not clear it.');
+    expect(cleared.runs?.length === 1, `History lost after clearing: ${JSON.stringify(cleared)}`);
+    expect(!cleared.description.includes('### Runs'), 'History came back as description text.');
 
-    log('recurring OK (migrated state, due, record_run, due filter, refusals, clearing).');
+    await c.callTool(tool('update'), { workspace_root, task_id: task.id, repeats: '0 7 * * *' });
+    const restored = (await c.callTool(tool('get'), { workspace_root, task_id: task.id }))
+      .structuredContent.task;
+    expect(restored.repeats === '0 7 * * *', 'The schedule could not be set again.');
+    expect(restored.runs?.length === 1, 'History did not survive restoring the schedule.');
+
+    log('recurring OK (migrated state, due, record_run, due filter, refusals, clearing and restoring with history).');
   });
 }
 

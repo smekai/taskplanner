@@ -126,7 +126,9 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
       body = 'plan';
       continue;
     }
-    if (isRunsHeadingLine(line) && collected.fields.repeats !== undefined) {
+    const keepsRunHistory =
+      collected.fields.repeats !== undefined || collected.fields.lastRun !== undefined;
+    if (isRunsHeadingLine(line) && keepsRunHistory) {
       body = 'runs';
       continue;
     }
