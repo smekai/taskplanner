@@ -2,22 +2,21 @@
 
 ## TASK-094: 3.1 phase F: code quality pass before the release
 **Priority:** P1 | **Tags:** refactor, testing | **Epic:** 3.1
-**Updated:** 2026-11-25 13:00
+**Updated:** 2026-11-25 13:39
 
 Phase F of TASK-088. Starts after phases A–E (TASK-087, TASK-089…092) and before the release (TASK-093, now phase G).
 
-Run the project skill `/code-quality` (`.claude/skills/code-quality/`) over everything since `v3.0.12`. Its yardstick is the Isotopy standard adapted to this repo:
-- **`standard.md`:** simplicity first (smallest correct change, replace don't accumulate), then A1–A9: comments are a smell, SOLID and interfaces, fat domain and thin edges, named shapes, strict types, evidence in Markdown, judged by tier. Plus errors and cross-platform.
-- **`testing.md`:** AAAAA, one action per test, no logic in a test body, generators over flag factories, component tests first, the mutation check.
-
-The pass runs in two phases:
-- **Analyse:**
-  - Take a green baseline.
-  - Run the measurements and the board invariants.
-  - Read the diff and the hotspots against every rule.
-  - Run `/code-review` and `/simplify` on the release diff.
-  - Write a ranked report into this task's `### Plan`, each finding naming its rule.
-- **Improve:** only the groups the user accepts, one finding per commit, behaviour and the public API unchanged. Anything deferred becomes its own Backlog task.
+Run the project skill `/code-quality` (`.claude/skills/code-quality/SKILL.md`) over everything since `v3.0.12`. One file holds the standard (the Isotopy standard adapted to this repo) and the pass:
+- **Part 1, code:** simplicity first (smallest correct change, replace don't accumulate), then A1–A9: comments are a smell, SOLID and interfaces, fat domain and thin edges, named shapes, strict types, evidence in Markdown, judged by tier. Plus errors and cross-platform.
+- **Part 2, tests:** AAAAA, one action per test, no logic in a test body, generators over flag factories, component tests first, the mutation check.
+- **Part 3, the pass**, in two phases:
+  - **Analyse:**
+    - Take a green baseline.
+    - Run the measurements and the board invariants.
+    - Read the diff and the hotspots against every rule.
+    - Run `/code-review` and `/simplify` on the release diff.
+    - Write a ranked report into this task's `### Plan`, each finding naming its rule.
+  - **Improve:** only the groups the user accepts, one finding per commit, behaviour and the public API unchanged. Anything deferred becomes its own Backlog task.
 
 Already seen (2026-11-25):
 - **Size and counts:**
