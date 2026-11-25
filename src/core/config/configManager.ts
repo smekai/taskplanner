@@ -1,9 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { TaskPlannerConfig, createDefaultConfig } from '../model/config.js';
+import { RECURRING_STATE_NAME } from '../model/state.js';
 import { normalizeStates } from './configStates.js';
 
-const CONFIG_SCHEMA_VERSION = 3;
+const CONFIG_SCHEMA_VERSION = 4;
+const RECURRING_SCHEMA_VERSION = 4;
+const UNVERSIONED_SCHEMA_VERSION = 1;
 
 export interface ConfigDiagnostic {
   message: string;
@@ -96,6 +99,8 @@ export class ConfigManager {
         merged[key] = defaults[key];
       }
     }
+    const readableButUnversioned = Object.keys(parsed).length > 0 && !('version' in parsed);
+    if (readableButUnversioned) merged.version = UNVERSIONED_SCHEMA_VERSION;
     merged.states =
       parsed.states !== undefined ? normalizeStates(parsed.states, report) : defaults.states;
 
@@ -129,6 +134,18 @@ export class ConfigManager {
     return true;
   }
 
+  private addRecurringState(): boolean {
+    // WHY: gated on the schema version so a board that removed Recurring after migrating keeps it removed.
+    if (this.config.version >= RECURRING_SCHEMA_VERSION) return false;
+    const states = this.config.states;
+    if (states.some((s) => s.name === RECURRING_STATE_NAME || s.fileName === 'RECURRING.md')) {
+      return false;
+    }
+    const order = Math.max(-1, ...states.map((s) => s.order)) + 1;
+    states.push({ name: RECURRING_STATE_NAME, fileName: 'RECURRING.md', order });
+    return true;
+  }
+
   private dropLegacySortBy(): boolean {
     const legacy = this.config as TaskPlannerConfig & { sortBy?: unknown };
     if (legacy.sortBy === undefined) return false;
@@ -143,7 +160,12 @@ export class ConfigManager {
   }
 
   private migrateConfig(persist: boolean): void {
-    const steps = [this.addRejectedState(), this.dropLegacySortBy(), this.recordSchemaVersion()];
+    const steps = [
+      this.addRejectedState(),
+      this.addRecurringState(),
+      this.dropLegacySortBy(),
+      this.recordSchemaVersion(),
+    ];
     if (persist && steps.some(Boolean)) {
       this.save();
     }

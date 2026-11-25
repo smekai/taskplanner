@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { ConfigManager } from '../../src/core/config/configManager.js';
 import { FileStore } from '../../src/core/store/fileStore.js';
-import { TaskStore } from '../../src/core/store/taskStore.js';
+import { MAX_RUNS, TaskStore } from '../../src/core/store/taskStore.js';
 import { Priority } from '../../src/core/model/task.js';
 
 describe('TaskStore', () => {
@@ -309,7 +309,7 @@ describe('TaskStore', () => {
     expect(created.id).toBe('TASK-002');
     expect(fs.readFileSync(path.join(tmpDir, 'REJECTED.md'), 'utf8')).toContain('TASK-001');
     const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf8'));
-    expect(persisted.version).toBe(3);
+    expect(persisted.version).toBe(4);
     expect(persisted.sortBy).toBeUndefined();
     expect(persisted.states.some((state: { name: string }) => state.name === 'Rejected')).toBe(
       true,
@@ -358,5 +358,69 @@ describe('TaskStore', () => {
     );
 
     expect(task.id).toBe('NEW-001');
+  });
+
+  describe('recordRun', () => {
+    const recurring = () =>
+      taskStore.createTask(
+        {
+          title: 'Daily watch',
+          priority: Priority.P1,
+          tags: [],
+          description: 'Check the stores.',
+          repeats: '0 7 * * *',
+        },
+        'Recurring',
+      );
+
+    it('stamps the last run and puts the result first in the history', () => {
+      const created = recurring();
+
+      taskStore.recordRun(created.id, 'all stores  on\n3.0.28', new Date('2026-11-24T07:05:00Z'));
+      const task = taskStore.recordRun(created.id, 'ok', new Date('2026-11-25T07:12:30Z'));
+
+      expect(task?.lastRun).toBe('2026-11-25 07:12');
+      expect(task?.runs).toEqual([
+        '2026-11-25 07:12 — ok',
+        '2026-11-24 07:05 — all stores on 3.0.28',
+      ]);
+      const onDisk = fs.readFileSync(path.join(tmpDir, 'RECURRING.md'), 'utf8');
+      expect(onDisk).toContain('**Last run:** 2026-11-25 07:12');
+      expect(onDisk).toContain('### Runs\n\n- 2026-11-25 07:12 — ok\n');
+    });
+
+    it('keeps only the latest MAX_RUNS entries', () => {
+      const created = recurring();
+      for (let day = 1; day <= MAX_RUNS + 3; day++) {
+        taskStore.recordRun(created.id, `run ${day}`, new Date(Date.UTC(2026, 10, day, 7)));
+      }
+
+      const runs = taskStore.getTasksByState('Recurring')[0].runs ?? [];
+
+      expect(runs).toHaveLength(MAX_RUNS);
+      expect(runs[0]).toContain(`run ${MAX_RUNS + 3}`);
+      expect(runs[MAX_RUNS - 1]).toContain('run 4');
+    });
+
+    it('records a run with no result as the timestamp alone', () => {
+      const created = recurring();
+
+      const task = taskStore.recordRun(created.id, '  ', new Date('2026-11-25T07:00:00Z'));
+
+      expect(task?.runs).toEqual(['2026-11-25 07:00']);
+    });
+
+    it('refuses a task without a schedule', () => {
+      const plain = taskStore.createTask(
+        { title: 'One-off', priority: Priority.P2, tags: [], description: '' },
+        'Backlog',
+      );
+
+      expect(() => taskStore.recordRun(plain.id, 'ok')).toThrow(/Repeats/);
+    });
+
+    it('returns null for an unknown task', () => {
+      expect(taskStore.recordRun('TASK-999', 'ok')).toBeNull();
+    });
   });
 });

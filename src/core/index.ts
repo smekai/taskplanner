@@ -1,7 +1,7 @@
 export { Task, Priority, isPriority } from './model/task.js';
 export { ParseWarning, ParseIssue, ParseResult } from './model/parseResult.js';
 export type { BoardSegment, TaskSegment, TextSegment } from './model/parseResult.js';
-export { TaskState, DEFAULT_STATES } from './model/state.js';
+export { TaskState, DEFAULT_STATES, RECURRING_STATE_NAME } from './model/state.js';
 export { TaskPlannerConfig, createDefaultConfig } from './model/config.js';
 export { ConfigManager } from './config/configManager.js';
 export {
@@ -20,7 +20,9 @@ export { renderWorkLogEntry } from './store/archive.js';
 export type { WorkLogEntryDraft } from './store/archive.js';
 export { renderBoardDigest } from './ai/boardDigest.js';
 export type { BoardDigestOptions, BoardDigestState } from './ai/boardDigest.js';
-export { TaskStore, isDeferredStateName } from './store/taskStore.js';
+export { TaskStore, isDeferredStateName, MAX_RUNS } from './store/taskStore.js';
+export { parseCron, isValidCron, previousFire, isDue } from './util/cron.js';
+export type { CronSchedule } from './util/cron.js';
 export {
   currentTimestamp,
   currentDate,

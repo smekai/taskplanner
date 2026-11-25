@@ -7,7 +7,9 @@ import {
   attributeOf,
   builtInFieldOf,
   isPlanHeadingLine,
+  isRunsHeadingLine,
   isSectionSeparatorLine,
+  runEntryOf,
   parsePriority,
   splitFieldGroup,
   taskHeadingOf,
@@ -26,7 +28,10 @@ interface Collected {
   attributes: Record<string, string>;
   description: string[];
   plan: string[];
+  runs: string[];
 }
+
+type Body = 'description' | 'plan' | 'runs';
 
 function assign(collected: Collected, segment: string): boolean {
   const builtIn = builtInFieldOf(segment);
@@ -91,9 +96,15 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
     return { errors, warnings };
   }
 
-  const collected: Collected = { fields: {}, attributes: {}, description: [], plan: [] };
+  const collected: Collected = {
+    fields: {},
+    attributes: {},
+    description: [],
+    plan: [],
+    runs: [],
+  };
   let inMetadata = true;
-  let inPlan = false;
+  let body: Body = 'description';
   let priorityLine = startLine;
 
   for (let i = 1; i < lines.length; i++) {
@@ -112,10 +123,19 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
     }
 
     if (isPlanHeadingLine(line)) {
-      inPlan = true;
+      body = 'plan';
       continue;
     }
-    (inPlan ? collected.plan : collected.description).push(line);
+    if (isRunsHeadingLine(line)) {
+      body = 'runs';
+      continue;
+    }
+    if (body === 'runs') {
+      const entry = runEntryOf(line);
+      if (entry !== undefined) collected.runs.push(entry);
+      continue;
+    }
+    collected[body].push(line);
   }
 
   const plan = collected.plan.join('\n').trim();
@@ -129,7 +149,10 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
     assignee: collected.fields.assignee,
     updatedAt: collected.fields.updatedAt,
     waitingUntil: collected.fields.waitingUntil,
+    ...(collected.fields.repeats !== undefined ? { repeats: collected.fields.repeats } : {}),
+    ...(collected.fields.lastRun !== undefined ? { lastRun: collected.fields.lastRun } : {}),
     ...(plan ? { plan } : {}),
+    ...(collected.runs.length > 0 ? { runs: collected.runs } : {}),
     ...(Object.keys(collected.attributes).length > 0 ? { attributes: collected.attributes } : {}),
   };
 

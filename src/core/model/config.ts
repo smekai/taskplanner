@@ -17,7 +17,7 @@ export interface TaskPlannerConfig {
 
 export function createDefaultConfig(): TaskPlannerConfig {
   return {
-    version: 3,
+    version: 4,
     taskplannerVersion: '',
     idPrefix: 'TASK',
     nextId: 1,

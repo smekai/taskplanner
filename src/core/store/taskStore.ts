@@ -23,6 +23,8 @@ export type TaskStoreListener = () => void;
 
 const DEFERRED_STATE_NAMES = new Set(['Done', 'Rejected']);
 
+export const MAX_RUNS = 7;
+
 function addAll(target: Set<string>, values: Iterable<string>): void {
   for (const value of values) {
     target.add(value);
@@ -491,6 +493,22 @@ export class TaskStore {
     );
     this.commit({ state: found.state, tasks });
     return updatedTask;
+  }
+
+  recordRun(taskId: string, result: string, now = new Date()): Task | null {
+    const found = this.locate(taskId);
+    if (!found) return null;
+    if (!found.task.repeats) {
+      throw new Error(
+        `${taskId} has no **Repeats:** schedule; only recurring tasks record runs.`,
+      );
+    }
+
+    const lastRun = currentTimestamp(now);
+    const summary = result.replace(/\s+/g, ' ').trim();
+    const entry = summary ? `${lastRun} — ${summary}` : lastRun;
+    const runs = [entry, ...(found.task.runs ?? [])].slice(0, MAX_RUNS);
+    return this.updateTask(taskId, { lastRun, runs });
   }
 
   private static hasChanges(task: Task, updates: Partial<Omit<Task, 'id'>>): boolean {

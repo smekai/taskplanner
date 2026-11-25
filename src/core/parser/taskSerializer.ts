@@ -1,6 +1,6 @@
 import { Task } from '../model/task.js';
 import { BoardSegment } from '../model/parseResult.js';
-import { endsTaskSection, isReservedAttributeKey } from './grammar.js';
+import { containsRunsHeading, endsTaskSection, isReservedAttributeKey } from './grammar.js';
 
 const GROUP_JOIN = ' | ';
 const UNUSABLE_KEY_CHARACTERS = /[|:*]/;
@@ -16,7 +16,16 @@ function bodyOrThrow(field: 'description' | 'plan', value: string): string {
       `Task ${field} contains a line that would end the task section; remove the separator or heading before serializing.`,
     );
   }
+  if (containsRunsHeading(body)) {
+    throw new Error(
+      `Task ${field} contains a "### Runs" heading, which is reserved for the run history; rename the heading before serializing.`,
+    );
+  }
   return body;
+}
+
+function runLines(runs: string[] | undefined): string[] {
+  return (runs ?? []).map(oneLine).filter(Boolean);
 }
 
 function attributeLineOrThrow(rawKey: string, rawValue: string): string {
@@ -51,6 +60,8 @@ export function serializeTask(task: Task): string {
 
   if (task.updatedAt) lines.push(`**Updated:** ${oneLine(task.updatedAt)}`);
   if (task.waitingUntil) lines.push(`**Waiting until:** ${oneLine(task.waitingUntil)}`);
+  if (task.repeats) lines.push(`**Repeats:** ${oneLine(task.repeats)}`);
+  if (task.lastRun) lines.push(`**Last run:** ${oneLine(task.lastRun)}`);
   for (const [key, value] of Object.entries(task.attributes ?? {})) {
     lines.push(attributeLineOrThrow(key, value));
   }
@@ -60,6 +71,10 @@ export function serializeTask(task: Task): string {
   }
   if (task.plan?.trim()) {
     lines.push('', '### Plan', '', bodyOrThrow('plan', task.plan));
+  }
+  const runs = runLines(task.runs);
+  if (runs.length > 0) {
+    lines.push('', '### Runs', '', ...runs.map((run) => `- ${run}`));
   }
 
   return lines.join('\n');
@@ -108,8 +123,11 @@ function sameTask(a: Task, b: Task): boolean {
     a.assignee === b.assignee &&
     a.updatedAt === b.updatedAt &&
     a.waitingUntil === b.waitingUntil &&
+    a.repeats === b.repeats &&
+    a.lastRun === b.lastRun &&
     (a.plan ?? '') === (b.plan ?? '') &&
     sameTags(a.tags, b.tags) &&
+    sameTags(a.runs ?? [], b.runs ?? []) &&
     sameAttributes(a.attributes, b.attributes)
   );
 }
