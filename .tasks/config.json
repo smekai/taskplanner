@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "taskplannerVersion": "3.0.39",
+  "taskplannerVersion": "3.0.40",
   "upgradeChecks": [
     "3.0"
   ],

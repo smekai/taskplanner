@@ -1,5 +1,30 @@
 # Done
 
+## TASK-092: 3.1 phase E: skip writing a state file when nothing changed
+**Priority:** P1 | **Tags:** core | **Epic:** 3.1
+**Updated:** 2026-11-25 20:05
+
+Phase E of TASK-088. This is part 1 of TASK-064, split out; parts 2 and 3 (append, cut-and-append) stay in TASK-064. Independent of the other phases.
+
+`serializeBoard` always returns a string and `commitWrites` always writes it, even when the result is byte-identical to what is on disk. Compare first and skip the write and rename when they match. That removes a write from every no-op: `updateTask` with identical values, a reorder that lands on the same index, `archiveCompleted` with nothing old enough. It matters more once a daily `record_run` touches the board.
+
+- Change in `FileStore.prepareState` / `commitWrites`.
+- Tests: an unchanged write leaves the file's mtime untouched, and the `roundTrip.test.ts` byte identity still passes.
+- Changelog entry.
+
+### Plan
+
+Done, with no code change: TASK-077 (commit ef92791, the 3.0 review fixes) already delivered this.
+- `FileStore.prepareState` marks a write `isUnchanged` when the serialized content equals the file, and `commitWrites` skips it.
+- `test/core/fileStore.test.ts` covers it: an unchanged write leaves the mtime and bytes alone, a changed task is still written, a missing file is still created. Removing the guard turns the first test red (checked 2026-11-25).
+- The other write paths write nothing unchanged:
+  - the config is saved only on migration or a new ID;
+  - the work log and archive are written only when entries move;
+  - `updateTask` returns early without changes.
+- CHANGELOG already has it under TASK-077, so no new line.
+- TASK-092 was split from TASK-064's description, which predated ef92791.
+
+---
 ## TASK-090: 3.1 phase C: show recurring tasks in every view
 **Priority:** P0 | **Tags:** feature, ui | **Epic:** 3.1
 **Updated:** 2026-11-25 18:12
