@@ -15,6 +15,12 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-092 — 2026-11-25
+**What:** Closed without code: skipping an unchanged state-file write already shipped in 3.0 (TASK-077, ef92791) with a test that fails when the guard is removed.
+**Outcome:** TASK-064 keeps parts 2 and 3; the 3.1 epic lists phase E as already delivered.
+
+---
+
 ## TASK-090 — 2026-11-25
 **What:** Recurring tasks in every view: due and schedule on cards and tabs (Claude pane, band, MCP board, VS Code), run history in task details, a schedule field in VS Code, and agent instructions and skills for `taskplanner_record_run`.
 **Decisions:** Columns and tabs already came from the configured states, and the band never focused a recurring task, so no layout changed. `due` is a required view-model field so the compiler finds every view. The VS Code schedule saves on change, not on each keystroke.

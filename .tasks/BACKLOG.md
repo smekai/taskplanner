@@ -53,19 +53,6 @@ Phase G of TASK-088. Last in the epic, after phases A–F, including the code qu
 Then TASK-085 (LinkedIn post) can start.
 
 ---
-## TASK-092: 3.1 phase E: skip writing a state file when nothing changed
-**Priority:** P1 | **Tags:** core | **Epic:** 3.1
-**Updated:** 2026-11-25 10:14
-
-Phase E of TASK-088. This is part 1 of TASK-064, split out; parts 2 and 3 (append, cut-and-append) stay in TASK-064. Independent of the other phases.
-
-`serializeBoard` always returns a string and `commitWrites` always writes it, even when the result is byte-identical to what is on disk. Compare first and skip the write and rename when they match. That removes a write from every no-op: `updateTask` with identical values, a reorder that lands on the same index, `archiveCompleted` with nothing old enough. It matters more once a daily `record_run` touches the board.
-
-- Change in `FileStore.prepareState` / `commitWrites`.
-- Tests: an unchanged write leaves the file's mtime untouched, and the `roundTrip.test.ts` byte identity still passes.
-- Changelog entry.
-
----
 ## TASK-091: 3.1 phase D: the daily release watch records its runs on the board
 **Priority:** P1 | **Tags:** setup | **Epic:** 3.1
 **Updated:** 2026-11-25 10:14
@@ -79,7 +66,7 @@ Phase D of TASK-088: dogfooding. Starts after TASK-087 and phase B (the `taskpla
 ---
 ## TASK-088: TaskPlanner 3.1 release: recurring tasks
 **Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
-**Updated:** 2026-11-25 12:20
+**Updated:** 2026-11-25 20:05
 
 Scope for 3.1. Some work never reaches Done. The daily store-status watch (Claude directory, Cursor Marketplace, Codex directory, VS Code Marketplace, Open VSX, npm) runs every day as the `taskplanner-release-watch` scheduled task, and the board doesn't know about it. 3.1 puts that kind of work on the board.
 
@@ -92,10 +79,10 @@ Scope for 3.1. Some work never reaches Done. The daily store-status watch (Claud
 
 ### Phases
 - A. TASK-087: core. The state, the fields, `isDue` and `recordRun`. Done (PR #40).
-- B. TASK-089: MCP tools, including `taskplanner_record_run`. Starts after A.
-- C. TASK-090: views (Claude pane and band, MCP-app board, VS Code) and agent instructions. Starts after A; can run alongside B.
+- B. TASK-089: MCP tools, including `taskplanner_record_run`. Done (PR #42).
+- C. TASK-090: views (Claude pane and band, MCP-app board, VS Code) and agent instructions. Done (PR #43).
 - D. TASK-091: the daily release watch records its runs on the board. Starts after B.
-- E. TASK-092: skip the write when nothing changed (TASK-064 part 1). Independent.
+- E. TASK-092: skip the write when nothing changed. Already delivered in 3.0 by TASK-077; closed without code.
 - F. TASK-094: code quality pass with `/code-quality`. Starts after A–E.
 - G. TASK-093: docs and release on every store. Last.
 
@@ -182,7 +169,7 @@ Do not take this on for its own sake — if TASK-021 is dropped, the hand-writte
 ---
 ## TASK-064: Write only the part of a state file that changed
 **Priority:** P2 | **Tags:** core
-**Updated:** 2026-11-25 10:15
+**Updated:** 2026-11-25 20:06
 
 Every board write rewrites the whole state file. `serializeBoard` copies the bytes of unchanged tasks verbatim, but it still copies them, and `writeFileAtomic` then writes the file from scratch.
 
@@ -198,11 +185,7 @@ I underestimated this earlier by reasoning about a 40 KB file. Moving one task t
 
 ### 1. Do not write when nothing changed
 
-**Split out as TASK-092 (epic 3.1).** This task keeps parts 2 and 3.
-
-`serializeBoard` always returns a string and `commitWrites` always writes it, even when the result is byte-identical to what is on disk. Comparing and skipping is a few lines, changes no behaviour, and removes a write plus a rename from every operation that turned out to be a no-op — `updateTask` with identical values, a reorder that resolves to the same index, `archiveCompleted` when nothing is old enough.
-
-No trade-off. Do this first and independently.
+**Done in 3.0 by TASK-077** (commit ef92791): `prepareState` marks a byte-identical result `isUnchanged` and `commitWrites` skips it, covered in `test/core/fileStore.test.ts`. TASK-092 confirmed it. This task keeps parts 2 and 3.
 
 ### 2. Append a section instead of rewriting the file
 
@@ -240,7 +223,6 @@ So a person could drag a task into place, edit it, and watch it jump to the bott
 ## Verification
 
 - The byte-identity invariant in `roundTrip.test.ts` must keep passing: whatever the write path does, reading a board and writing it back unchanged returns the same bytes.
-- A test that an unchanged write touches the file's mtime not at all.
 - For part 3, if it is taken: a test that an interruption between the append and the cut leaves the task findable rather than lost.
 
 ---
