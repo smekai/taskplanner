@@ -83,6 +83,24 @@ Done:
 - Listing in Anthropic's directory is up to their review; the daily `taskplanner-release-watch` reports when it appears. New findings get a new task.
 
 ---
+## TASK-086: README sells the product; install details move to docs/INSTALL.md
+**Priority:** P0 | **Tags:** docs
+**Updated:** 2026-11-24 10:10
+
+The root README should hook a visitor: what TaskPlanner is, the GIF, why it helps, how it works and where it runs. Install and usage steps for every host (Claude, Codex, Cursor, VS Code, local MCP) move to `docs/INSTALL.md`; the extension gets its own Marketplace README.
+
+Say plainly that neither the Claude plugin (Anthropic's directory) nor the Cursor plugin (Cursor Marketplace) can be installed from the official marketplace yet, and give the working alternative for each.
+
+### Plan
+
+Done:
+- Root README is a product page: pitch and GIF, Why, How it works with a task example, a "Works with" table that says Claude (Anthropic's directory) and Cursor (Cursor Marketplace) aren't installable from the official marketplace yet, the usage table, short Contributing/License.
+- `docs/INSTALL.md` holds every host's steps: Claude repository marketplace, Cursor via the Open VSX extension or a manual copy of `views/cursor`, Codex, VS Code, any MCP host (with `TASKPLANNER_WORKSPACE_ROOT`), plus first steps, task format and agent workflow.
+- `views/vscode/README.md` is the Marketplace page (views, setup menu, settings) with absolute URLs; `scripts/package-vsix.js` passes it as `readmePath` (forward slashes; vsce matches packaged paths), and `.vscodeignore` re-includes it and drops the root README to avoid a case clash.
+- Stats table's Claude row links to `docs/INSTALL.md`; Claude and Cursor READMEs say the same about marketplaces.
+- Not verified: that the Open VSX extension registers the plugin in current Cursor.
+
+---
 ## TASK-084: README: Claude demo animation, install steps per host, daily stats PR
 **Priority:** P0 | **Tags:** docs, ci
 **Updated:** 2026-11-24 09:10

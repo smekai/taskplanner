@@ -18,6 +18,7 @@ vitest.config.ts
 .tasks/**
 example/**
 CONTRIBUTING.md
+README.md
 agent-transcripts/**
 mcp/**
 scripts/**
@@ -35,6 +36,7 @@ views/**
 !views/cursor/ui/**
 !views/cursor/mcp.json
 !views/cursor/README.md
+!views/vscode/README.md
 
 # Repository and agent configuration, not part of the extension
 .claude/**

@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-086 — 2026-11-24
+**What:** Product-first README; install and usage details moved to `docs/INSTALL.md` and an extension README for the marketplaces.
+**Decisions:** Claude and Cursor are marked "not in the official marketplace yet" with alternatives (repository marketplace; Open VSX extension or manual copy).
+**Outcome:** Cursor auto-registration through the extension not re-verified in current Cursor.
+
+---
+
 ## TASK-071 — 2026-11-24
 **What:** Epic 3.0 closed: phases A–E (TASK-072…076) are done and 3.0 shipped as 3.0.12.
 **Outcome:** The announcement continues in TASK-085.

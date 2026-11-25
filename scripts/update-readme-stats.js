@@ -27,7 +27,7 @@ function statsRows(stats) {
   if (claude && typeof claude === 'object' && isVersion(claude.version)) {
     rows.push(['Claude plugin directory', claude.version, 'listed']);
   } else if (isVersion(stats.expected)) {
-    rows.push(['Claude Code plugin ([repository marketplace](#claude-code-and-claude-desktop))', stats.expected, 'installs from `main`']);
+    rows.push(['Claude Code plugin ([repository marketplace](docs/INSTALL.md#claude-code-and-claude-desktop))', stats.expected, 'installs from `main`']);
   }
   if (codex && typeof codex === 'object' && isVersion(codex.version)) {
     const label = codex.url ? `[Codex plugin directory](${codex.url})` : 'Codex plugin directory';
