@@ -201,6 +201,20 @@ describe('library consumer surface', () => {
       expect(digest).not.toContain('waiting until');
     });
 
+    it('marks a recurring task with its schedule, and as due only once it has fired since the last run', () => {
+      const now = { includeTasks: true, now: new Date('2026-11-25T09:00:00.000Z') };
+      const recurring = (lastRun: string) => [
+        { name: 'Recurring', tasks: [task({ repeats: '0 7 * * *', lastRun })] },
+      ];
+
+      expect(renderBoardDigest(recurring('2026-11-24 07:05'), now)).toContain(
+        '🔁 0 7 * * * UTC, due',
+      );
+      const done = renderBoardDigest(recurring('2026-11-25 07:05'), now);
+      expect(done).toContain('🔁 0 7 * * * UTC');
+      expect(done).not.toContain('due');
+    });
+
     it('includes a one-line description excerpt only when a limit is given', () => {
       const states = [{ name: 'Backlog', tasks: [task({ description: 'Long\nbody text.' })] }];
 

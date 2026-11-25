@@ -118,15 +118,16 @@ For clients that read a JSON config, resolve the path once and write it in:
 
 ## Tools
 
-| Tool                       | Purpose                                                          |
-| -------------------------- | ---------------------------------------------------------------- |
-| `taskplanner_board`        | Board overview: task counts per state, optionally every task.    |
-| `taskplanner_list`         | List tasks, filtered by state and/or a text query.               |
-| `taskplanner_get`          | Read one task by ID, including its `### Plan`.                   |
-| `taskplanner_create`       | Create a task in a given state.                                  |
-| `taskplanner_update`       | Update title, description, priority, tags, assignee, or plan.    |
-| `taskplanner_move`         | Move a task to another state.                                    |
-| `taskplanner_board_visual` | Board as an MCP App UI resource; the board refreshes through it. |
+| Tool                       | Purpose                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `taskplanner_board`        | Board overview: task counts per state, optionally every task.                   |
+| `taskplanner_list`         | List tasks, filtered by state, a text query, or `due: true` for recurring work. |
+| `taskplanner_get`          | Read one task by ID, including its `### Plan` and run history.                  |
+| `taskplanner_create`       | Create a task in a given state; with `repeats` (cron, UTC) it is recurring.     |
+| `taskplanner_update`       | Update title, description, priority, tags, assignee, schedule, or plan.         |
+| `taskplanner_move`         | Move a task to another state.                                                   |
+| `taskplanner_record_run`   | Record a run of a recurring task: last run time and a one-line result.          |
+| `taskplanner_board_visual` | Board as an MCP App UI resource; the board refreshes through it.                |
 
 Every tool accepts the optional `workspace_root` argument described above.
 

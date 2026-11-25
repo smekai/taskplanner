@@ -1,5 +1,6 @@
 import { Task } from '../model/task.js';
 import { isWaiting } from '../util/time.js';
+import { isDue } from '../util/cron.js';
 
 export interface BoardDigestState {
   name: string;
@@ -33,6 +34,10 @@ function digestLine(task: Task, options: BoardDigestOptions): string {
   if (task.assignee) parts.push(`@${oneLine(task.assignee)}`);
   if (isWaiting(task.waitingUntil, options.now)) {
     parts.push(`⏳ waiting until ${task.waitingUntil}`);
+  }
+  if (task.repeats) {
+    const due = isDue(task.repeats, task.lastRun, options.now) ? ', due' : '';
+    parts.push(`🔁 ${oneLine(task.repeats)} UTC${due}`);
   }
   const description = excerpt(task.description, options.descriptionLimit ?? 0);
   return description ? `${parts.join(' ')} — ${description}` : parts.join(' ');

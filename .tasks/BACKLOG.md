@@ -63,21 +63,6 @@ Phase C of TASK-088. Starts after TASK-087 (core). It can run alongside phase B.
 Check visually in the Claude pane. Changelog entry.
 
 ---
-## TASK-089: 3.1 phase B: MCP tools for recurring tasks
-**Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
-**Updated:** 2026-11-25 10:14
-
-Phase B of TASK-088. Starts after TASK-087 (core).
-
-- `taskplanner_create` and `taskplanner_update` accept `repeats`. Reject an invalid cron expression with a clear error.
-- New tool `taskplanner_record_run(task_id, result)` that calls `recordRun`. It is the only way a scheduler writes back.
-- `formatTask` shows `Repeats`, `Last run` and due/overdue.
-- `taskplanner_list` can filter for due recurring tasks.
-- The MCP smoke test covers create recurring → due → record_run → not due.
-
-Files: `mcp/src/server.ts`, `scripts/smoke-test-mcp-server.js`. Changelog entry.
-
----
 ## TASK-088: TaskPlanner 3.1 release: recurring tasks
 **Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
 **Updated:** 2026-11-25 10:14

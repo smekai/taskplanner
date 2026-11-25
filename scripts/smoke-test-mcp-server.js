@@ -236,7 +236,16 @@ function createScratchWorkspace(tempRoot) {
 
 // ── assertions ──────────────────────────────────────────
 
-const EXPECTED_TOOLS = ['create', 'update', 'move', 'board', 'list', 'get', 'board_visual'];
+const EXPECTED_TOOLS = [
+  'create',
+  'update',
+  'move',
+  'record_run',
+  'board',
+  'list',
+  'get',
+  'board_visual',
+];
 const READ_ONLY_TOOLS = ['board', 'list', 'get', 'board_visual'];
 const MODIFYING_TOOLS = ['move', 'update'];
 const tool = (suffix) => `taskplanner_${suffix}`;
@@ -270,6 +279,11 @@ function checkTools(tools) {
     const ok = hints?.readOnlyHint === false && hints?.destructiveHint === true;
     expect(ok, `${tool(suffix)} is missing modifying/destructive annotations.`);
   }
+  const appendHints = byName.get(tool('record_run'))?.annotations;
+  expect(
+    appendHints?.readOnlyHint === false && appendHints?.destructiveHint === false,
+    `${tool('record_run')} must be marked as writing but not destructive.`,
+  );
   log(`tools/list OK (${tools.length} tools).`);
 }
 
@@ -464,7 +478,7 @@ async function checkCounterAllocation(serverPath, installDir, tempRoot) {
     });
     const migrated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     expect(
-      migrated.nextId === 2 && migrated.version === 3,
+      migrated.nextId === 2 && migrated.version === 4,
       'Move did not persist the observed ID and migration.',
     );
     expect(migrated.sortBy === undefined, 'Move retained the legacy sort setting.');
@@ -485,6 +499,67 @@ async function checkCounterAllocation(serverPath, installDir, tempRoot) {
     log(
       'Counter OK (read-only CRLF read, migrated move, targeted create without unrelated reads).',
     );
+  });
+}
+
+async function checkRecurring(serverPath, installDir, tempRoot) {
+  const workspace_root = path.join(tempRoot, 'recurring-board');
+  const tasksDir = path.join(workspace_root, '.tasks');
+  fs.mkdirSync(tasksDir, { recursive: true });
+  // A 3.0 board: the Recurring state has to come from the migration, not from this fixture.
+  fs.writeFileSync(path.join(tasksDir, 'config.json'), JSON.stringify({
+    version: 3,
+    idPrefix: 'TASK',
+    nextId: 1,
+    states: [
+      { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
+      { name: 'Done', fileName: 'DONE.md', order: 1 },
+    ],
+  }));
+  fs.writeFileSync(path.join(tasksDir, 'BACKLOG.md'), '# Backlog\n\n');
+  const read = (name) => fs.readFileSync(path.join(tasksDir, name), 'utf8');
+  const raw = (c, suffix, args) =>
+    c.request('tools/call', { name: tool(suffix), arguments: { workspace_root, ...args } });
+
+  await withServer({ args: [serverPath], cwd: installDir, label: 'recurring' }, async (c) => {
+    const refused = await raw(c, 'create', { title: 'Bad', repeats: 'every morning' });
+    expect(refused.isError, 'create accepted "every morning" as a schedule.');
+
+    const created = await c.callTool(tool('create'), {
+      workspace_root,
+      title: 'Daily store watch',
+      repeats: '0 7 * * *',
+    });
+    const { task } = created.structuredContent;
+    expect(task.state === 'Recurring', `A task with repeats landed in ${task.state}.`);
+    expect(task.due === true, 'A recurring task that never ran is not due.');
+    expect(read('RECURRING.md').includes('**Repeats:** 0 7 * * *'), 'RECURRING.md lacks Repeats.');
+
+    const dueBefore = await c.callTool(tool('list'), { workspace_root, due: true });
+    expect(dueBefore.structuredContent.totalCount === 1, 'list due:true missed the due task.');
+
+    const recorded = await c.callTool(tool('record_run'), {
+      workspace_root,
+      task_id: task.id,
+      result: 'all stores current',
+    });
+    const after = recorded.structuredContent.task;
+    expect(after.due === false, 'The task is still due right after a run.');
+    expect(after.runs?.[0]?.endsWith('— all stores current'), `Runs: ${JSON.stringify(after.runs)}`);
+    expect(read('RECURRING.md').includes('### Runs'), 'RECURRING.md lacks the Runs history.');
+
+    const dueAfter = await c.callTool(tool('list'), { workspace_root, due: true });
+    expect(dueAfter.structuredContent.totalCount === 0, 'list due:true still lists a run task.');
+
+    const plain = await c.callTool(tool('create'), { workspace_root, title: 'One-off' });
+    const notRecurring = await raw(c, 'record_run', { task_id: plain.structuredContent.task.id });
+    expect(notRecurring.isError, 'record_run accepted a task without a schedule.');
+
+    await c.callTool(tool('update'), { workspace_root, task_id: task.id, repeats: '' });
+    const cleared = await c.callTool(tool('get'), { workspace_root, task_id: task.id });
+    expect(cleared.structuredContent.task.repeats === undefined, 'repeats "" did not clear it.');
+
+    log('recurring OK (migrated state, due, record_run, due filter, refusals, clearing).');
   });
 }
 
@@ -533,6 +608,7 @@ async function main() {
     await checkToolInputRootAndAssignee(serverPath, installDir, scratch);
     await checkCounterAllocation(serverPath, installDir, tempRoot);
     await checkDiagnostics(serverPath, installDir, tempRoot);
+    await checkRecurring(serverPath, installDir, tempRoot);
     if (!inPlace) {
       await checkBinLauncher(installDir, scratch);
       checkLibraryEntry(installDir, scratch);

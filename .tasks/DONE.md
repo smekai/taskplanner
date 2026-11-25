@@ -1,5 +1,40 @@
 # Done
 
+## TASK-089: 3.1 phase B: MCP tools for recurring tasks
+**Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
+**Updated:** 2026-11-25 12:55
+
+Phase B of TASK-088. Starts after TASK-087 (core).
+
+- `taskplanner_create` and `taskplanner_update` accept `repeats`. Reject an invalid cron expression with a clear error.
+- New tool `taskplanner_record_run(task_id, result)` that calls `recordRun`. It is the only way a scheduler writes back.
+- `formatTask` shows `Repeats`, `Last run` and due/overdue.
+- `taskplanner_list` can filter for due recurring tasks.
+- The MCP smoke test covers create recurring → due → record_run → not due.
+
+Files: `mcp/src/server.ts`, `scripts/smoke-test-mcp-server.js`. Changelog entry.
+
+### Plan
+
+Done:
+- **Create and update** (`mcp/src/server.ts`) take `repeats`, checked with `isValidCron`.
+  - An invalid schedule returns `isError` with the expected format.
+  - An empty string on update clears it.
+  - A create with `repeats` and no state goes to Recurring, falling back to Backlog on boards without it.
+- **`taskplanner_record_run(task_id, result?)`** wraps `TaskStore.recordRun`. It is annotated as writing but not destructive. It refuses an unknown task or one without a schedule, and tells the caller how to fix it.
+- **Output:**
+  - `formatTask` shows `Repeats … UTC (due)`, `Last run` and the Runs list.
+  - `structuredTask` gets `due`.
+  - `taskplanner_list` takes `due: true`.
+  - The board digest in core marks recurring tasks (`🔁 0 7 * * * UTC, due`).
+- **Smoke test:**
+  - Covers 8 tools and the `record_run` annotations.
+  - A recurring flow on a 3.0 board: migrated state, an invalid schedule refused, due → record_run → not due, the due filter, record_run refused on a one-off task, clearing the schedule.
+  - Fixed: it still expected config schema 3 after TASK-087.
+- **Docs:** the `mcp/README.md` tool table and the Codex README tool list. Agent instructions and skills come in TASK-090.
+- **Checks:** `release:check` green (487 tests, packed smoke test).
+
+---
 ## TASK-087: 3.1 phase A: recurring tasks in core
 **Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
 **Updated:** 2026-11-25 12:07
