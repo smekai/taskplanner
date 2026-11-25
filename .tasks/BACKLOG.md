@@ -53,17 +53,6 @@ Phase G of TASK-088. Last in the epic, after phases A–F, including the code qu
 Then TASK-085 (LinkedIn post) can start.
 
 ---
-## TASK-091: 3.1 phase D: the daily release watch records its runs on the board
-**Priority:** P1 | **Tags:** setup | **Epic:** 3.1
-**Updated:** 2026-11-25 10:14
-
-Phase D of TASK-088: dogfooding. Starts after TASK-087 and phase B (the `taskplanner_record_run` tool).
-
-- Create a recurring task "Daily store-status watch" in this repo's Recurring state with `Repeats: 0 7 * * *`. That is 10:07 local in UTC; the scheduled task runs at `0 10 * * *` local time.
-- Change the `taskplanner-release-watch` scheduled task prompt (`~/.claude/scheduled-tasks/taskplanner-release-watch/SKILL.md`, outside the repo, so ask first) to finish with `taskplanner_record_run` and a one-line result: versions per store, plus anything that changed.
-- After a few days, check that the board shows the watch as not due after each run and as due when a run is missed.
-
----
 ## TASK-088: TaskPlanner 3.1 release: recurring tasks
 **Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
 **Updated:** 2026-11-25 20:05
