@@ -141,16 +141,23 @@ These are deliberate in this repo. Do not report them, and do not "fix" them:
 
 ### Phase 1: analyse
 
+Phase 1 changes no tracked file. Never run `npm run build` in the working tree here: `esbuild.js` rewrites committed files (the plugin bundles in `views/*/dist/`, their `ui/`, and `views/claude/hooks/register.js`). The analysis covers committed `HEAD`, so commit or stash first.
+
 #### 1. Baseline (stop if red)
 
+These only read the tree:
+
 ```bash
-npm run build && npm run typecheck && npm test && npm run lint
+npm run typecheck && npm test && npm run lint
 ```
 
-Record the test count and the bundle sizes, so phase 2 can prove it did not grow them:
+Record the test count, and the bundle sizes from a build in a throwaway worktree of `HEAD`, so phase 2 can prove it did not grow them:
 
 ```bash
-wc -c dist/extension.js mcp/dist/mcp-server.js views/claude/hooks/register.js
+base="$(mktemp -d)/baseline"
+git worktree add --detach "$base" HEAD
+(cd "$base" && npm ci && npm run build && wc -c dist/extension.js mcp/dist/mcp-server.js views/claude/hooks/register.js)
+git worktree remove --force "$base"
 ```
 
 #### 2. Measure
@@ -228,7 +235,7 @@ The measurements find candidates; this pass finds what no tool sees. Go through 
 
 #### 5. Review the release diff for behaviour
 
-Run `/code-review` on `git diff <last tag>...HEAD` for correctness, and `/simplify` for reuse and simplification candidates. Take their findings into the same report; do not let them edit yet.
+Run `/code-review` on `git diff <last tag>...HEAD` for correctness. It only reports unless given `--fix`, so never pass that here. Take its findings into the same report. Simplification candidates come from step 4, not from `/simplify`: that command applies its fixes, so it belongs to phase 2.
 
 #### 6. Report
 
@@ -246,7 +253,8 @@ Stop here and ask the user which groups to do.
 - Smallest correct change, and replace rather than accumulate: a fix that moves logic deletes it from where it was, with its now-redundant tests. Account for the net line count of each commit.
 - Behaviour stays the same: no new features, no board format change, no public API change in `src/core/index.ts` (a removal there is a breaking change and needs its own task).
 - Before refactoring code with no test, add one written to Part 2 and mutation-check it. A test you touch is brought up to that standard.
-- After each commit: `npm run build && npm run typecheck && npm test && npm run lint`, plus `npm run smoke:mcp-server` when `mcp/` or core changed.
+- `/simplify` may run here, on the diff of an accepted fix. Its edits are reviewed like any other change and stay within the accepted finding.
+- After each commit: `npm run build && npm run typecheck && npm test && npm run lint`, plus `npm run smoke:mcp-server` when `mcp/` or core changed. Here the build belongs in the working tree: the regenerated bundles are committed with the change.
 - At the end, compare with the baseline: the same or more meaningful tests (a deleted worthless test is fine; say which), bundle sizes not larger (say so if one is), lint warnings not more.
 - A decision worth defending later goes to the task's Plan and the WORK_LOG `**Decisions:**` line (A8), not into a comment.
 - Trim the task's `### Plan` to what was done and what was deferred (with the task IDs created for it), and add a CHANGELOG line only if users notice something (for example a smaller bundle or a fixed edge case).
