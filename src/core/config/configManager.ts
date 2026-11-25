@@ -7,6 +7,7 @@ import { normalizeStates } from './configStates.js';
 const CONFIG_SCHEMA_VERSION = 4;
 const RECURRING_SCHEMA_VERSION = 4;
 const UNVERSIONED_SCHEMA_VERSION = 1;
+const RECURRING_FILE_NAME = 'RECURRING.md';
 
 export interface ConfigDiagnostic {
   message: string;
@@ -138,11 +139,17 @@ export class ConfigManager {
     // WHY: gated on the schema version so a board that removed Recurring after migrating keeps it removed.
     if (this.config.version >= RECURRING_SCHEMA_VERSION) return false;
     const states = this.config.states;
-    if (states.some((s) => s.name === RECURRING_STATE_NAME || s.fileName === 'RECURRING.md')) {
+    // WHY: Windows and macOS file systems ignore case, so recurring.md and RECURRING.md are one file.
+    const taken = (value: string, wanted: string) => value.toLowerCase() === wanted.toLowerCase();
+    if (
+      states.some(
+        (s) => taken(s.name, RECURRING_STATE_NAME) || taken(s.fileName, RECURRING_FILE_NAME),
+      )
+    ) {
       return false;
     }
     const order = Math.max(-1, ...states.map((s) => s.order)) + 1;
-    states.push({ name: RECURRING_STATE_NAME, fileName: 'RECURRING.md', order });
+    states.push({ name: RECURRING_STATE_NAME, fileName: RECURRING_FILE_NAME, order });
     return true;
   }
 

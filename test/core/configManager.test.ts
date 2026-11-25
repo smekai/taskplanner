@@ -98,6 +98,17 @@ describe('ConfigManager', () => {
       expect(configManager.load().states.map((s) => s.name)).not.toContain('Recurring');
     });
 
+    // On Windows and macOS RECURRING.md would be the same file as an existing recurring.md.
+    it.each([
+      { name: 'Routines', fileName: 'recurring.md', order: 2 },
+      { name: 'recurring', fileName: 'ROUTINES.md', order: 2 },
+    ])('is not added when the board already has $name in $fileName', (existing) => {
+      const own = [...CUSTOM, existing];
+      write({ version: 3, states: own });
+
+      expect(configManager.load().states).toEqual(own);
+    });
+
     it('is not added twice when a board already has one', () => {
       const own = [...CUSTOM, { name: 'Recurring', fileName: 'ROUTINES.md', order: 2 }];
       write({ version: 3, states: own });

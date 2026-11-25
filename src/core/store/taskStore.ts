@@ -499,9 +499,7 @@ export class TaskStore {
     const found = this.locate(taskId);
     if (!found) return null;
     if (!found.task.repeats) {
-      throw new Error(
-        `${taskId} has no **Repeats:** schedule; only recurring tasks record runs.`,
-      );
+      throw new Error(`${taskId} has no **Repeats:** schedule; only recurring tasks record runs.`);
     }
 
     const lastRun = currentTimestamp(now);

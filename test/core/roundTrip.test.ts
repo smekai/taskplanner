@@ -283,7 +283,7 @@ describe('recurring fields', () => {
 
   it('reads a run history without a plan, right after the description', () => {
     const [parsed] = parseTasks(
-      '## TASK-001: T\n**Priority:** P1\n\nBody.\n\n### Runs\n\n- one\n\n---\n',
+      '## TASK-001: T\n**Priority:** P1\n**Repeats:** @daily\n\nBody.\n\n### Runs\n\n- one\n\n---\n',
     ).tasks;
 
     expect(parsed.description).toBe('Body.');
@@ -300,10 +300,56 @@ describe('recurring fields', () => {
     expect(parseTasks(written).tasks[0].runs).toHaveLength(3);
   });
 
-  // A description holding the heading would come back as run history and lose its text.
-  it.each(['description', 'plan'] as const)('refuses a ### Runs heading inside the %s', (field) => {
-    expect(() => serializeTask(task({ [field]: 'Text.\n\n### Runs\n\n- fake' }))).toThrow(
-      /### Runs/,
+  // In a recurring task the heading would come back as run history and its text would be lost.
+  it.each(['description', 'plan'] as const)(
+    'refuses a ### Runs heading inside the %s of a recurring task',
+    (field) => {
+      expect(() =>
+        serializeTask(task({ repeats: '@daily', [field]: 'Text.\n\n### Runs\n\n- fake' })),
+      ).toThrow(/### Runs/);
+    },
+  );
+});
+
+// Boards written before 3.1 may use "### Runs" as an ordinary heading; only Repeats makes it run history.
+describe('### Runs in a task that does not repeat', () => {
+  const EXISTING = [
+    '# Backlog',
+    '',
+    '## TASK-004: Benchmark the parser',
+    '**Priority:** P2',
+    '',
+    'Measure it.',
+    '',
+    '### Runs',
+    '',
+    '- cold start on CI',
+    '  with the cache disabled',
+    '',
+    '---',
+    '',
+  ].join('\n');
+
+  it('stays part of the description', () => {
+    const [parsed] = parseTasks(EXISTING).tasks;
+
+    expect(parsed.runs).toBeUndefined();
+    expect(parsed.description).toBe(
+      'Measure it.\n\n### Runs\n\n- cold start on CI\n  with the cache disabled',
     );
+  });
+
+  it('survives an edit to another field unchanged', () => {
+    const { tasks, segments } = parseTasks(EXISTING);
+
+    const written = serializeBoard(segments, [{ ...tasks[0], priority: Priority.P1 }]);
+
+    expect(written).toBe(EXISTING.replace('**Priority:** P2', '**Priority:** P1'));
+  });
+
+  it('is accepted on write', () => {
+    expect(() =>
+      serializeTask(task({ description: 'Text.\n\n### Runs\n\n- notes' })),
+    ).not.toThrow();
   });
 });
