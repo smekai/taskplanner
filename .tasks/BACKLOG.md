@@ -77,26 +77,6 @@ Phase D of TASK-088: dogfooding. Starts after TASK-087 and phase B (the `taskpla
 - After a few days, check that the board shows the watch as not due after each run and as due when a run is missed.
 
 ---
-## TASK-090: 3.1 phase C: show recurring tasks in every view
-**Priority:** P0 | **Tags:** feature, ui | **Epic:** 3.1
-**Updated:** 2026-11-25 10:14
-
-Phase C of TASK-088. Starts after TASK-087 (core). It can run alongside phase B.
-
-- **Shared:** `TaskViewItem` (`src/core/model/messages.ts`, `taskToViewItem`) gains `repeats`, `lastRun` and `due`.
-- **Claude pane and band** (`views/claude/mod/src/boardModel.ts`, `boardReader.ts`, `paneView.ts`):
-  - A Recurring tab with a due badge on each card and in the tab count.
-  - The band never picks a recurring task as "next". It may show "N due" separately.
-  - Rebuild `views/claude/hooks/register.js`.
-- **MCP-app board** (`views/mcp-app/board/board.ts`, `viewOptions.ts`): a Recurring column with a due badge.
-- **VS Code:**
-  - Kanban (`kanbanPanel.ts` `buildHtml`) shows Recurring as its own column rather than a generic custom state.
-  - The task list detail form edits `Repeats` and shows `Last run` and Runs.
-- **Agent instructions:** `views/vscode/src/ai/aiInstructions.ts` and the per-host skills (Claude, Cursor, Codex) gain the Recurring state and the rule "record a run, never move it to Done".
-
-Check visually in the Claude pane. Changelog entry.
-
----
 ## TASK-088: TaskPlanner 3.1 release: recurring tasks
 **Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
 **Updated:** 2026-11-25 12:20

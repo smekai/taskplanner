@@ -55,6 +55,7 @@ const BOARD: BoardSnapshot = {
           priority: Priority.P2,
           tags: [],
           description: '',
+          due: false,
         },
       ],
       totalCount: 4,
@@ -63,7 +64,16 @@ const BOARD: BoardSnapshot = {
     { name: 'Next', tasks: [], totalCount: 0, hasMore: false },
     {
       name: 'In Progress',
-      tasks: [{ id: 'TASK-001', title: 'First', priority: Priority.P1, tags: [], description: '' }],
+      tasks: [
+        {
+          id: 'TASK-001',
+          title: 'First',
+          priority: Priority.P1,
+          tags: [],
+          description: '',
+          due: false,
+        },
+      ],
       totalCount: 1,
       hasMore: false,
     },
@@ -200,6 +210,73 @@ const detail = {
   body: 'About first.',
 };
 
+describe('a recurring state in the pane', () => {
+  const recurringBoard: BoardSnapshot = {
+    workspaceRoot: '/work',
+    states: [
+      {
+        name: 'Recurring',
+        tasks: [
+          {
+            id: 'TASK-010',
+            title: 'Daily watch',
+            priority: Priority.P1,
+            tags: [],
+            description: '',
+            repeats: '0 7 * * *',
+            due: true,
+          },
+          {
+            id: 'TASK-011',
+            title: 'Weekly review',
+            priority: Priority.P2,
+            tags: [],
+            description: '',
+            repeats: '@weekly',
+            due: false,
+          },
+        ],
+        totalCount: 2,
+        hasMore: false,
+      },
+    ],
+  };
+  const recurringModel = (overrides: Partial<PaneModel> = {}) =>
+    model({ board: recurringBoard, tab: 'Recurring', ...overrides });
+
+  it('counts the due tasks in the tab label', () => {
+    const tree = renderPane(el, recurringModel(), actions());
+
+    expect(byKey(tree, 'tab-recurring')?.props.label).toBe('Recurring 2 · 1 due');
+  });
+
+  it('marks a due task in a terminal row', () => {
+    const tree = renderPane(el, recurringModel({ columns: 80 }), actions());
+
+    expect(byKey(tree, 'task-TASK-010')?.props.label).toBe('TASK-010 P1 due Daily watch');
+  });
+
+  it('shows a due chip on the card of a due task', () => {
+    const tree = renderPane(
+      el,
+      recurringModel({ surface: 'desktop', hasTextScale: true }),
+      actions(),
+    );
+
+    expect(texts(byKey(tree, 'card-TASK-010')!)).toContain('due');
+  });
+
+  it('shows the schedule on the card of a task that is not due', () => {
+    const tree = renderPane(
+      el,
+      recurringModel({ surface: 'desktop', hasTextScale: true }),
+      actions(),
+    );
+
+    expect(texts(byKey(tree, 'card-TASK-011')!)).toContain('🔁 @weekly UTC');
+  });
+});
+
 describe('renderPane detail view', () => {
   it('offers a move to every other state and renders the task markdown', () => {
     const handlers = actions();
@@ -288,7 +365,7 @@ describe('renderBand', () => {
 
   it('keeps what was drawn below and adds the task in progress with only a Board button', () => {
     const handlers = bandActions();
-    const task = { id: 'TASK-001', title: 'First', state: 'In Progress' };
+    const task = { id: 'TASK-001', title: 'First', state: 'In Progress', recurringDue: 0 };
     const tree = renderBand(el, task, 80, below, handlers);
     expect(tree.children?.[0]).toBe(below);
     expect(texts(tree)).toContain('▶ TASK-001 · First');
@@ -299,7 +376,7 @@ describe('renderBand', () => {
 
   it('labels a planned task with its state and offers to start it', () => {
     const handlers = bandActions();
-    const task = { id: 'TASK-002', title: 'Second', state: 'Next' };
+    const task = { id: 'TASK-002', title: 'Second', state: 'Next', recurringDue: 0 };
     const tree = renderBand(el, task, 80, below, handlers);
     expect(texts(tree)).toContain('Next · TASK-002 · Second');
     press(tree, 'taskplanner-start');
@@ -307,10 +384,18 @@ describe('renderBand', () => {
   });
 
   it('says Backlog, not Next, for the Backlog task it falls back to', () => {
-    const task = { id: 'TASK-003', title: 'Third', state: 'Backlog' };
+    const task = { id: 'TASK-003', title: 'Third', state: 'Backlog', recurringDue: 0 };
     expect(texts(renderBand(el, task, 80, below, bandActions()))).toContain(
       'Backlog · TASK-003 · Third',
     );
+  });
+
+  it('adds how many recurring tasks are due to the task it shows', () => {
+    const task = { id: 'TASK-002', title: 'Second', state: 'Next', recurringDue: 2 };
+
+    const tree = renderBand(el, task, 80, below, bandActions());
+
+    expect(texts(tree)).toContain('Next · TASK-002 · Second · 2 recurring due');
   });
 
   it('leaves room for both buttons when it truncates', () => {
@@ -318,6 +403,7 @@ describe('renderBand', () => {
       id: 'TASK-002',
       title: 'A very long backlog task title that cannot fit',
       state: 'Next',
+      recurringDue: 0,
     };
     const [label] = texts(renderBand(el, task, 40, below, bandActions())).slice(-1);
     expect(label).toHaveLength(24);

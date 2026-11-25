@@ -5,7 +5,7 @@ description: Manage tasks stored in .tasks markdown files. Use when the user men
 
 # TaskPlanner
 
-<!-- TASKPLANNER:VERSION:3.0.36 -->
+<!-- TASKPLANNER:VERSION:3.0.37 -->
 
 TaskPlanner stores a git-tracked board in `.tasks/`. Use MCP tools when available, always passing the absolute active repository as `workspace_root`. If a tool is unavailable or cannot see that repository, use the direct file workflow below without blocking the user.
 
@@ -22,7 +22,7 @@ The installed skill bundle is authoritative. Never query GitHub or invoke a mark
 
 ## Board files
 
-Use the `states` mapping in `.tasks/config.json`; defaults are Backlog (`BACKLOG.md`), Next (`NEXT.md`), In Progress (`IN_PROGRESS.md`), Done (`DONE.md`), and Rejected (`REJECTED.md`). `WORK_LOG.md` is an optional completion log, not a state.
+Use the `states` mapping in `.tasks/config.json`; defaults are Backlog (`BACKLOG.md`), Next (`NEXT.md`), In Progress (`IN_PROGRESS.md`), Done (`DONE.md`), Rejected (`REJECTED.md`), and Recurring (`RECURRING.md`). `WORK_LOG.md` is an optional completion log, not a state.
 
 Each task is a complete section from its `## ID: Title` heading through its trailing `---` separator:
 
@@ -41,7 +41,7 @@ Description.
 
 ## MCP path
 
-Prefer `taskplanner_board`, `taskplanner_list`, `taskplanner_get`, `taskplanner_create`, `taskplanner_move`, and `taskplanner_update`. Use `taskplanner_board_visual` only when the host renders MCP Apps.
+Prefer `taskplanner_board`, `taskplanner_list`, `taskplanner_get`, `taskplanner_create`, `taskplanner_move`, `taskplanner_update`, and `taskplanner_record_run`. Use `taskplanner_board_visual` only when the host renders MCP Apps.
 
 ## Direct file path
 
@@ -60,5 +60,9 @@ Prefer `taskplanner_board`, `taskplanner_list`, `taskplanner_get`, `taskplanner_
 5. Condense the plan to a done-summary and move the task to Done.
 6. Add one short entry at the top of `.tasks/WORK_LOG.md` when it exists.
 7. Add a `CHANGELOG.md` entry under `## [Unreleased]` when repository guidance requires it.
+
+## Recurring tasks
+
+A task with `**Repeats:**` (a cron schedule in UTC, such as `0 7 * * *`) never finishes and stays in Recurring. It is due when the schedule has fired since `**Last run:**`; `taskplanner_list` with `due: true` returns those. To run one, do its work and call `taskplanner_record_run` with a one-line result. Never move it to In Progress or Done. Without tools, set `**Last run:**` (UTC) and add `- YYYY-MM-DD HH:mm — result` at the top of its `### Runs` list, keeping the last 7.
 
 Never change task IDs or modify unrelated task sections.

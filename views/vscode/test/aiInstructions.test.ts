@@ -105,6 +105,13 @@ describe('generateAiInstructions', () => {
     expect(claudeMd).toContain('do not hand-edit these files');
   });
 
+  it('lists the Recurring state and the tool that records a run', () => {
+    const { claudeMd } = generateAiInstructions(createDefaultConfig());
+
+    expect(claudeMd).toContain('- **Recurring** → `RECURRING.md`');
+    expect(claudeMd).toContain('`taskplanner_record_run`');
+  });
+
   it('still requires the task to move, with hand-editing as the fallback', () => {
     const { claudeMd } = generateAiInstructions(createDefaultConfig());
     expect(claudeMd).toContain('must actually **move**');

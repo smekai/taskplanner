@@ -132,6 +132,7 @@ export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {
     state,
     priority: task.priority,
     tags: [...task.tags],
+    repeats: task.repeats,
     text: taskMarkdown(record),
     body: taskBody(record),
   };

@@ -20,6 +20,7 @@ import {
   supportsTextScale,
   taskBody,
   taskMarkdown,
+  boardDueCount,
   startPrompt,
   truncate,
   setUpDismissedKey,
@@ -50,7 +51,7 @@ describe('setUpDismissedKey', () => {
 import { Priority } from '../../../../src/core/model/task.js';
 
 function task(id: string, title = 'A task') {
-  return { id, title, priority: Priority.P2, tags: [], description: '' };
+  return { id, title, priority: Priority.P2, tags: [], description: '', due: false };
 }
 
 function board(counts: Record<string, number>): BoardSnapshot {
@@ -102,6 +103,56 @@ describe('taskMarkdown and taskBody', () => {
   it('keeps only the description and plan for the body', () => {
     expect(taskBody(record)).toBe('Body text.\n\n### Plan\n\n- Step one');
     expect(taskBody({ id: 'TASK-2' })).toBe('');
+  });
+});
+
+describe('a recurring task in the pane model', () => {
+  const recurring = {
+    id: 'TASK-010',
+    title: 'Daily watch',
+    state: 'Recurring',
+    priority: 'P1',
+    repeats: '0 7 * * *',
+    lastRun: '2026-11-25 07:12',
+    description: 'Check the stores.',
+    runs: ['2026-11-25 07:12 — ok', '2026-11-24 07:05 — late'],
+  };
+
+  it('shows the schedule and the last run in the meta line', () => {
+    expect(taskMarkdown(recurring)).toContain(
+      '**Repeats (UTC):** 0 7 * * * · **Last run:** 2026-11-25 07:12',
+    );
+  });
+
+  it('ends the body with the run history, newest first', () => {
+    expect(taskBody(recurring)).toBe(
+      'Check the stores.\n\n### Runs\n\n- 2026-11-25 07:12 — ok\n- 2026-11-24 07:05 — late',
+    );
+  });
+
+  it('asks for a run and a recorded result instead of the In Progress workflow', () => {
+    const detail = {
+      id: 'TASK-010',
+      title: 'Daily watch',
+      state: 'Recurring',
+      priority: 'P1',
+      tags: [],
+      repeats: '0 7 * * *',
+      text: '',
+      body: '',
+    };
+
+    expect(startPrompt(detail)).toBe(
+      'Run recurring task TASK-010 (Daily watch) now, then record the result with taskplanner_record_run. Do not move it to Done.',
+    );
+  });
+
+  it('counts the due tasks across every state', () => {
+    const snapshot = board({ Recurring: 3, Next: 1 });
+    snapshot.states[0].tasks[0].due = true;
+    snapshot.states[0].tasks[2].due = true;
+
+    expect(boardDueCount(snapshot)).toBe(2);
   });
 });
 

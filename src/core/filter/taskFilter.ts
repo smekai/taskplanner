@@ -1,5 +1,6 @@
 import { Task } from '../model/task.js';
 import { TaskState } from '../model/state.js';
+import { isDue } from '../util/cron.js';
 import {
   TaskFilter,
   TaskViewData,
@@ -31,6 +32,9 @@ function taskToViewItem(task: Task): TaskViewItem {
     epic: task.epic,
     assignee: task.assignee,
     updatedAt: task.updatedAt,
+    repeats: task.repeats,
+    lastRun: task.lastRun,
+    due: isDue(task.repeats, task.lastRun),
     description: task.description,
   };
 }

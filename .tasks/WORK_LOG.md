@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-090 — 2026-11-25
+**What:** Recurring tasks in every view: due and schedule on cards and tabs (Claude pane, band, MCP board, VS Code), run history in task details, a schedule field in VS Code, and agent instructions and skills for `taskplanner_record_run`.
+**Decisions:** Columns and tabs already came from the configured states, and the band never focused a recurring task, so no layout changed. `due` is a required view-model field so the compiler finds every view. The VS Code schedule saves on change, not on each keystroke.
+**Outcome:** Panes not checked by eye (tests and the mod kit cover them); docs come with TASK-093.
+
+---
+
 ## TASK-089 — 2026-11-25
 **What:** MCP tools for recurring tasks: `repeats` on create/update, new `taskplanner_record_run`, `due` filter on list, due/schedule/runs in task output and the board digest.
 **Decisions:** `record_run` is annotated as writing but not destructive (it only appends history). Create with `repeats` and no state goes to Recurring, falling back to Backlog on boards without it.

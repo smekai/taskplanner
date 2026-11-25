@@ -16,6 +16,8 @@ interface TaskViewItem {
   tags: string[];
   assignee?: string;
   updatedAt?: string;
+  repeats?: string;
+  due?: boolean;
   description: string;
 }
 
@@ -86,6 +88,13 @@ function priorityClass(p: string): string {
   return ['p0', 'p1', 'p2', 'p3', 'p4'].includes(v) ? v : 'p4';
 }
 
+function scheduleBadge(repeats: string, due: boolean): string {
+  const title = `Repeats ${repeats} (UTC)`;
+  return due
+    ? `<span class="schedule due" title="${escapeHtml(title)}">due</span>`
+    : `<span class="schedule" title="${escapeHtml(title)}">🔁 ${escapeHtml(repeats)}</span>`;
+}
+
 function renderCard(task: TaskViewItem, stateName: string): string {
   const tags = task.tags
     .slice(0, 4)
@@ -94,6 +103,7 @@ function renderCard(task: TaskViewItem, stateName: string): string {
   const assignee = task.assignee
     ? `<span class="assignee">@${escapeHtml(task.assignee)}</span>`
     : '';
+  const schedule = task.repeats ? scheduleBadge(task.repeats, task.due === true) : '';
   return `
     <div class="card" draggable="true"
          data-task-id="${escapeHtml(task.id)}"
@@ -102,6 +112,7 @@ function renderCard(task: TaskViewItem, stateName: string): string {
       <div class="card-meta">
         <span class="card-id">${escapeHtml(task.id)}</span>
         <span class="priority ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span>
+        ${schedule}
         ${assignee}
         ${tags}
       </div>

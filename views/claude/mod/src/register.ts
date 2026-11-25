@@ -7,6 +7,7 @@ import {
   TaskDraft,
   ancestorDirs,
   boardDigestText,
+  boardDueCount,
   boardSignature,
   createdTaskId,
   editPrompt,
@@ -532,7 +533,12 @@ export function register(on: On): void {
     if (!focus) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);
-    const band = { id: focus.task.id, title: focus.task.title, state: focus.state };
+    const band = {
+      id: focus.task.id,
+      title: focus.task.title,
+      state: focus.state,
+      recurringDue: board ? boardDueCount(board) : 0,
+    };
     return renderBand(elements, band, e.props.bodyColumns, below, {
       open: () => {
         void openPane($);

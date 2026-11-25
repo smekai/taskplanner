@@ -26,6 +26,9 @@ function stringField(record, key) {
 function tagsOf(task) {
   return Array.isArray(task.tags) ? task.tags.filter((tag) => typeof tag === "string") : [];
 }
+function runsOf(task) {
+  return Array.isArray(task.runs) ? task.runs.filter((run) => typeof run === "string") : [];
+}
 function taskBody(task) {
   const sections = [];
   const description = stringField(task, "description");
@@ -34,6 +37,10 @@ function taskBody(task) {
   if (plan) sections.push(`### Plan
 
 ${plan}`);
+  const runs = runsOf(task);
+  if (runs.length > 0) sections.push(`### Runs
+
+${runs.map((run) => `- ${run}`).join("\n")}`);
   return sections.join("\n\n");
 }
 function taskMarkdown(task) {
@@ -47,6 +54,8 @@ function taskMarkdown(task) {
     ["epic", "Epic"],
     ["assignee", "Assignee"],
     ["waitingUntil", "Waiting until"],
+    ["repeats", "Repeats (UTC)"],
+    ["lastRun", "Last run"],
     ["updatedAt", "Updated"]
   ]) {
     const value = stringField(task, key);
@@ -189,8 +198,17 @@ function setUpBandToolText(show, folder, hasBoard) {
   return hasBoard ? `${done} This folder already has a board, so the band shows tasks instead of setup.` : done;
 }
 function startPrompt(task) {
+  if (task.repeats) {
+    return `Run recurring task ${task.id} (${task.title}) now, then record the result with taskplanner_record_run. Do not move it to Done.`;
+  }
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
+}
+function dueCount(state) {
+  return state.tasks.filter((task) => task.due).length;
+}
+function boardDueCount(board2) {
+  return board2.states.reduce((total, state) => total + dueCount(state), 0);
 }
 function truncate(text, width) {
   if (width <= 1) return text.slice(0, Math.max(0, width));
@@ -246,6 +264,149 @@ function normalizeStates(value, report) {
   return normalized;
 }
 
+// src/core/util/time.ts
+var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+function parseTimestamp(value) {
+  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
+  return survivesRoundTrip ? date : null;
+}
+function currentDate(now = /* @__PURE__ */ new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
+  const until = parseTimestamp(waitingUntil);
+  return until !== null && currentDate(until) > currentDate(now);
+}
+
+// src/core/util/cron.ts
+var MINUTE = { min: 0, max: 59 };
+var HOUR = { min: 0, max: 23 };
+var DAY_OF_MONTH = { min: 1, max: 31 };
+var MONTH = {
+  min: 1,
+  max: 12,
+  names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+};
+var DAY_OF_WEEK = {
+  min: 0,
+  max: 7,
+  names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+};
+var MACROS = {
+  "@yearly": "0 0 1 1 *",
+  "@annually": "0 0 1 1 *",
+  "@monthly": "0 0 1 * *",
+  "@weekly": "0 0 * * 0",
+  "@daily": "0 0 * * *",
+  "@midnight": "0 0 * * *",
+  "@hourly": "0 * * * *"
+};
+var SEARCH_DAYS = 366 * 29;
+var MS_PER_MINUTE = 6e4;
+var MS_PER_DAY = 864e5;
+function valueOf(token, spec) {
+  if (/^\d+$/.test(token)) {
+    const value = Number(token);
+    return value >= spec.min && value <= spec.max ? value : void 0;
+  }
+  const index = spec.names?.indexOf(token.toUpperCase()) ?? -1;
+  return index >= 0 ? index + (spec === MONTH ? 1 : 0) : void 0;
+}
+function parseField(field, spec) {
+  const allowed = new Array(spec.max + 1).fill(false);
+  for (const item of field.split(",")) {
+    const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
+    if (!match) return void 0;
+    const [, range, stepText] = match;
+    const step = stepText === void 0 ? 1 : Number(stepText);
+    if (step < 1) return void 0;
+    let from;
+    let to;
+    if (range === "*") {
+      from = spec.min;
+      to = spec.max;
+    } else {
+      const bounds = range.split("-");
+      if (bounds.length > 2) return void 0;
+      from = valueOf(bounds[0], spec);
+      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
+    }
+    if (from === void 0 || to === void 0 || from > to) return void 0;
+    for (let value = from; value <= to; value += step) allowed[value] = true;
+  }
+  return allowed;
+}
+function parseCron(expression) {
+  const trimmed = expression?.trim() ?? "";
+  const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
+  const fields = source.split(/\s+/);
+  if (fields.length !== 5) return void 0;
+  const minutes = parseField(fields[0], MINUTE);
+  const hours = parseField(fields[1], HOUR);
+  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
+  const months = parseField(fields[3], MONTH);
+  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
+  if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
+  if (daysOfWeek[7]) daysOfWeek[0] = true;
+  return {
+    minutes,
+    hours,
+    daysOfMonth,
+    months,
+    daysOfWeek,
+    dayOfMonthRestricted: !fields[2].startsWith("*"),
+    dayOfWeekRestricted: !fields[4].startsWith("*")
+  };
+}
+function isValidCron(expression) {
+  return parseCron(expression) !== void 0;
+}
+function dayMatches(schedule, day) {
+  if (!schedule.months[day.getUTCMonth() + 1]) return false;
+  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()];
+  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()];
+  if (schedule.dayOfMonthRestricted && schedule.dayOfWeekRestricted) return byMonthDay || byWeekDay;
+  return byMonthDay && byWeekDay;
+}
+function lastAllowedAtOrBelow(allowed, limit) {
+  for (let value = limit; value >= 0; value--) {
+    if (allowed[value]) return value;
+  }
+  return void 0;
+}
+function previousFire(schedule, now) {
+  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
+  const startOfToday = Math.floor(flooredNow / MS_PER_DAY) * MS_PER_DAY;
+  for (let back = 0; back <= SEARCH_DAYS; back++) {
+    const dayStart = startOfToday - back * MS_PER_DAY;
+    if (!dayMatches(schedule, new Date(dayStart))) continue;
+    const today = back === 0;
+    const limit = new Date(flooredNow);
+    let hour = lastAllowedAtOrBelow(schedule.hours, today ? limit.getUTCHours() : 23);
+    while (hour !== void 0) {
+      const minuteLimit = today && hour === limit.getUTCHours() ? limit.getUTCMinutes() : 59;
+      const minute = lastAllowedAtOrBelow(schedule.minutes, minuteLimit);
+      if (minute !== void 0) {
+        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE);
+      }
+      hour = lastAllowedAtOrBelow(schedule.hours, hour - 1);
+    }
+  }
+  return void 0;
+}
+function isDue(repeats, lastRun, now = /* @__PURE__ */ new Date()) {
+  const schedule = parseCron(repeats);
+  if (!schedule) return false;
+  const fired = previousFire(schedule, now);
+  if (!fired) return false;
+  const last = parseTimestamp(lastRun);
+  return last === null || fired.getTime() > last.getTime();
+}
+
 // src/core/filter/taskFilter.ts
 var DEFAULT_LIMIT = 50;
 function applyLimit(items, totalCount, limit) {
@@ -263,6 +424,9 @@ function taskToViewItem(task) {
     epic: task.epic,
     assignee: task.assignee,
     updatedAt: task.updatedAt,
+    repeats: task.repeats,
+    lastRun: task.lastRun,
+    due: isDue(task.repeats, task.lastRun),
     description: task.description
   };
 }
@@ -448,106 +612,6 @@ function splitSections(content) {
   }
   flushText(spans.length);
   return sections;
-}
-
-// src/core/util/time.ts
-var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
-function parseTimestamp(value) {
-  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
-  if (!match) return null;
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
-  return survivesRoundTrip ? date : null;
-}
-function currentDate(now = /* @__PURE__ */ new Date()) {
-  return now.toISOString().slice(0, 10);
-}
-function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
-  const until = parseTimestamp(waitingUntil);
-  return until !== null && currentDate(until) > currentDate(now);
-}
-
-// src/core/util/cron.ts
-var MINUTE = { min: 0, max: 59 };
-var HOUR = { min: 0, max: 23 };
-var DAY_OF_MONTH = { min: 1, max: 31 };
-var MONTH = {
-  min: 1,
-  max: 12,
-  names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
-};
-var DAY_OF_WEEK = {
-  min: 0,
-  max: 7,
-  names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
-};
-var MACROS = {
-  "@yearly": "0 0 1 1 *",
-  "@annually": "0 0 1 1 *",
-  "@monthly": "0 0 1 * *",
-  "@weekly": "0 0 * * 0",
-  "@daily": "0 0 * * *",
-  "@midnight": "0 0 * * *",
-  "@hourly": "0 * * * *"
-};
-var SEARCH_DAYS = 366 * 29;
-function valueOf(token, spec) {
-  if (/^\d+$/.test(token)) {
-    const value = Number(token);
-    return value >= spec.min && value <= spec.max ? value : void 0;
-  }
-  const index = spec.names?.indexOf(token.toUpperCase()) ?? -1;
-  return index >= 0 ? index + (spec === MONTH ? 1 : 0) : void 0;
-}
-function parseField(field, spec) {
-  const allowed = new Array(spec.max + 1).fill(false);
-  for (const item of field.split(",")) {
-    const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
-    if (!match) return void 0;
-    const [, range, stepText] = match;
-    const step = stepText === void 0 ? 1 : Number(stepText);
-    if (step < 1) return void 0;
-    let from;
-    let to;
-    if (range === "*") {
-      from = spec.min;
-      to = spec.max;
-    } else {
-      const bounds = range.split("-");
-      if (bounds.length > 2) return void 0;
-      from = valueOf(bounds[0], spec);
-      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
-    }
-    if (from === void 0 || to === void 0 || from > to) return void 0;
-    for (let value = from; value <= to; value += step) allowed[value] = true;
-  }
-  return allowed;
-}
-function parseCron(expression) {
-  const trimmed = expression?.trim() ?? "";
-  const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
-  const fields = source.split(/\s+/);
-  if (fields.length !== 5) return void 0;
-  const minutes = parseField(fields[0], MINUTE);
-  const hours = parseField(fields[1], HOUR);
-  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
-  const months = parseField(fields[3], MONTH);
-  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
-  if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
-  if (daysOfWeek[7]) daysOfWeek[0] = true;
-  return {
-    minutes,
-    hours,
-    daysOfMonth,
-    months,
-    daysOfWeek,
-    dayOfMonthRestricted: !fields[2].startsWith("*"),
-    dayOfWeekRestricted: !fields[4].startsWith("*")
-  };
-}
-function isValidCron(expression) {
-  return parseCron(expression) !== void 0;
 }
 
 // src/core/parser/taskSection.ts
@@ -795,6 +859,7 @@ function taskDetailOf({ task, state }) {
     state,
     priority: task.priority,
     tags: [...task.tags],
+    repeats: task.repeats,
     text: taskMarkdown(record),
     body: taskBody(record)
   };
@@ -841,6 +906,14 @@ function priorityChip(style, priority) {
     color: PRIORITY_COLORS[priority] ?? "subtle",
     children: [priority]
   });
+}
+function scheduleChip(style, task) {
+  return task.due ? style.el.Text({ ...textStyle(style, "chip"), color: "warning", children: ["due"] }) : caption(style, `\u{1F501} ${task.repeats} UTC`);
+}
+function tabLabel(state) {
+  const due = dueCount(state);
+  const label = `${state.name} ${state.totalCount}`;
+  return due > 0 ? `${label} \xB7 ${due} due` : label;
 }
 function caption(style, text) {
   return style.el.Text({ ...textStyle(style, "caption"), wrap: "wrap", children: [text] });
@@ -922,7 +995,7 @@ function tabs(style, board2, active, actions) {
     children: board2.states.map(
       (state, index) => style.el.Button({
         key: `tab-${slug(state.name)}`,
-        label: `${state.name} ${state.totalCount}`,
+        label: tabLabel(state),
         ...digitHotkey(index),
         ...chrome(style),
         ...style.isRich ? { variant: state.name === active ? "primary" : "secondary" } : {},
@@ -933,7 +1006,7 @@ function tabs(style, board2, active, actions) {
   });
 }
 function plainRow(style, task, state, columns, actions) {
-  const label = `${task.id} ${task.priority} ${task.title}`;
+  const label = `${task.id} ${task.priority}${task.due ? " due" : ""} ${task.title}`;
   return style.el.Button({
     key: `task-${task.id}`,
     label: truncate(label, Math.max(MIN_LABEL_WIDTH, columns)),
@@ -946,6 +1019,7 @@ function card(style, task, state, actions) {
     style.el.Text({ ...textStyle(style, "id"), children: [task.id] }),
     priorityChip(style, task.priority)
   ];
+  if (task.repeats) meta.push(scheduleChip(style, task));
   if (task.tags.length > 0) meta.push(caption(style, task.tags.join(", ")));
   if (task.assignee) meta.push(caption(style, `@${task.assignee}`));
   return style.el.Box({
@@ -1214,9 +1288,10 @@ function renderBand(el, task, columns, below, actions) {
   buttons.push(
     el.Button({ key: "taskplanner-board", label: "Board", plain: true, onPress: actions.open })
   );
+  const due = task.recurringDue > 0 ? ` \xB7 ${task.recurringDue} recurring due` : "";
   return bandRow(
     el,
-    `${isActive ? "\u25B6" : `${task.state} \xB7`} ${task.id} \xB7 ${task.title}`,
+    `${isActive ? "\u25B6" : `${task.state} \xB7`} ${task.id} \xB7 ${task.title}${due}`,
     buttons,
     columns,
     below
@@ -1724,7 +1799,12 @@ function register(on) {
     if (!focus) return next(e);
     const elements = $.ui.resolve(e);
     const below = await next(e);
-    const band = { id: focus.task.id, title: focus.task.title, state: focus.state };
+    const band = {
+      id: focus.task.id,
+      title: focus.task.title,
+      state: focus.state,
+      recurringDue: board ? boardDueCount(board) : 0
+    };
     return renderBand(elements, band, e.props.bodyColumns, below, {
       open: () => {
         void openPane($);

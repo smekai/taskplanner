@@ -5,10 +5,10 @@ description: Initialize TaskPlanner in a repository. Use for install, setup, ini
 
 # Initialize TaskPlanner
 
-<!-- TASKPLANNER:VERSION:3.0.36 -->
+<!-- TASKPLANNER:VERSION:3.0.37 -->
 
 1. Locate the active repository root. If `.tasks/config.json` already exists, do not replace the board; follow the sibling `update-taskplanner` skill instead.
-2. Create `.tasks/` and `config.json` with schema `version: 2`, `taskplannerVersion` set to the version in this skill's `TASKPLANNER:VERSION` marker, `readmeAttribution: true`, `idPrefix: "TASK"`, `nextId: 1`, the five default states, priorities P0-P4, empty tags, top insertion, required AI plans, and priority sorting.
+2. Create `.tasks/` and `config.json` with schema `version: 4`, `taskplannerVersion` set to the version in this skill's `TASKPLANNER:VERSION` marker, `readmeAttribution: true`, `idPrefix: "TASK"`, `nextId: 1`, the six default states (Backlog, Next, In Progress, Done, Rejected, Recurring), priorities P0-P4, empty tags, top insertion, required AI plans, and priority sorting.
 3. Create missing state files with `# <State>` headings and create `WORK_LOG.md` with a short completion-log heading/template. Never overwrite an existing file.
 4. Apply the managed synchronization rules from the sibling `update-taskplanner` skill to `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, and an existing root README.
 5. Verify every required board file exists and the stored `taskplannerVersion` matches that marker.

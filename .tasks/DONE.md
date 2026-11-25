@@ -1,5 +1,51 @@
 # Done
 
+## TASK-090: 3.1 phase C: show recurring tasks in every view
+**Priority:** P0 | **Tags:** feature, ui | **Epic:** 3.1
+**Updated:** 2026-11-25 16:22
+
+Phase C of TASK-088. Starts after TASK-087 (core). It can run alongside phase B.
+
+- **Shared:** `TaskViewItem` (`src/core/model/messages.ts`, `taskToViewItem`) gains `repeats`, `lastRun` and `due`.
+- **Claude pane and band** (`views/claude/mod/src/boardModel.ts`, `boardReader.ts`, `paneView.ts`):
+  - A Recurring tab with a due badge on each card and in the tab count.
+  - The band never picks a recurring task as "next". It may show "N due" separately.
+  - Rebuild `views/claude/hooks/register.js`.
+- **MCP-app board** (`views/mcp-app/board/board.ts`, `viewOptions.ts`): a Recurring column with a due badge.
+- **VS Code:**
+  - Kanban (`kanbanPanel.ts` `buildHtml`) shows Recurring as its own column rather than a generic custom state.
+  - The task list detail form edits `Repeats` and shows `Last run` and Runs.
+- **Agent instructions:** `views/vscode/src/ai/aiInstructions.ts` and the per-host skills (Claude, Cursor, Codex) gain the Recurring state and the rule "record a run, never move it to Done".
+
+Check visually in the Claude pane. Changelog entry.
+
+### Plan
+
+Done:
+- **Unchanged, already in place:**
+  - Every view draws columns and tabs from `config.states`, so Recurring (TASK-087 migration) needed no layout work.
+  - The band's focus order (In Progress → Next → Backlog) never picks a recurring task.
+- **Core:** `TaskViewItem` gains `repeats`, `lastRun` and a required `due` (from `isDue` in `taskToViewItem`). The compiler pointed at every fixture that builds one.
+- **Claude pane and band:**
+  - A due chip, or `🔁 schedule UTC`, on cards; "due" in terminal rows.
+  - Tab label "Recurring 2 · 1 due".
+  - Task detail shows Repeats (UTC), Last run and the Runs history.
+  - Start on a recurring task asks for a run plus `taskplanner_record_run`, never Done.
+  - The band adds "· N recurring due".
+- **MCP App board:** a `due` / `🔁 schedule` badge on cards. The drawer already got the schedule and history from `taskplanner_get`.
+- **VS Code:**
+  - Kanban and list cards show `🔁 schedule · due`.
+  - The task view has a Repeats (cron, UTC) field, saved on change and checked with core `isValidCron` (a warning on invalid input), plus a read-only Last run and Runs list.
+- **Agent instructions and skills:**
+  - `aiInstructions.ts`: `taskplanner_record_run` and schedule rows, plus a "Recurring tasks" section with the markdown fallback.
+  - The `taskplanner` skill in all three hosts covers the same.
+  - `initialize-taskplanner` now asks for schema 4 and six states; it was still at schema 2 and five states.
+  - The Codex submission expects six state files.
+  - This repo's managed blocks were regenerated, and its config migrated to Recurring and schema 4.
+- **Tests:** 507 pass, `release:check` green including the mod kit and the plugin validators. The new pane tests fail without the change.
+- **Not checked by eye:** the Claude pane, the MCP board and the VS Code webviews. `docs/INSTALL.md` still shows five state files; that's TASK-093.
+
+---
 ## TASK-089: 3.1 phase B: MCP tools for recurring tasks
 **Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
 **Updated:** 2026-11-25 14:34

@@ -29,6 +29,7 @@ export interface TaskDetail {
   state: string;
   priority: string;
   tags: string[];
+  repeats?: string;
   text: string;
   body: string;
 }
@@ -76,12 +77,20 @@ function tagsOf(task: Record<string, unknown>): string[] {
     : [];
 }
 
+function runsOf(task: Record<string, unknown>): string[] {
+  return Array.isArray(task.runs)
+    ? task.runs.filter((run): run is string => typeof run === 'string')
+    : [];
+}
+
 export function taskBody(task: Record<string, unknown>): string {
   const sections: string[] = [];
   const description = stringField(task, 'description');
   if (description) sections.push(description);
   const plan = stringField(task, 'plan');
   if (plan) sections.push(`### Plan\n\n${plan}`);
+  const runs = runsOf(task);
+  if (runs.length > 0) sections.push(`### Runs\n\n${runs.map((run) => `- ${run}`).join('\n')}`);
   return sections.join('\n\n');
 }
 
@@ -96,6 +105,8 @@ export function taskMarkdown(task: Record<string, unknown>): string {
     ['epic', 'Epic'],
     ['assignee', 'Assignee'],
     ['waitingUntil', 'Waiting until'],
+    ['repeats', 'Repeats (UTC)'],
+    ['lastRun', 'Last run'],
     ['updatedAt', 'Updated'],
   ] as const) {
     const value = stringField(task, key);
@@ -277,8 +288,19 @@ export function setUpBandToolText(show: boolean, folder: string, hasBoard: boole
 }
 
 export function startPrompt(task: TaskDetail): string {
+  if (task.repeats) {
+    return `Run recurring task ${task.id} (${task.title}) now, then record the result with taskplanner_record_run. Do not move it to Done.`;
+  }
   const verb = task.state === IN_PROGRESS_STATE ? 'Continue' : 'Work on';
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
+}
+
+export function dueCount(state: StateViewData): number {
+  return state.tasks.filter((task) => task.due).length;
+}
+
+export function boardDueCount(board: BoardSnapshot): number {
+  return board.states.reduce((total, state) => total + dueCount(state), 0);
 }
 
 export function truncate(text: string, width: number): string {

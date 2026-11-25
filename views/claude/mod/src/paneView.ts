@@ -1,4 +1,4 @@
-import type { TaskViewItem } from '../../../../src/core/model/messages.js';
+import type { StateViewData, TaskViewItem } from '../../../../src/core/model/messages.js';
 import type { ChildNode, ElementNode, Elements, TextProps } from './modApi.js';
 import {
   BoardSnapshot,
@@ -7,6 +7,7 @@ import {
   TaskDetail,
   TaskDraft,
   describeError,
+  dueCount,
   isCompletedState,
   moveKey,
   moveTargets,
@@ -55,6 +56,7 @@ export interface BandTask {
   id: string;
   title: string;
   state: string;
+  recurringDue: number;
 }
 
 export interface BandActions {
@@ -114,6 +116,18 @@ function priorityChip(style: Style, priority: string): ElementNode {
     color: PRIORITY_COLORS[priority] ?? 'subtle',
     children: [priority],
   });
+}
+
+function scheduleChip(style: Style, task: TaskViewItem): ElementNode {
+  return task.due
+    ? style.el.Text({ ...textStyle(style, 'chip'), color: 'warning', children: ['due'] })
+    : caption(style, `🔁 ${task.repeats} UTC`);
+}
+
+function tabLabel(state: StateViewData): string {
+  const due = dueCount(state);
+  const label = `${state.name} ${state.totalCount}`;
+  return due > 0 ? `${label} · ${due} due` : label;
 }
 
 function caption(style: Style, text: string): ElementNode {
@@ -211,7 +225,7 @@ function tabs(
     children: board.states.map((state, index) =>
       style.el.Button({
         key: `tab-${slug(state.name)}`,
-        label: `${state.name} ${state.totalCount}`,
+        label: tabLabel(state),
         ...digitHotkey(index),
         ...chrome(style),
         ...(style.isRich ? { variant: state.name === active ? 'primary' : 'secondary' } : {}),
@@ -229,7 +243,7 @@ function plainRow(
   columns: number,
   actions: PaneActions,
 ): ElementNode {
-  const label = `${task.id} ${task.priority} ${task.title}`;
+  const label = `${task.id} ${task.priority}${task.due ? ' due' : ''} ${task.title}`;
   return style.el.Button({
     key: `task-${task.id}`,
     label: truncate(label, Math.max(MIN_LABEL_WIDTH, columns)),
@@ -243,6 +257,7 @@ function card(style: Style, task: TaskViewItem, state: string, actions: PaneActi
     style.el.Text({ ...textStyle(style, 'id'), children: [task.id] }),
     priorityChip(style, task.priority),
   ];
+  if (task.repeats) meta.push(scheduleChip(style, task));
   if (task.tags.length > 0) meta.push(caption(style, task.tags.join(', ')));
   if (task.assignee) meta.push(caption(style, `@${task.assignee}`));
   return style.el.Box({
@@ -547,9 +562,10 @@ export function renderBand(
   buttons.push(
     el.Button({ key: 'taskplanner-board', label: 'Board', plain: true, onPress: actions.open }),
   );
+  const due = task.recurringDue > 0 ? ` · ${task.recurringDue} recurring due` : '';
   return bandRow(
     el,
-    `${isActive ? '▶' : `${task.state} ·`} ${task.id} · ${task.title}`,
+    `${isActive ? '▶' : `${task.state} ·`} ${task.id} · ${task.title}${due}`,
     buttons,
     columns,
     below,
