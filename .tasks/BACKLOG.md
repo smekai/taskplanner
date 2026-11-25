@@ -1,19 +1,127 @@
 # Backlog
 
-## TASK-087: Recurring tasks for work that never finishes
+## TASK-093: 3.1 phase F: docs and release 3.1 on every store
+**Priority:** P1 | **Tags:** docs, ci | **Epic:** 3.1
+**Updated:** 2026-11-25 10:14
+
+Phase F of TASK-088. Last in the epic, after phases A–E.
+
+- **Docs:**
+  - Root README "How it works" with a recurring task example.
+  - `docs/INSTALL.md` task format and agent workflow.
+  - Per-host READMEs and the VS Code Marketplace README.
+  - Say plainly that cron runs in UTC and that TaskPlanner doesn't run the schedule itself.
+- **Changelog:** a `[3.1.0]` section with the date. Release notes written for users.
+- **Gate:** `npm run release:check` green.
+- **Publish:** VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, the Claude plugin (repository marketplace; the directory listing is still under review), Cursor and Codex. Tag `v3.1.x`.
+- **Check:** the daily release watch confirms 3.1 is live everywhere.
+
+Then TASK-085 (LinkedIn post) can start.
+
+---
+## TASK-092: 3.1 phase E: skip writing a state file when nothing changed
+**Priority:** P1 | **Tags:** core | **Epic:** 3.1
+**Updated:** 2026-11-25 10:14
+
+Phase E of TASK-088. This is part 1 of TASK-064, split out; parts 2 and 3 (append, cut-and-append) stay in TASK-064. Independent of the other phases.
+
+`serializeBoard` always returns a string and `commitWrites` always writes it, even when the result is byte-identical to what is on disk. Compare first and skip the write and rename when they match. That removes a write from every no-op: `updateTask` with identical values, a reorder that lands on the same index, `archiveCompleted` with nothing old enough. It matters more once a daily `record_run` touches the board.
+
+- Change in `FileStore.prepareState` / `commitWrites`.
+- Tests: an unchanged write leaves the file's mtime untouched, and the `roundTrip.test.ts` byte identity still passes.
+- Changelog entry.
+
+---
+## TASK-091: 3.1 phase D: the daily release watch records its runs on the board
+**Priority:** P1 | **Tags:** setup | **Epic:** 3.1
+**Updated:** 2026-11-25 10:14
+
+Phase D of TASK-088: dogfooding. Starts after TASK-087 and phase B (the `taskplanner_record_run` tool).
+
+- Create a recurring task "Daily store-status watch" in this repo's Recurring state with `Repeats: 0 7 * * *`. That is 10:07 local in UTC; the scheduled task runs at `0 10 * * *` local time.
+- Change the `taskplanner-release-watch` scheduled task prompt (`~/.claude/scheduled-tasks/taskplanner-release-watch/SKILL.md`, outside the repo, so ask first) to finish with `taskplanner_record_run` and a one-line result: versions per store, plus anything that changed.
+- After a few days, check that the board shows the watch as not due after each run and as due when a run is missed.
+
+---
+## TASK-090: 3.1 phase C: show recurring tasks in every view
+**Priority:** P0 | **Tags:** feature, ui | **Epic:** 3.1
+**Updated:** 2026-11-25 10:14
+
+Phase C of TASK-088. Starts after TASK-087 (core). It can run alongside phase B.
+
+- **Shared:** `TaskViewItem` (`src/core/model/messages.ts`, `taskToViewItem`) gains `repeats`, `lastRun` and `due`.
+- **Claude pane and band** (`views/claude/mod/src/boardModel.ts`, `boardReader.ts`, `paneView.ts`):
+  - A Recurring tab with a due badge on each card and in the tab count.
+  - The band never picks a recurring task as "next". It may show "N due" separately.
+  - Rebuild `views/claude/hooks/register.js`.
+- **MCP-app board** (`views/mcp-app/board/board.ts`, `viewOptions.ts`): a Recurring column with a due badge.
+- **VS Code:**
+  - Kanban (`kanbanPanel.ts` `buildHtml`) shows Recurring as its own column rather than a generic custom state.
+  - The task list detail form edits `Repeats` and shows `Last run` and Runs.
+- **Agent instructions:** `views/vscode/src/ai/aiInstructions.ts` and the per-host skills (Claude, Cursor, Codex) gain the Recurring state and the rule "record a run, never move it to Done".
+
+Check visually in the Claude pane. Changelog entry.
+
+---
+## TASK-089: 3.1 phase B: MCP tools for recurring tasks
 **Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
-**Updated:** 2026-11-24 10:07
+**Updated:** 2026-11-25 10:14
 
-Some work never moves to Done: the daily store-status watch (Claude directory, Cursor Marketplace, Codex directory, VS Code Marketplace, Open VSX, npm) runs every day, and today it lives outside the board in a scheduled task.
+Phase B of TASK-088. Starts after TASK-087 (core).
 
-Decide how the board represents it, for example a built-in Recurring state, a custom state, schedule and last-run fields, how the board, band and MCP tools show and update it, and how the watch writes its result back. Before the LinkedIn post (TASK-085).
+- `taskplanner_create` and `taskplanner_update` accept `repeats`. Reject an invalid cron expression with a clear error.
+- New tool `taskplanner_record_run(task_id, result)` that calls `recordRun`. It is the only way a scheduler writes back.
+- `formatTask` shows `Repeats`, `Last run` and due/overdue.
+- `taskplanner_list` can filter for due recurring tasks.
+- The MCP smoke test covers create recurring → due → record_run → not due.
+
+Files: `mcp/src/server.ts`, `scripts/smoke-test-mcp-server.js`. Changelog entry.
+
+---
+## TASK-088: TaskPlanner 3.1 release: recurring tasks
+**Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
+**Updated:** 2026-11-25 10:14
+
+Scope for 3.1. Some work never reaches Done. The daily store-status watch (Claude directory, Cursor Marketplace, Codex directory, VS Code Marketplace, Open VSX, npm) runs every day as the `taskplanner-release-watch` scheduled task, and the board doesn't know about it. 3.1 puts that kind of work on the board.
+
+### Decisions
+- **Model:** a new built-in **Recurring** state (`RECURRING.md`). Tasks in it never leave it. A config migration adds the state to existing boards, the same way Rejected was added.
+- **Schedule:** a cron expression in `**Repeats:**`, evaluated in UTC like every other date on the board. The board shows a task as due when the cron has fired since `**Last run:**`.
+- **Run result:** `**Last run:**` plus a `### Runs` section with the last 7 one-line results. Older lines are trimmed automatically.
+- TaskPlanner doesn't run anything itself. A scheduler (a Claude scheduled task, cron, CI) does the work and records the run through MCP.
+
+### Phases
+- A. TASK-087: core. The state, the fields, `isDue` and `recordRun`.
+- B. TASK-089: MCP tools, including `taskplanner_record_run`. Starts after A.
+- C. TASK-090: views (Claude pane and band, MCP-app board, VS Code) and agent instructions. Starts after A; can run alongside B.
+- D. TASK-091: the daily release watch records its runs on the board. Starts after B.
+- E. TASK-092: skip the write when nothing changed (TASK-064 part 1). Independent.
+- F. TASK-093: docs and release on every store. Last.
+
+The LinkedIn announcement (TASK-085) follows the release.
+
+---
+## TASK-087: 3.1 phase A: recurring tasks in core
+**Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
+**Updated:** 2026-11-25 10:14
+
+Phase A of TASK-088. Some work never moves to Done. For example, the daily store-status watch runs every day and today lives outside the board as a scheduled task. This phase gives `src/core/` everything the later phases need.
+
+- **State:** `DEFAULT_STATES` (`src/core/model/state.ts`) gains `Recurring` / `RECURRING.md`. A config migration appends it to existing boards (precedent: `addRejectedState` in `configManager.ts`, plus a schema version bump). The migration leaves custom state lists alone apart from appending.
+- **Fields:** `repeats?` (cron expression, UTC) and `lastRun?` (`YYYY-MM-DD HH:MM`) on `Task`, as `**Repeats:**` and `**Last run:**`. They go through the grammar, `taskSection.ts`, `taskSerializer.ts` and `sameTask`, the same path as `waitingUntil` in TASK-052.
+- **Runs:** a `### Runs` section is parsed and serialized like `### Plan`, newest first, kept to the last 7 lines.
+- **Due:** `isDue(repeats, lastRun, now)` in `src/core/util/time.ts` is true when the most recent cron fire time is after `lastRun`. Use `cron-parser` if `dist/extension.js` growth is acceptable (it pulls in Luxon, which TASK-059 wants anyway). Otherwise write a small 5-field evaluator. Measure before deciding and record the choice.
+- **Store:** `recordRun(id, result)` stamps `lastRun` and prepends a line to Runs.
+- **Special-cased names:** check `DEFERRED_STATE_NAMES`, `COLLAPSED_STATES` and the Done lookup so that Recurring behaves as an active state.
+
+Tests: parser, round trip (byte identity, plus `Repeats` and `Last run` as reserved attribute names), config migration, `isDue`, `recordRun`. Changelog entry.
 
 ---
 ## TASK-085: LinkedIn post with the TaskPlanner-in-Claude animation
 **Priority:** P0 | **Tags:** docs
-**Updated:** 2026-11-24 10:07
+**Updated:** 2026-11-25 10:15
 
-After TASK-086 (product README, install guide) and TASK-087 (recurring tasks, 3.1). Draft a LinkedIn post announcing TaskPlanner with the animation recorded for the README (TASK-084): what it is, how it looks in Claude, and where it runs, linking to the install guide. Covers the "Announce on LinkedIn" item of TASK-076.
+After TASK-086 (product README, install guide) and the 3.1 release with recurring tasks (epic TASK-088; it starts once TASK-093 ships 3.1). Draft a LinkedIn post announcing TaskPlanner with the animation recorded for the README (TASK-084): what it is, how it looks in Claude, and where it runs, linking to the install guide. Covers the "Announce on LinkedIn" item of TASK-076.
 
 The user publishes the post; we hand over the text and the media file (GIF, plus MP4 if LinkedIn needs it).
 
@@ -89,7 +197,7 @@ Do not take this on for its own sake — if TASK-021 is dropped, the hand-writte
 ---
 ## TASK-064: Write only the part of a state file that changed
 **Priority:** P2 | **Tags:** core
-**Updated:** 2026-09-21 10:28
+**Updated:** 2026-11-25 10:15
 
 Every board write rewrites the whole state file. `serializeBoard` copies the bytes of unchanged tasks verbatim, but it still copies them, and `writeFileAtomic` then writes the file from scratch.
 
@@ -104,6 +212,8 @@ I underestimated this earlier by reasoning about a 40 KB file. Moving one task t
 ## Three parts, increasing in cost and risk
 
 ### 1. Do not write when nothing changed
+
+**Split out as TASK-092 (epic 3.1).** This task keeps parts 2 and 3.
 
 `serializeBoard` always returns a string and `commitWrites` always writes it, even when the result is byte-identical to what is on disk. Comparing and skipping is a few lines, changes no behaviour, and removes a write plus a rename from every operation that turned out to be a no-op — `updateTask` with identical values, a reorder that resolves to the same index, `archiveCompleted` when nothing is old enough.
 
