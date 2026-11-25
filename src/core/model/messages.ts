@@ -8,6 +8,9 @@ export interface TaskViewItem {
   epic?: string;
   assignee?: string;
   updatedAt?: string;
+  repeats?: string;
+  lastRun?: string;
+  due: boolean;
   description: string;
 }
 

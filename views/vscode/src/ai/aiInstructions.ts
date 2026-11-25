@@ -100,7 +100,8 @@ ID prefix: \`${config.idPrefix}\`. Priorities: ${config.priorities.join(', ')}.
 | \`taskplanner_get\` | Full task |
 | \`taskplanner_create\` | Create (allocates ID) |
 | \`taskplanner_move\` | Change state |
-| \`taskplanner_update\` | Title, description, priority, tags, epic, assignee, waiting-until, plan |
+| \`taskplanner_update\` | Title, description, priority, tags, epic, assignee, waiting-until, schedule (\`repeats\`), plan |
+| \`taskplanner_record_run\` | Record one run of a recurring task |
 
 Check once per session whether the tools are available, and say which way you are working. **If they are available, do not hand-edit these files.** Instructions below that describe editing markdown are the fallback only.
 
@@ -113,6 +114,10 @@ If the TaskPlanner tools are not available, the host reads \`${MCP_CONFIG_FILE}\
 ${config.aiPlanRequired ? '4' : '3'}. **Implement.**
 ${config.aiPlanRequired ? '5' : '4'}. **Move** to Done — ${config.aiPlanRequired ? 'trim `### Plan` to a done-summary, append' : 'append'} a short WORK_LOG entry if that file exists, and a CHANGELOG entry under \`## [Unreleased]\` if the project uses that rule.
 ${planSection}${workLogSection}
+### Recurring tasks
+
+A task with \`**Repeats:**\` (a cron schedule in UTC, e.g. \`0 7 * * *\`) is work that never finishes; it lives in the Recurring state. It is due when its schedule has fired since \`**Last run:**\`; \`taskplanner_list\` with \`due: true\` lists those. To run one, do the work and record it with \`taskplanner_record_run\` and a one-line result. Never move it to In Progress or Done, and do not add a plan. Without tools, set \`**Last run:** YYYY-MM-DD HH:mm\` (UTC) and add \`- YYYY-MM-DD HH:mm — result\` at the top of its \`### Runs\` list, keeping the last 7. TaskPlanner does not start runs itself; a scheduler does.
+
 ## Mandatory checklist
 
 - **In Progress:** The task must actually **move** into IN_PROGRESS.md before substantive work — not only be described as moving. Use \`taskplanner_move\`; without it, cut the whole \`##\` section and its \`---\` by hand.

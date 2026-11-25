@@ -26,6 +26,41 @@ function makeTasks(count: number, prefix: string): Task[] {
   );
 }
 
+describe('a recurring task in the view model', () => {
+  const recurringStates: TaskState[] = [{ name: 'Recurring', fileName: 'RECURRING.md', order: 0 }];
+  const recurring = (lastRun: string): Task => ({
+    ...makeTask('TASK-001', 'Daily watch'),
+    repeats: '@daily',
+    lastRun,
+  });
+
+  it('is due when its schedule has fired since the last run', () => {
+    const tasksByState = new Map([['Recurring', [recurring('2000-01-01 00:00')]]]);
+
+    const [item] = filterAndPaginate(tasksByState, recurringStates).states[0].tasks;
+
+    expect(item).toEqual(
+      expect.objectContaining({ repeats: '@daily', lastRun: '2000-01-01 00:00', due: true }),
+    );
+  });
+
+  it('is not due when the last run is after the latest fire', () => {
+    const tasksByState = new Map([['Recurring', [recurring('2999-01-01 00:00')]]]);
+
+    const [item] = filterAndPaginate(tasksByState, recurringStates).states[0].tasks;
+
+    expect(item.due).toBe(false);
+  });
+
+  it('marks a task without a schedule as never due', () => {
+    const tasksByState = new Map([['Backlog', [makeTask('TASK-002', 'One-off')]]]);
+
+    const [item] = filterAndPaginate(tasksByState, states).states[0].tasks;
+
+    expect(item.due).toBe(false);
+  });
+});
+
 describe('filterAndPaginate', () => {
   it('returns all states with no filter', () => {
     const tasksByState = new Map<string, Task[]>([
@@ -137,7 +172,10 @@ describe('filterAndPaginate', () => {
 
   it('filters by query matching tags', () => {
     const tasksByState = new Map<string, Task[]>([
-      ['Backlog', [makeTask('TASK-001', 'Alpha', Priority.P2, ['feature']), makeTask('TASK-002', 'Beta')]],
+      [
+        'Backlog',
+        [makeTask('TASK-001', 'Alpha', Priority.P2, ['feature']), makeTask('TASK-002', 'Beta')],
+      ],
       ['In Progress', []],
       ['Done', []],
     ]);
@@ -181,12 +219,7 @@ describe('sortTasks', () => {
     ];
 
     const sorted = sortTasks(tasks, 'priority');
-    expect(sorted.map((t) => t.id)).toEqual([
-      'TASK-001',
-      'TASK-002',
-      'TASK-003',
-      'TASK-004',
-    ]);
+    expect(sorted.map((t) => t.id)).toEqual(['TASK-001', 'TASK-002', 'TASK-003', 'TASK-004']);
   });
 
   it('sorts by name then ID when titles tie', () => {
@@ -198,12 +231,7 @@ describe('sortTasks', () => {
     ];
 
     const sorted = sortTasks(tasks, 'name');
-    expect(sorted.map((t) => t.id)).toEqual([
-      'TASK-004',
-      'TASK-001',
-      'TASK-002',
-      'TASK-003',
-    ]);
+    expect(sorted.map((t) => t.id)).toEqual(['TASK-004', 'TASK-001', 'TASK-002', 'TASK-003']);
   });
 });
 

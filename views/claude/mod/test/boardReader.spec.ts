@@ -5,12 +5,17 @@ import {
   findTask,
   focusTask,
   readConfigStates,
+  scheduleFiredSince,
   taskDetailOf,
 } from '../src/boardReader.js';
 import { DEFAULT_STATES } from '../../../../src/core/model/state.js';
 
-const COLLAPSED = { loadCompleted: false, expandedStates: new Set<string>() };
-const WITH_COMPLETED = { loadCompleted: true, expandedStates: new Set<string>() };
+const COLLAPSED = {
+  loadCompleted: false,
+  expandedStates: new Set<string>(),
+  now: new Date('2026-11-25T10:30:00Z'),
+};
+const WITH_COMPLETED = { ...COLLAPSED, loadCompleted: true };
 
 function section(id: string, title: string, priority: string, extra = ''): string {
   return `## ${id}: ${title}\n**Priority:** ${priority}${extra}\n\nAbout ${title}.\n\n---\n`;
@@ -101,7 +106,7 @@ describe('buildBoard', () => {
     const many = Array.from({ length: BOARD_TASK_LIMIT + 2 }, (_, index) =>
       section(`TASK-${100 + index}`, `Task ${index}`, 'P2'),
     ).join('');
-    const expanded = { loadCompleted: false, expandedStates: new Set(['Backlog']) };
+    const expanded = { ...COLLAPSED, expandedStates: new Set(['Backlog']) };
     const { snapshot } = buildBoard(
       DEFAULT_STATES,
       new Map([['BACKLOG.md', many]]),
@@ -149,6 +154,48 @@ ${section('TASK-007', 'Next copy', 'P2')}`,
     expect(findTask(tasks, 'TASK-007', 'Done')).toBeNull();
     expect(findTask(tasks, 'TASK-007')?.task.title).toBe('Backlog copy');
     expect(findTask(tasks, 'TASK-404')).toBeNull();
+  });
+});
+
+describe('due counts', () => {
+  const RECURRING = [{ name: 'Recurring', fileName: 'RECURRING.md', order: 0 }];
+
+  it('count a due task the card limit leaves out', () => {
+    const text = recurringFile(BOARD_TASK_LIMIT, 'TASK-999');
+
+    const { snapshot } = buildBoard(RECURRING, new Map([['RECURRING.md', text]]), COLLAPSED, null);
+
+    expect(snapshot.states[0].tasks).toHaveLength(BOARD_TASK_LIMIT);
+    expect(snapshot.dueCounts).toEqual({ Recurring: 1 });
+  });
+});
+
+// The pane rebuilds when a schedule fires even though no board file changed.
+describe('scheduleFiredSince', () => {
+  const BUILT_AT = new Date('2026-11-25T10:30:00Z');
+  const hourly = `# Recurring\n\n## TASK-030: Hourly check\n**Priority:** P2\n**Repeats:** @hourly\n**Last run:** 2026-11-25 10:00\n\n---\n`;
+
+  function indexOf(recurring: string) {
+    const states = [{ name: 'Recurring', fileName: 'RECURRING.md', order: 0 }];
+    return buildBoard(states, new Map([['RECURRING.md', recurring]]), COLLAPSED, null).tasks;
+  }
+
+  it('is true once the clock passes the next fire, with the files unchanged', () => {
+    const fired = scheduleFiredSince(indexOf(hourly), BUILT_AT, new Date('2026-11-25T11:00:30Z'));
+
+    expect(fired).toBe(true);
+  });
+
+  it('is false while no schedule has fired since the board was built', () => {
+    const fired = scheduleFiredSince(indexOf(hourly), BUILT_AT, new Date('2026-11-25T10:59:00Z'));
+
+    expect(fired).toBe(false);
+  });
+
+  it('is false for a board without schedules', () => {
+    const fired = scheduleFiredSince(new Map(), BUILT_AT, new Date('2026-11-26T00:00:00Z'));
+
+    expect(fired).toBe(false);
   });
 });
 
@@ -221,3 +268,17 @@ describe('taskDetailOf', () => {
     ).toBe(true);
   });
 });
+
+// Recorded far in the future, so these are not due; the due one sorts last by priority.
+function recurringFile(notDue: number, dueId: string): string {
+  const recorded = Array.from({ length: notDue }, (_, index) =>
+    section(
+      `TASK-${100 + index}`,
+      `Recorded ${index}`,
+      'P0',
+      '\n**Repeats:** @daily\n**Last run:** 2999-01-01 00:00',
+    ),
+  );
+  const due = section(dueId, 'Never run', 'P4', '\n**Repeats:** @daily');
+  return `# Recurring\n\n${recorded.join('')}${due}`;
+}

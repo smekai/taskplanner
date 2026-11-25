@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "taskplannerVersion": "3.0.36",
+  "version": 4,
+  "taskplannerVersion": "3.0.39",
   "upgradeChecks": [
     "3.0"
   ],
@@ -31,6 +31,11 @@
       "name": "Rejected",
       "fileName": "REJECTED.md",
       "order": 4
+    },
+    {
+      "name": "Recurring",
+      "fileName": "RECURRING.md",
+      "order": 5
     }
   ],
   "priorities": [

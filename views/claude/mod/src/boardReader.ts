@@ -4,6 +4,7 @@ import { DEFAULT_STATES, TaskState } from '../../../../src/core/model/state.js';
 import type { Task } from '../../../../src/core/model/task.js';
 import { countTaskHeadings, parseTasks } from '../../../../src/core/parser/taskParser.js';
 import { isWaiting } from '../../../../src/core/util/time.js';
+import { isDue, parseCron, previousFire } from '../../../../src/core/util/cron.js';
 import {
   BACKLOG_STATE,
   BoardSnapshot,
@@ -48,6 +49,7 @@ export function readConfigStates(configText: string): TaskState[] {
 export interface BuildOptions {
   loadCompleted: boolean;
   expandedStates: ReadonlySet<string>;
+  now: Date;
 }
 
 function indexTask(index: Map<string, IndexedTask[]>, entry: IndexedTask): void {
@@ -90,13 +92,21 @@ export function buildBoard(
         options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
         isCompletedState(state.name) ? 'file' : 'priority',
         displayCounts,
+        options.now,
       ).states[0],
   );
   const focusCandidates = FOCUS_ORDER.flatMap((name) =>
     sortTasks(tasksByState.get(name) ?? [], 'priority').map((task) => ({ task, state: name })),
   );
+  const dueCounts = Object.fromEntries(
+    states.map((state) => [
+      state.name,
+      (tasksByState.get(state.name) ?? []).filter((task) => isDue(task.repeats, task.lastRun, options.now))
+        .length,
+    ]),
+  );
   return {
-    snapshot: { states: viewStates, workspaceRoot, deferredStates },
+    snapshot: { states: viewStates, workspaceRoot, deferredStates, dueCounts },
     tasks,
     focusCandidates,
     issueCount,
@@ -124,6 +134,18 @@ export function focusTask(
   );
 }
 
+export function scheduleFiredSince(
+  index: ReadonlyMap<string, readonly IndexedTask[]>,
+  since: Date,
+  now: Date,
+): boolean {
+  return [...index.values()].flat().some(({ task }) => {
+    const schedule = parseCron(task.repeats);
+    const fired = schedule ? previousFire(schedule, now) : undefined;
+    return fired !== undefined && fired.getTime() > since.getTime();
+  });
+}
+
 export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {
   const record = { ...task, state };
   return {
@@ -132,6 +154,7 @@ export function taskDetailOf({ task, state }: IndexedTask): TaskDetail {
     state,
     priority: task.priority,
     tags: [...task.tags],
+    repeats: task.repeats,
     text: taskMarkdown(record),
     body: taskBody(record),
   };

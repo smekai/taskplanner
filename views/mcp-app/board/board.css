@@ -281,6 +281,19 @@ body {
   font-size: 10.5px;
 }
 
+.schedule {
+  background: var(--border);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10.5px;
+}
+
+.schedule.due {
+  background: var(--p1);
+  color: #fff;
+  font-weight: 600;
+}
+
 .tag {
   background: transparent;
   border: 1px solid var(--border);

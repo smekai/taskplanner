@@ -5,8 +5,10 @@ import { ConfigManager } from '../../../../../src/core/config/configManager.js';
 import { groupTasks, TaskListSortBy } from '../../../../../src/core/filter/taskFilter.js';
 import { isDeferredStateName } from '../../../../../src/core/store/taskStore.js';
 import { Task, Priority } from '../../../../../src/core/model/task.js';
+import { isValidCron } from '../../../../../src/core/util/cron.js';
 import { TaskFilter, GroupViewData, TaskViewItem } from '../../../../../src/core/model/messages.js';
 import { getWebviewHtml } from './webviewHelper.js';
+import { scriptJson } from './scriptJson.js';
 import {
   getSortBy,
   getGroupBy,
@@ -183,6 +185,16 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
           if (msg.tags !== undefined) updates.tags = msg.tags as string[];
           if (msg.assignee !== undefined) updates.assignee = (msg.assignee as string) || undefined;
           if (msg.epic !== undefined) updates.epic = (msg.epic as string) || undefined;
+          if (msg.repeats !== undefined) {
+            const schedule = (msg.repeats as string).trim();
+            if (schedule && !isValidCron(schedule)) {
+              void vscode.window.showWarningMessage(
+                `"${schedule}" is not a cron schedule. Use 5 fields in UTC, such as "0 7 * * *", or @daily. The schedule was not saved.`,
+              );
+            } else {
+              updates.repeats = schedule || undefined;
+            }
+          }
           this.taskStore.updateTask(taskId, updates);
         }
         break;
@@ -485,10 +497,10 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       const sortByBtn = document.getElementById('sortByBtn');
       const sortByMenu = document.getElementById('sortByMenu');
 
-      let currentGroupBy = ${JSON.stringify(groupBy)};
-      let currentSortBy = ${JSON.stringify(this.sortBy)};
-      let currentStatus = ${JSON.stringify(this.filter.status ?? '')};
-      let currentTag = ${JSON.stringify(this.filter.tag ?? '')};
+      let currentGroupBy = ${scriptJson(groupBy)};
+      let currentSortBy = ${scriptJson(this.sortBy)};
+      let currentStatus = ${scriptJson(this.filter.status ?? '')};
+      let currentTag = ${scriptJson(this.filter.tag ?? '')};
       let taskListSuppressClickUntil = 0;
 
       let debounceTimer;
@@ -1054,6 +1066,11 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     const tags = task.tags.map((t) => `<span class="tag">${this.escapeHtml(t)}</span>`).join('');
 
     const metaParts: string[] = [];
+    if (task.repeats) {
+      metaParts.push(
+        `<span class="task-meta-item" title="Repeats (UTC)">&#128257; ${this.escapeHtml(task.repeats)}${task.due ? ' · <strong>due</strong>' : ''}</span>`,
+      );
+    }
     if (task.assignee) {
       metaParts.push(
         `<span class="task-meta-item">&#128100; ${this.escapeHtml(task.assignee)}</span>`,
@@ -1082,6 +1099,19 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         <button type="button" class="card-ai-btn" draggable="false" data-action="implementWithAi" data-task-id="${task.id}" title="Implement with AI"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5Z" fill="#ec4899"/><path d="M12.5 0l.75 2.25L15.5 3l-2.25.75L12.5 6l-.75-2.25L9.5 3l2.25-.75Z" fill="#8b5cf6" opacity="0.8"/></svg></button>
       </div>
     `;
+  }
+
+  private buildRunHistory(task: Task): string {
+    const runs = task.runs ?? [];
+    if (!task.lastRun && runs.length === 0) return '';
+    const lastRun = task.lastRun
+      ? `<div class="detail-meta">Last run: ${this.escapeHtml(task.lastRun)} UTC</div>`
+      : '';
+    const items = runs.map((run) => `<li>${this.escapeHtml(run)}</li>`).join('');
+    const history = items
+      ? `<div class="detail-field"><label>Runs</label><ul class="detail-runs">${items}</ul></div>`
+      : '';
+    return `${lastRun}${history}`;
   }
 
   private buildDetailHtml(task: Task, stateName: string): string {
@@ -1160,6 +1190,12 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
           <input type="text" id="fieldTags" value="${this.escapeAttr(task.tags.join(', '))}" placeholder="tag1, tag2" />
         </div>
 
+        <div class="detail-field">
+          <label>Repeats (cron, UTC)</label>
+          <input type="text" id="fieldRepeats" value="${this.escapeAttr(task.repeats ?? '')}" placeholder="Not recurring, e.g. 0 7 * * * or @daily" />
+        </div>
+        ${this.buildRunHistory(task)}
+
         <div class="detail-field detail-field-grow">
           <label>Description</label>
           <textarea id="fieldDescription">${descriptionText}</textarea>
@@ -1175,17 +1211,17 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     `;
 
     const script = `
-      const taskId = ${JSON.stringify(task.id)};
+      const taskId = ${scriptJson(task.id)};
       let debounceTimer = null;
 
       // Track last-saved values to avoid no-op saves
       let lastSaved = {
-        title: ${JSON.stringify(task.title)},
-        priority: ${JSON.stringify(task.priority)},
-        assignee: ${JSON.stringify(task.assignee ?? '')},
-        epic: ${JSON.stringify(task.epic ?? '')},
-        tags: ${JSON.stringify(task.tags.join(', '))},
-        description: ${JSON.stringify(task.description)}
+        title: ${scriptJson(task.title)},
+        priority: ${scriptJson(task.priority)},
+        assignee: ${scriptJson(task.assignee ?? '')},
+        epic: ${scriptJson(task.epic ?? '')},
+        tags: ${scriptJson(task.tags.join(', '))},
+        description: ${scriptJson(task.description)}
       };
 
       function collectFields() {
@@ -1241,6 +1277,9 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       // Auto-save: debounced for text inputs, immediate for dropdowns
       ['fieldTitle', 'fieldTags', 'fieldAssignee', 'fieldEpic', 'fieldDescription'].forEach(id => {
         document.getElementById(id).addEventListener('input', debouncedSave);
+      });
+      document.getElementById('fieldRepeats').addEventListener('change', (event) => {
+        vscode.postMessage({ type: 'saveTask', taskId, repeats: event.target.value });
       });
 
       function closeAllDetailMenus() {
@@ -1525,6 +1564,13 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         .editor-btn:hover {
           background: #4a4a4a;
         }
+.detail-runs {
+          margin: 2px 0 0;
+          padding-left: 18px;
+          font-size: 0.9em;
+          color: var(--vscode-descriptionForeground);
+        }
+
         .detail-readonly {
           font-size: 0.9em;
           color: var(--muted-fg);

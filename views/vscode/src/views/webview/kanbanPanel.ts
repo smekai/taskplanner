@@ -4,7 +4,11 @@ import { TaskStore } from '../../../../../src/core/store/taskStore.js';
 import { ConfigManager } from '../../../../../src/core/config/configManager.js';
 import { TaskListSortBy } from '../../../../../src/core/filter/taskFilter.js';
 import { buildBoardViewModel } from '../../../../../src/core/view/boardViewModel.js';
-import { TaskViewData, StateViewData, TaskViewItem } from '../../../../../src/core/model/messages.js';
+import {
+  TaskViewData,
+  StateViewData,
+  TaskViewItem,
+} from '../../../../../src/core/model/messages.js';
 import { getWebviewHtml } from './webviewHelper.js';
 import { getSortBy, setSortBy } from '../../config/extensionConfig.js';
 
@@ -998,6 +1002,11 @@ export class KanbanPanel {
     const tags = task.tags.map((t) => `<span class="tag">${this.escapeHtml(t)}</span>`).join('');
 
     const metaParts: string[] = [];
+    if (task.repeats) {
+      metaParts.push(
+        `<span style="font-size:0.8em;color:var(--muted-fg);" title="Repeats (UTC)">&#128257; ${this.escapeHtml(task.repeats)}${task.due ? ' · <strong>due</strong>' : ''}</span>`,
+      );
+    }
     if (task.assignee) {
       metaParts.push(
         `<span style="font-size:0.8em;color:var(--muted-fg);">&#128100; ${this.escapeHtml(task.assignee)}</span>`,
