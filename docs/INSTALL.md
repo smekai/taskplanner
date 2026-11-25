@@ -43,21 +43,28 @@ The pane and the band are a Claude Code *mod*, an API Anthropic marks as early a
 
 **A. Through the extension (easiest).** Install **TaskPlanner** from the Extensions view; Cursor pulls it from [Open VSX](https://open-vsx.org/extension/refined/taskplanner). The extension adds the sidebar, the Kanban board and the setup menu, and registers the bundled Cursor plugin: MCP tools, skills, a workflow rule, slash commands and an inline board in Agent chat.
 
-**B. Manually, from this repository.** The plugin's built files are committed, so no build is needed:
-
-```powershell
-git clone https://github.com/smekai/taskplanner
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.cursor\plugins\local" | Out-Null
-Copy-Item -Recurse taskplanner\views\cursor "$env:USERPROFILE\.cursor\plugins\local\taskplanner"
-```
+**B. Manually, from this repository.** The plugin's built files are committed, so no build is needed. Clone the repository once:
 
 ```bash
 git clone https://github.com/smekai/taskplanner
+```
+
+Then, from the folder that holds the clone, replace Cursor's local copy of the plugin with `views/cursor`. The same commands install and update: they delete the old copy first, because copying onto an existing folder would nest the new files inside it and leave the old ones active.
+
+```powershell
+$target = "$env:USERPROFILE\.cursor\plugins\local\taskplanner"
+if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+Copy-Item -Recurse taskplanner\views\cursor $target
+```
+
+```bash
+rm -rf ~/.cursor/plugins/local/taskplanner
 mkdir -p ~/.cursor/plugins/local
 cp -R taskplanner/views/cursor ~/.cursor/plugins/local/taskplanner
 ```
 
-Then restart Cursor (or run **Developer: Reload Window**), open **Customize**, and check that the TaskPlanner MCP server, skills, the `taskplanner-workflow` rule and the `/list-tasks`, `/next-task`, `/continue-task` commands are there. To update, copy the folder again. More: [`views/cursor/README.md`](../views/cursor/README.md).
+Then restart Cursor (or run **Developer: Reload Window**), open **Customize**, and check that the TaskPlanner MCP server, skills, the `taskplanner-workflow` rule and the `/list-tasks`, `/next-task`, `/continue-task` commands are there. To update later, run `git -C taskplanner pull`, then the replace commands above again. More: [`views/cursor/README.md`](../views/cursor/README.md).
 
 ## Codex
 
