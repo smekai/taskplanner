@@ -6,6 +6,8 @@ export const LINE_BREAK = /\r?\n/;
 const TASK_HEADING_RE = /^## ([A-Z]+-\d+):\s*(\S.*)$/;
 const SEPARATOR_RE = /^---\s*$/;
 const PLAN_HEADING_RE = /^### Plan\s*$/;
+const RUNS_HEADING_RE = /^### Runs\s*$/;
+const RUN_ITEM_RE = /^\s*[-*]\s+/;
 const ATTRIBUTE_RE = /^\*\*(.+?):\*\*\s*(.*)$/;
 
 const SEPARATOR_BEFORE_NEXT_FIELD = /\s\|\s(?=\*\*)/;
@@ -22,6 +24,8 @@ const BUILT_IN_FIELD_RES = {
   assignee: /^\*\*Assignee:\*\*\s*(.+)/,
   updatedAt: /^\*\*Updated:\*\*\s*(.+)/,
   waitingUntil: /^\*\*Waiting until:\*\*\s*(.+)/,
+  repeats: /^\*\*Repeats:\*\*\s*(.+)/,
+  lastRun: /^\*\*Last run:\*\*\s*(.+)/,
 } as const;
 
 export type BuiltInField = keyof typeof BUILT_IN_FIELD_RES;
@@ -45,6 +49,19 @@ export function isSectionSeparatorLine(line: string): boolean {
 
 export function isPlanHeadingLine(line: string): boolean {
   return PLAN_HEADING_RE.test(line);
+}
+
+export function isRunsHeadingLine(line: string): boolean {
+  return RUNS_HEADING_RE.test(line);
+}
+
+export function runEntryOf(line: string): string | undefined {
+  const entry = line.replace(RUN_ITEM_RE, '').trim();
+  return entry.length > 0 ? entry : undefined;
+}
+
+export function containsRunsHeading(text: string): boolean {
+  return text.split(LINE_BREAK).some(isRunsHeadingLine);
 }
 
 export function endsTaskSection(text: string): boolean {

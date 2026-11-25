@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- Boards have a new **Recurring** state for work that never finishes, such as a daily check. A recurring task has a cron schedule in UTC (`**Repeats:** 0 7 * * *`), the time of its last run, and a `### Runs` list of its last 7 results. The board can tell when one is due. Existing boards gain the state once; if you remove it, it stays removed. Showing and recording runs from MCP tools and views comes in the next 3.1 changes (TASK-087).
 - The README is a short product page, and installing on each host is in a separate install guide. It says plainly that the Claude and Cursor plugins aren't in their official marketplaces yet and gives the working alternative for each. The VS Code Marketplace and Open VSX pages show an extension-specific README (TASK-086).
 - The README opens with an animation of the board in Claude Desktop, explains how to install TaskPlanner in Claude Code and Desktop, Codex, Cursor, VS Code and any MCP host, and shows versions and usage per store (TASK-084).
 - In Claude Code the *TaskPlanner · no board here* band has a close button. It asks once more, then never shows the band in that folder again; the board pane still offers setup. You can also ask Claude to hide the band or bring it back (TASK-083).

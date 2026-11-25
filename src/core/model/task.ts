@@ -16,7 +16,10 @@ export interface Task {
   assignee?: string;
   updatedAt?: string;
   waitingUntil?: string;
+  repeats?: string;
+  lastRun?: string;
   plan?: string;
+  runs?: string[];
   attributes?: Record<string, string>;
 }
 

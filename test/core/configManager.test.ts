@@ -20,16 +20,16 @@ describe('ConfigManager', () => {
 
   it('returns default config when no file exists', () => {
     const config = configManager.load();
-    expect(config.version).toBe(3);
+    expect(config.version).toBe(4);
     expect(config.idPrefix).toBe('TASK');
     expect(config.nextId).toBe(1);
-    expect(config.states).toHaveLength(5);
+    expect(config.states).toHaveLength(6);
     expect(config.taskplannerVersion).toBe('');
     expect(config.aiPlanRequired).toBe(true);
     expect(config.readmeAttribution).toBe(true);
   });
 
-  it('strips the legacy sortBy field and bumps to version 3', () => {
+  it('strips the legacy sortBy field and bumps to the current schema', () => {
     fs.writeFileSync(
       path.join(tmpDir, 'config.json'),
       JSON.stringify({ version: 2, idPrefix: 'ACME', nextId: 42, sortBy: 'priority' }),
@@ -37,7 +37,7 @@ describe('ConfigManager', () => {
 
     const config: Record<string, unknown> = configManager.load();
     expect(config.sortBy).toBeUndefined();
-    expect(config.version).toBe(3);
+    expect(config.version).toBe(4);
     // Unrelated keys survive the migration.
     expect(config.idPrefix).toBe('ACME');
     expect(config.nextId).toBe(42);
@@ -47,21 +47,74 @@ describe('ConfigManager', () => {
     expect('sortBy' in onDisk).toBe(false);
   });
 
-  it('records the v3 schema even when there was nothing to change', () => {
-    // A v2 file that already lacks sortBy and already has Rejected: the migration finds nothing to
-    // do, but the file must still be marked as having reached v3.
+  it('records the current schema even when there was nothing to change', () => {
+    // A v2 file that already lacks sortBy and already has Rejected and Recurring: the migration
+    // finds nothing to change, but the file must still be marked as having reached the current schema.
     const states = [
       { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
       { name: 'Next', fileName: 'NEXT.md', order: 1 },
       { name: 'In Progress', fileName: 'IN_PROGRESS.md', order: 2 },
       { name: 'Done', fileName: 'DONE.md', order: 3 },
       { name: 'Rejected', fileName: 'REJECTED.md', order: 4 },
+      { name: 'Recurring', fileName: 'RECURRING.md', order: 5 },
     ];
     fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify({ version: 2, states }));
 
-    expect(configManager.load().version).toBe(3);
+    expect(configManager.load().version).toBe(4);
     const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
-    expect(onDisk.version).toBe(3);
+    expect(onDisk.version).toBe(4);
+  });
+
+  describe('the Recurring state', () => {
+    const write = (config: object) =>
+      fs.writeFileSync(path.join(tmpDir, 'config.json'), JSON.stringify(config));
+    const CUSTOM = [
+      { name: 'Todo', fileName: 'TODO.md', order: 0 },
+      { name: 'Doing', fileName: 'DOING.md', order: 7 },
+      { name: 'Rejected', fileName: 'REJECTED.md', order: 8 },
+    ];
+
+    it('is added after the last state of an existing board, leaving the others alone', () => {
+      write({ version: 3, states: CUSTOM });
+
+      const states = configManager.load().states;
+
+      expect(states.slice(0, 3)).toEqual(CUSTOM);
+      expect(states[3]).toEqual({ name: 'Recurring', fileName: 'RECURRING.md', order: 9 });
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
+      expect(onDisk.states).toHaveLength(4);
+      expect(onDisk.version).toBe(4);
+    });
+
+    it('is added to a config written before versions existed', () => {
+      write({ idPrefix: 'OLD', states: CUSTOM });
+
+      expect(configManager.load().states.map((s) => s.name)).toContain('Recurring');
+    });
+
+    it('stays removed once a migrated board drops it', () => {
+      write({ version: 4, states: CUSTOM });
+
+      expect(configManager.load().states.map((s) => s.name)).not.toContain('Recurring');
+    });
+
+    // On Windows and macOS RECURRING.md would be the same file as an existing recurring.md.
+    it.each([
+      { name: 'Routines', fileName: 'recurring.md', order: 2 },
+      { name: 'recurring', fileName: 'ROUTINES.md', order: 2 },
+    ])('is not added when the board already has $name in $fileName', (existing) => {
+      const own = [...CUSTOM, existing];
+      write({ version: 3, states: own });
+
+      expect(configManager.load().states).toEqual(own);
+    });
+
+    it('is not added twice when a board already has one', () => {
+      const own = [...CUSTOM, { name: 'Recurring', fileName: 'ROUTINES.md', order: 2 }];
+      write({ version: 3, states: own });
+
+      expect(configManager.load().states).toEqual(own);
+    });
   });
 
   // The MCP server runs every tool through load(), so migrating-and-saving there
@@ -97,7 +150,7 @@ describe('ConfigManager', () => {
 
       const config = configManager.load({ persistMigration: false });
 
-      expect(config.version).toBe(3);
+      expect(config.version).toBe(4);
       expect(config.states.some((state) => state.name === 'Rejected')).toBe(true);
     });
 
@@ -108,7 +161,7 @@ describe('ConfigManager', () => {
       configManager.save();
 
       const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
-      expect(onDisk.version).toBe(3);
+      expect(onDisk.version).toBe(4);
     });
 
     it('persists by default, because the extension migrates a project when it opens it', () => {
@@ -117,7 +170,7 @@ describe('ConfigManager', () => {
       configManager.load();
 
       const onDisk = JSON.parse(fs.readFileSync(path.join(tmpDir, 'config.json'), 'utf-8'));
-      expect(onDisk.version).toBe(3);
+      expect(onDisk.version).toBe(4);
     });
   });
 
@@ -156,7 +209,7 @@ describe('ConfigManager', () => {
       write(JSON.stringify({ states: [{ nonsense: true }] }));
       const config = configManager.load();
 
-      expect(config.states).toHaveLength(5);
+      expect(config.states).toHaveLength(6);
       expect(configManager.getDiagnostics().length).toBeGreaterThan(0);
     });
 
@@ -169,7 +222,7 @@ describe('ConfigManager', () => {
       it(`does not throw on ${label}`, () => {
         write(content);
         expect(() => configManager.load()).not.toThrow();
-        expect(configManager.load().states).toHaveLength(5);
+        expect(configManager.load().states).toHaveLength(6);
       });
     }
 
@@ -259,7 +312,7 @@ describe('ConfigManager', () => {
     expect(config.idPrefix).toBe('CUSTOM');
     expect(config.nextId).toBe(50);
     // Default fields should fill in (5 states including Rejected)
-    expect(config.states).toHaveLength(5);
+    expect(config.states).toHaveLength(6);
   });
 
   describe('config field validation', () => {

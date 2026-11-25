@@ -1,5 +1,31 @@
 # Done
 
+## TASK-087: 3.1 phase A: recurring tasks in core
+**Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
+**Updated:** 2026-11-25 12:07
+
+Phase A of TASK-088. Some work never moves to Done. For example, the daily store-status watch runs every day and today lives outside the board as a scheduled task. This phase gives `src/core/` everything the later phases need.
+
+- **State:** `DEFAULT_STATES` (`src/core/model/state.ts`) gains `Recurring` / `RECURRING.md`. A config migration appends it to existing boards (precedent: `addRejectedState` in `configManager.ts`, plus a schema version bump). The migration leaves custom state lists alone apart from appending.
+- **Fields:** `repeats?` (cron expression, UTC) and `lastRun?` (`YYYY-MM-DD HH:MM`) on `Task`, as `**Repeats:**` and `**Last run:**`. They go through the grammar, `taskSection.ts`, `taskSerializer.ts` and `sameTask`, the same path as `waitingUntil` in TASK-052.
+- **Runs:** a `### Runs` section is parsed and serialized like `### Plan`, newest first, kept to the last 7 lines.
+- **Due:** `isDue(repeats, lastRun, now)` in `src/core/util/time.ts` is true when the most recent cron fire time is after `lastRun`. Use `cron-parser` if `dist/extension.js` growth is acceptable (it pulls in Luxon, which TASK-059 wants anyway). Otherwise write a small 5-field evaluator. Measure before deciding and record the choice.
+- **Store:** `recordRun(id, result)` stamps `lastRun` and prepends a line to Runs.
+- **Special-cased names:** check `DEFERRED_STATE_NAMES`, `COLLAPSED_STATES` and the Done lookup so that Recurring behaves as an active state.
+
+Tests: parser, round trip (byte identity, plus `Repeats` and `Last run` as reserved attribute names), config migration, `isDue`, `recordRun`. Changelog entry.
+
+### Plan
+
+Done:
+- **Recurring state:** `Recurring` / `RECURRING.md` is in `DEFAULT_STATES`. Config schema 4 (`addRecurringState`) appends it once, gated on the version, so a removed state stays removed. It is not added when any state already uses the name or the file name in any case (`recurring.md` is the same file on Windows and macOS). A config without a `version` counts as unversioned; an empty or unreadable one does not, so loading it is never rewritten.
+- **Fields:** `repeats`, `lastRun` and `runs` on `Task`, as `**Repeats:**`, `**Last run:**` and `### Runs` after Plan. They are reserved attribute names. `### Runs` is run history only in a task with `Repeats`; elsewhere it stays ordinary Markdown, so older boards keep their text. A recurring task's description or plan holding the heading is refused on write.
+- **Cron:** `src/core/util/cron.ts` is a hand-written 5-field UTC evaluator: lists, ranges, steps, month and weekday names, `@daily`-style macros, cron's OR rule for the two day fields. It exports `parseCron`, `isValidCron`, `previousFire` and `isDue`. `cron-parser` with Luxon measured 100 KB minified / 31 KB gzipped; the hand-written version adds 1.7 KB to the extension.
+- **Store:** `TaskStore.recordRun(id, result, now)` stamps `lastRun`, prepends `YYYY-MM-DD HH:MM — result` and keeps `MAX_RUNS` = 7. It throws for a task without `repeats`.
+- **Tests:** 486 pass. Added `cron.test.ts`, recurring round trips, the migration cases (including the case-insensitive collision), `recordRun`, and `### Runs` in non-recurring tasks.
+- **Review on PR #40:** two compatibility fixes, the non-recurring `### Runs` and the case-insensitive collision.
+
+---
 ## TASK-071: TaskPlanner 3.0 release
 **Priority:** P1 | **Tags:** feature, ui, docs, ci | **Epic:** 3.0
 **Updated:** 2026-11-24 09:56

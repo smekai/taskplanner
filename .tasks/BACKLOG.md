@@ -101,22 +101,6 @@ Scope for 3.1. Some work never reaches Done. The daily store-status watch (Claud
 The LinkedIn announcement (TASK-085) follows the release.
 
 ---
-## TASK-087: 3.1 phase A: recurring tasks in core
-**Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
-**Updated:** 2026-11-25 10:14
-
-Phase A of TASK-088. Some work never moves to Done. For example, the daily store-status watch runs every day and today lives outside the board as a scheduled task. This phase gives `src/core/` everything the later phases need.
-
-- **State:** `DEFAULT_STATES` (`src/core/model/state.ts`) gains `Recurring` / `RECURRING.md`. A config migration appends it to existing boards (precedent: `addRejectedState` in `configManager.ts`, plus a schema version bump). The migration leaves custom state lists alone apart from appending.
-- **Fields:** `repeats?` (cron expression, UTC) and `lastRun?` (`YYYY-MM-DD HH:MM`) on `Task`, as `**Repeats:**` and `**Last run:**`. They go through the grammar, `taskSection.ts`, `taskSerializer.ts` and `sameTask`, the same path as `waitingUntil` in TASK-052.
-- **Runs:** a `### Runs` section is parsed and serialized like `### Plan`, newest first, kept to the last 7 lines.
-- **Due:** `isDue(repeats, lastRun, now)` in `src/core/util/time.ts` is true when the most recent cron fire time is after `lastRun`. Use `cron-parser` if `dist/extension.js` growth is acceptable (it pulls in Luxon, which TASK-059 wants anyway). Otherwise write a small 5-field evaluator. Measure before deciding and record the choice.
-- **Store:** `recordRun(id, result)` stamps `lastRun` and prepends a line to Runs.
-- **Special-cased names:** check `DEFERRED_STATE_NAMES`, `COLLAPSED_STATES` and the Done lookup so that Recurring behaves as an active state.
-
-Tests: parser, round trip (byte identity, plus `Repeats` and `Last run` as reserved attribute names), config migration, `isDue`, `recordRun`. Changelog entry.
-
----
 ## TASK-085: LinkedIn post with the TaskPlanner-in-Claude animation
 **Priority:** P0 | **Tags:** docs
 **Updated:** 2026-11-25 10:15

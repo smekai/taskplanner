@@ -96,12 +96,19 @@ describe('attributes', () => {
     });
   });
 
-  it.each(['Priority', 'Tags', 'Tag', 'Epic', 'Assignee', 'Updated', 'Waiting until'])(
-    '%s is reserved',
-    (key) => {
-      expect(isReservedAttributeKey(key)).toBe(true);
-    },
-  );
+  it.each([
+    'Priority',
+    'Tags',
+    'Tag',
+    'Epic',
+    'Assignee',
+    'Updated',
+    'Waiting until',
+    'Repeats',
+    'Last run',
+  ])('%s is reserved', (key) => {
+    expect(isReservedAttributeKey(key)).toBe(true);
+  });
 
   it.each(['Source', 'Isotopy source', 'Owner'])('%s is not reserved', (key) => {
     expect(isReservedAttributeKey(key)).toBe(false);

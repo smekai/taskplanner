@@ -330,3 +330,9 @@ template. Fixed a pre-existing missing blank line before ### Work Log found whil
 **Outcome:** Merged as PR #19 (admin merge). First step of 3.0 (TASK-071); not yet checked by hand in Claude Desktop.
 
 ---
+
+## TASK-083 — 2026-11-11
+**What:** Claude's "no board here" band can be hidden for good per folder, after a confirm step.
+**Decisions:** Per folder (session root) in the plugin's `$.store`; Claude only — other hosts have no such band.
+
+---

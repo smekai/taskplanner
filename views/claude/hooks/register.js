@@ -206,7 +206,8 @@ var DEFAULT_STATES = [
   { name: "Next", fileName: "NEXT.md", order: 1 },
   { name: "In Progress", fileName: "IN_PROGRESS.md", order: 2 },
   { name: "Done", fileName: "DONE.md", order: 3 },
-  { name: "Rejected", fileName: "REJECTED.md", order: 4 }
+  { name: "Rejected", fileName: "REJECTED.md", order: 4 },
+  { name: "Recurring", fileName: "RECURRING.md", order: 5 }
 ];
 
 // src/core/config/configStates.ts
@@ -341,6 +342,8 @@ var LINE_BREAK = /\r?\n/;
 var TASK_HEADING_RE = /^## ([A-Z]+-\d+):\s*(\S.*)$/;
 var SEPARATOR_RE = /^---\s*$/;
 var PLAN_HEADING_RE = /^### Plan\s*$/;
+var RUNS_HEADING_RE = /^### Runs\s*$/;
+var RUN_ITEM_RE = /^\s*[-*]\s+/;
 var ATTRIBUTE_RE = /^\*\*(.+?):\*\*\s*(.*)$/;
 var SEPARATOR_BEFORE_NEXT_FIELD = /\s\|\s(?=\*\*)/;
 var BUILT_IN_FIELD_RES = {
@@ -349,7 +352,9 @@ var BUILT_IN_FIELD_RES = {
   epic: /^\*\*Epic:\*\*\s*(.+)/,
   assignee: /^\*\*Assignee:\*\*\s*(.+)/,
   updatedAt: /^\*\*Updated:\*\*\s*(.+)/,
-  waitingUntil: /^\*\*Waiting until:\*\*\s*(.+)/
+  waitingUntil: /^\*\*Waiting until:\*\*\s*(.+)/,
+  repeats: /^\*\*Repeats:\*\*\s*(.+)/,
+  lastRun: /^\*\*Last run:\*\*\s*(.+)/
 };
 function taskHeadingOf(line) {
   const match = line.match(TASK_HEADING_RE);
@@ -366,6 +371,13 @@ function isSectionSeparatorLine(line) {
 }
 function isPlanHeadingLine(line) {
   return PLAN_HEADING_RE.test(line);
+}
+function isRunsHeadingLine(line) {
+  return RUNS_HEADING_RE.test(line);
+}
+function runEntryOf(line) {
+  const entry = line.replace(RUN_ITEM_RE, "").trim();
+  return entry.length > 0 ? entry : void 0;
 }
 function builtInFieldOf(segment) {
   for (const [field, pattern] of Object.entries(BUILT_IN_FIELD_RES)) {
@@ -485,9 +497,15 @@ function parseTaskSection(raw, startLine) {
   if (!heading) {
     return { errors, warnings };
   }
-  const collected = { fields: {}, attributes: {}, description: [], plan: [] };
+  const collected = {
+    fields: {},
+    attributes: {},
+    description: [],
+    plan: [],
+    runs: []
+  };
   let inMetadata = true;
-  let inPlan = false;
+  let body = "description";
   let priorityLine = startLine;
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
@@ -503,10 +521,19 @@ function parseTaskSection(raw, startLine) {
       if (line.trim() === "") continue;
     }
     if (isPlanHeadingLine(line)) {
-      inPlan = true;
+      body = "plan";
       continue;
     }
-    (inPlan ? collected.plan : collected.description).push(line);
+    if (isRunsHeadingLine(line) && collected.fields.repeats !== void 0) {
+      body = "runs";
+      continue;
+    }
+    if (body === "runs") {
+      const entry = runEntryOf(line);
+      if (entry !== void 0) collected.runs.push(entry);
+      continue;
+    }
+    collected[body].push(line);
   }
   const plan = collected.plan.join("\n").trim();
   const task = {
@@ -519,7 +546,10 @@ function parseTaskSection(raw, startLine) {
     assignee: collected.fields.assignee,
     updatedAt: collected.fields.updatedAt,
     waitingUntil: collected.fields.waitingUntil,
+    ...collected.fields.repeats !== void 0 ? { repeats: collected.fields.repeats } : {},
+    ...collected.fields.lastRun !== void 0 ? { lastRun: collected.fields.lastRun } : {},
     ...plan ? { plan } : {},
+    ...collected.runs.length > 0 ? { runs: collected.runs } : {},
     ...Object.keys(collected.attributes).length > 0 ? { attributes: collected.attributes } : {}
   };
   return { task, errors, warnings };

@@ -10,4 +10,7 @@ export const DEFAULT_STATES: TaskState[] = [
   { name: 'In Progress', fileName: 'IN_PROGRESS.md', order: 2 },
   { name: 'Done', fileName: 'DONE.md', order: 3 },
   { name: 'Rejected', fileName: 'REJECTED.md', order: 4 },
+  { name: 'Recurring', fileName: 'RECURRING.md', order: 5 },
 ];
+
+export const RECURRING_STATE_NAME = 'Recurring';

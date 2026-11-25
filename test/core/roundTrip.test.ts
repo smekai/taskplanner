@@ -167,14 +167,21 @@ describe('attributes', () => {
     expect(parsed[0].attributes).toEqual({ Source: 'a | b' });
   });
 
-  it.each(['Priority', 'Tags', 'Tag', 'Epic', 'Assignee', 'Updated', 'Waiting until'])(
-    'refuses %s, which would overwrite the built-in field',
-    (reserved) => {
-      expect(() => serializeTask(task({ attributes: { [reserved]: 'x' } }))).toThrow(
-        new RegExp(reserved),
-      );
-    },
-  );
+  it.each([
+    'Priority',
+    'Tags',
+    'Tag',
+    'Epic',
+    'Assignee',
+    'Updated',
+    'Waiting until',
+    'Repeats',
+    'Last run',
+  ])('refuses %s, which would overwrite the built-in field', (reserved) => {
+    expect(() => serializeTask(task({ attributes: { [reserved]: 'x' } }))).toThrow(
+      new RegExp(reserved),
+    );
+  });
 
   it('refuses a name the attribute line cannot represent', () => {
     expect(() => serializeTask(task({ attributes: { 'Own:** field': 'x' } }))).toThrow();
@@ -216,5 +223,133 @@ describe('priority diagnostics', () => {
 
   it('reports an empty value as an error', () => {
     expect(priorityOf('**Priority:**').errors).toHaveLength(1);
+  });
+});
+
+describe('recurring fields', () => {
+  const RECURRING = [
+    '# Recurring',
+    '',
+    '## TASK-009: Daily store-status watch',
+    '**Priority:** P1 | **Tags:** ci',
+    '**Updated:** 2026-11-25 07:12',
+    '**Repeats:** 0 7 * * *',
+    '**Last run:** 2026-11-25 07:12',
+    '',
+    'Check every store.',
+    '',
+    '### Plan',
+    '',
+    'Run the watch skill.',
+    '',
+    '### Runs',
+    '',
+    '- 2026-11-25 07:12 — all stores on 3.0.28',
+    '- 2026-11-24 07:05 — Open VSX behind',
+    '',
+    '---',
+    '',
+  ].join('\n');
+
+  it('reads the schedule, the last run and the run history', () => {
+    const [parsed] = parseTasks(RECURRING).tasks;
+
+    expect(parsed.repeats).toBe('0 7 * * *');
+    expect(parsed.lastRun).toBe('2026-11-25 07:12');
+    expect(parsed.description).toBe('Check every store.');
+    expect(parsed.plan).toBe('Run the watch skill.');
+    expect(parsed.runs).toEqual([
+      '2026-11-25 07:12 — all stores on 3.0.28',
+      '2026-11-24 07:05 — Open VSX behind',
+    ]);
+    expect(parsed.attributes).toBeUndefined();
+  });
+
+  it('writes them back byte for byte when nothing changed', () => {
+    const { tasks, segments } = parseTasks(RECURRING);
+
+    expect(serializeBoard(segments, tasks)).toBe(RECURRING);
+  });
+
+  it('writes a freshly built recurring task the way it reads it', () => {
+    const fresh = task({
+      repeats: '0 7 * * *',
+      lastRun: '2026-11-25 07:12',
+      runs: ['2026-11-25 07:12 — ok', '2026-11-24 07:05 — late'],
+    });
+
+    expect(roundTripped(fresh)[0]).toEqual(expect.objectContaining(fresh));
+  });
+
+  it('reads a run history without a plan, right after the description', () => {
+    const [parsed] = parseTasks(
+      '## TASK-001: T\n**Priority:** P1\n**Repeats:** @daily\n\nBody.\n\n### Runs\n\n- one\n\n---\n',
+    ).tasks;
+
+    expect(parsed.description).toBe('Body.');
+    expect(parsed.runs).toEqual(['one']);
+  });
+
+  it('a changed run history rewrites only that task', () => {
+    const { tasks, segments } = parseTasks(RECURRING);
+    const changed = [{ ...tasks[0], runs: ['2026-11-26 07:01 — ok', ...(tasks[0].runs ?? [])] }];
+
+    const written = serializeBoard(segments, changed);
+
+    expect(written).toContain('### Runs\n\n- 2026-11-26 07:01 — ok\n- 2026-11-25 07:12');
+    expect(parseTasks(written).tasks[0].runs).toHaveLength(3);
+  });
+
+  // In a recurring task the heading would come back as run history and its text would be lost.
+  it.each(['description', 'plan'] as const)(
+    'refuses a ### Runs heading inside the %s of a recurring task',
+    (field) => {
+      expect(() =>
+        serializeTask(task({ repeats: '@daily', [field]: 'Text.\n\n### Runs\n\n- fake' })),
+      ).toThrow(/### Runs/);
+    },
+  );
+});
+
+// Boards written before 3.1 may use "### Runs" as an ordinary heading; only Repeats makes it run history.
+describe('### Runs in a task that does not repeat', () => {
+  const EXISTING = [
+    '# Backlog',
+    '',
+    '## TASK-004: Benchmark the parser',
+    '**Priority:** P2',
+    '',
+    'Measure it.',
+    '',
+    '### Runs',
+    '',
+    '- cold start on CI',
+    '  with the cache disabled',
+    '',
+    '---',
+    '',
+  ].join('\n');
+
+  it('stays part of the description', () => {
+    const [parsed] = parseTasks(EXISTING).tasks;
+
+    expect(parsed.runs).toBeUndefined();
+    expect(parsed.description).toBe(
+      'Measure it.\n\n### Runs\n\n- cold start on CI\n  with the cache disabled',
+    );
+  });
+
+  it('survives an edit to another field unchanged', () => {
+    const { tasks, segments } = parseTasks(EXISTING);
+
+    const written = serializeBoard(segments, [{ ...tasks[0], priority: Priority.P1 }]);
+
+    expect(written).toBe(EXISTING.replace('**Priority:** P2', '**Priority:** P1'));
+  });
+
+  it('is accepted on write', () => {
+    expect(() =>
+      serializeTask(task({ description: 'Text.\n\n### Runs\n\n- notes' })),
+    ).not.toThrow();
   });
 });
