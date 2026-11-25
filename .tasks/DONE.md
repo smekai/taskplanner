@@ -2,7 +2,7 @@
 
 ## TASK-089: 3.1 phase B: MCP tools for recurring tasks
 **Priority:** P0 | **Tags:** feature, core | **Epic:** 3.1
-**Updated:** 2026-11-25 14:25
+**Updated:** 2026-11-25 14:34
 
 Phase B of TASK-088. Starts after TASK-087 (core).
 
@@ -27,6 +27,7 @@ Done:
   - `structuredTask` gets `due`.
   - `taskplanner_list` takes `due: true`.
   - The board digest in core marks recurring tasks (`🔁 0 7 * * * UTC, due`).
+- **Parser:** a hand-edited `**Repeats:**` that is not cron becomes a parse warning on its line, so the board diagnostics show it instead of the task silently never being due.
 - **Smoke test:**
   - Covers 8 tools and the `record_run` annotations.
   - A recurring flow on a 3.0 board: migrated state, an invalid schedule refused, due → record_run → not due, the due filter, record_run refused on a one-off task, clearing and restoring the schedule with the history intact.
@@ -35,7 +36,12 @@ Done:
 - **Review on PR #42:**
   - **History after clearing the schedule:** `### Runs` is now run history when the task has `Repeats` or `Last run`, so a paused task keeps its history and can be scheduled again. History with neither line is refused on write.
   - **CI clean-build check:** the `record_run` example text contained the version, which `bump-version.js` rewrote inside the bundles only. The example no longer contains a version; the script itself is listed in TASK-094.
-- **Checks:** 491 tests and the packed smoke test pass.
+- **Self-review against `/code-quality`:**
+  - The invalid-schedule warning above.
+  - The digest test was split into two single-action tests.
+  - A redundant guard in the due filter was removed.
+  - Left for TASK-094: the default state for a recurring create is decided in the MCP handler (A3). Moving it needs `freshStore` reworked, because the targeted create deliberately avoids reading other states.
+- **Checks:** the full gate and the packed smoke test pass.
 
 ---
 ## TASK-087: 3.1 phase A: recurring tasks in core

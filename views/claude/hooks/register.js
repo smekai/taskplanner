@@ -450,6 +450,106 @@ function splitSections(content) {
   return sections;
 }
 
+// src/core/util/time.ts
+var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+function parseTimestamp(value) {
+  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
+  return survivesRoundTrip ? date : null;
+}
+function currentDate(now = /* @__PURE__ */ new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
+  const until = parseTimestamp(waitingUntil);
+  return until !== null && currentDate(until) > currentDate(now);
+}
+
+// src/core/util/cron.ts
+var MINUTE = { min: 0, max: 59 };
+var HOUR = { min: 0, max: 23 };
+var DAY_OF_MONTH = { min: 1, max: 31 };
+var MONTH = {
+  min: 1,
+  max: 12,
+  names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+};
+var DAY_OF_WEEK = {
+  min: 0,
+  max: 7,
+  names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+};
+var MACROS = {
+  "@yearly": "0 0 1 1 *",
+  "@annually": "0 0 1 1 *",
+  "@monthly": "0 0 1 * *",
+  "@weekly": "0 0 * * 0",
+  "@daily": "0 0 * * *",
+  "@midnight": "0 0 * * *",
+  "@hourly": "0 * * * *"
+};
+var SEARCH_DAYS = 366 * 29;
+function valueOf(token, spec) {
+  if (/^\d+$/.test(token)) {
+    const value = Number(token);
+    return value >= spec.min && value <= spec.max ? value : void 0;
+  }
+  const index = spec.names?.indexOf(token.toUpperCase()) ?? -1;
+  return index >= 0 ? index + (spec === MONTH ? 1 : 0) : void 0;
+}
+function parseField(field, spec) {
+  const allowed = new Array(spec.max + 1).fill(false);
+  for (const item of field.split(",")) {
+    const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
+    if (!match) return void 0;
+    const [, range, stepText] = match;
+    const step = stepText === void 0 ? 1 : Number(stepText);
+    if (step < 1) return void 0;
+    let from;
+    let to;
+    if (range === "*") {
+      from = spec.min;
+      to = spec.max;
+    } else {
+      const bounds = range.split("-");
+      if (bounds.length > 2) return void 0;
+      from = valueOf(bounds[0], spec);
+      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
+    }
+    if (from === void 0 || to === void 0 || from > to) return void 0;
+    for (let value = from; value <= to; value += step) allowed[value] = true;
+  }
+  return allowed;
+}
+function parseCron(expression) {
+  const trimmed = expression?.trim() ?? "";
+  const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
+  const fields = source.split(/\s+/);
+  if (fields.length !== 5) return void 0;
+  const minutes = parseField(fields[0], MINUTE);
+  const hours = parseField(fields[1], HOUR);
+  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
+  const months = parseField(fields[3], MONTH);
+  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
+  if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
+  if (daysOfWeek[7]) daysOfWeek[0] = true;
+  return {
+    minutes,
+    hours,
+    daysOfMonth,
+    months,
+    daysOfWeek,
+    dayOfMonthRestricted: !fields[2].startsWith("*"),
+    dayOfWeekRestricted: !fields[4].startsWith("*")
+  };
+}
+function isValidCron(expression) {
+  return parseCron(expression) !== void 0;
+}
+
 // src/core/parser/taskSection.ts
 var MISSING_PRIORITY = "P4" /* P4 */;
 function assign(collected, segment) {
@@ -507,6 +607,7 @@ function parseTaskSection(raw, startLine) {
   let inMetadata = true;
   let body = "description";
   let priorityLine = startLine;
+  let repeatsLine = startLine;
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (isSectionSeparatorLine(line)) break;
@@ -514,6 +615,9 @@ function parseTaskSection(raw, startLine) {
       if (readFieldOrFieldGroup(collected, line)) {
         if (collected.fields.priority !== void 0 && priorityLine === startLine) {
           priorityLine = startLine + i;
+        }
+        if (collected.fields.repeats !== void 0 && repeatsLine === startLine) {
+          repeatsLine = startLine + i;
         }
         continue;
       }
@@ -535,6 +639,13 @@ function parseTaskSection(raw, startLine) {
       continue;
     }
     collected[body].push(line);
+  }
+  const repeats = collected.fields.repeats;
+  if (repeats !== void 0 && !isValidCron(repeats)) {
+    warnings.push({
+      line: repeatsLine,
+      message: `**Repeats:** "${repeats}" is not a cron schedule, so the task is never due; expected 5 fields in UTC such as "0 7 * * *", or @daily.`
+    });
   }
   const plan = collected.plan.join("\n").trim();
   const task = {
@@ -603,24 +714,6 @@ function headingIds(rawContent) {
 }
 function countTaskHeadings(rawContent) {
   return headingIds(rawContent).length;
-}
-
-// src/core/util/time.ts
-var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
-function parseTimestamp(value) {
-  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
-  if (!match) return null;
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
-  return survivesRoundTrip ? date : null;
-}
-function currentDate(now = /* @__PURE__ */ new Date()) {
-  return now.toISOString().slice(0, 10);
-}
-function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
-  const until = parseTimestamp(waitingUntil);
-  return until !== null && currentDate(until) > currentDate(now);
 }
 
 // views/claude/mod/src/boardReader.ts

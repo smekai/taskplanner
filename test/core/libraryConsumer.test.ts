@@ -166,6 +166,7 @@ describe('library consumer surface', () => {
   });
 
   describe('board digest', () => {
+    const NOV_25_0900 = new Date('2026-11-25T09:00:00.000Z');
     const task = (overrides: Partial<Task> = {}): Task => ({
       id: 'TASK-004',
       title: 'Existing',
@@ -201,18 +202,25 @@ describe('library consumer surface', () => {
       expect(digest).not.toContain('waiting until');
     });
 
-    it('marks a recurring task with its schedule, and as due only once it has fired since the last run', () => {
-      const now = { includeTasks: true, now: new Date('2026-11-25T09:00:00.000Z') };
-      const recurring = (lastRun: string) => [
-        { name: 'Recurring', tasks: [task({ repeats: '0 7 * * *', lastRun })] },
+    it('marks a recurring task as due once its schedule has fired since the last run', () => {
+      const states = [
+        { name: 'Recurring', tasks: [task({ repeats: '0 7 * * *', lastRun: '2026-11-24 07:05' })] },
       ];
 
-      expect(renderBoardDigest(recurring('2026-11-24 07:05'), now)).toContain(
-        '🔁 0 7 * * * UTC, due',
-      );
-      const done = renderBoardDigest(recurring('2026-11-25 07:05'), now);
-      expect(done).toContain('🔁 0 7 * * * UTC');
-      expect(done).not.toContain('due');
+      const digest = renderBoardDigest(states, { includeTasks: true, now: NOV_25_0900 });
+
+      expect(digest).toContain('🔁 0 7 * * * UTC, due');
+    });
+
+    it('shows the schedule without "due" once today’s run is recorded', () => {
+      const states = [
+        { name: 'Recurring', tasks: [task({ repeats: '0 7 * * *', lastRun: '2026-11-25 07:05' })] },
+      ];
+
+      const digest = renderBoardDigest(states, { includeTasks: true, now: NOV_25_0900 });
+
+      expect(digest).toContain('🔁 0 7 * * * UTC');
+      expect(digest).not.toContain('due');
     });
 
     it('includes a one-line description excerpt only when a limit is given', () => {

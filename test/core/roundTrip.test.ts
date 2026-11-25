@@ -313,6 +313,25 @@ describe('recurring fields', () => {
 
 // Boards written before 3.1 may use "### Runs" as an ordinary heading; only Repeats makes it run history.
 // A schedule that was removed leaves Last run behind, and that line keeps the history readable.
+// A hand-edited schedule the cron evaluator cannot read would otherwise leave the task never due, silently.
+describe('a schedule that is not cron', () => {
+  const board = (repeats: string) =>
+    `## TASK-001: Watch\n**Priority:** P1\n**Repeats:** ${repeats}\n\n---\n`;
+
+  it('is reported on the line that holds it', () => {
+    const { warnings } = parseTasks(board('every morning'));
+
+    expect(warnings).toEqual([expect.objectContaining({ line: 3 })]);
+    expect(warnings[0].message).toContain('"every morning"');
+  });
+
+  it('is not reported when the schedule is valid', () => {
+    const { warnings } = parseTasks(board('@daily'));
+
+    expect(warnings).toEqual([]);
+  });
+});
+
 describe('run history after the schedule is removed', () => {
   const PAUSED = {
     lastRun: '2026-11-25 07:12',

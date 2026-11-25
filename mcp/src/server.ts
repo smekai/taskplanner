@@ -242,7 +242,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.35',
+  version: '3.0.36',
 });
 
 server.registerTool(
@@ -338,7 +338,7 @@ server.registerTool(
         );
       }
       if (due) {
-        tasks = tasks.filter((t) => t.repeats !== undefined && isDue(t.repeats, t.lastRun));
+        tasks = tasks.filter((t) => isDue(t.repeats, t.lastRun));
       }
       if (tasks.length === 0) continue;
 
