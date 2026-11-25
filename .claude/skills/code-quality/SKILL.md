@@ -1,11 +1,18 @@
 ---
 name: code-quality
-description: Analyse and improve TaskPlanner's code quality without changing behaviour - measure (unused code, duplication within a harness, complexity, cycles, type escapes, project invariants), rank findings, then fix them in small verified steps. Use for a quality pass before a release, a tech-debt review, or when asked to analyse, clean up or improve the code of this repository.
+description: Analyse and improve TaskPlanner's code against its standard without changing behaviour - the A1-A9 code rules (comments as a smell, SOLID, fat domain and thin edges, named shapes, strict types, evidence in Markdown), simplicity (smallest change, replace don't accumulate), the AAAAA testing rules, measurements and the board invariants; rank findings, then fix them in small verified steps. Use for a quality pass before a release, a tech-debt review, reviewing a diff against the standard, or when asked to analyse, clean up or improve the code of this repository.
 ---
 
 # Code quality pass for TaskPlanner
 
 Two phases with a checkpoint between them: **analyse** (read-only, ends in a ranked report), then **improve** (only what the user accepted, behaviour unchanged). Never mix them: a report written while editing hides what was found.
+
+The yardstick is two documents next to this file. Read both before analysing:
+
+- [standard.md](standard.md): simplicity first (smallest correct change, replace don't accumulate), then A1–A9: comments are a smell, SOLID and interfaces, fat domain and thin edges, named shapes, strict types, evidence in Markdown, judged by tier; plus errors and cross-platform.
+- [testing.md](testing.md): AAAAA phases, one action per test, no logic in a test body, generators over flag factories, component tests first, the mutation check.
+
+Every finding names the rule it breaks (`A3`, `A6`, `T: one action`, `simplicity`), so the report reads as a standard applied rather than a list of opinions.
 
 Scope by default is everything since the last release tag (`git describe --tags --abbrev=0`), plus any hotspot the measurements point at. Built files are never in scope: `dist/`, `mcp/dist/`, `views/*/dist/`, `views/claude/hooks/register.js`, `views/*/ui/`.
 
@@ -94,24 +101,38 @@ Read the code; grep finds the candidates:
 - **Harness boundaries** are enforced by lint; also check that `src/core/` has no `process.env`, console output, or host-specific paths.
 - **Errors reach the user.** A `catch` that swallows silently in a write path is a finding.
 
-### 4. Review the release diff for behaviour
+### 4. Read the code against the standard
+
+The measurements find candidates; this pass finds what no tool sees. Go through the diff since the last tag, then the hotspots, and answer each rule of [standard.md](standard.md) and [testing.md](testing.md) for them. Typical findings here:
+
+- **A1:** a `WHY:` that explains a design choice instead of local logic, so it moves to the task's Plan or a `CLAUDE.md`; a comment that a rename would make redundant. List them with `git grep -n "WHY:" -- src mcp/src views ":!**/dist/**"`.
+- **A3:** a rule about tasks decided in a harness (MCP handler, webview, mod) instead of core.
+- **A6:** a repeated literal, an unnamed payload or options shape.
+- **A7:** a cast past a real gap; a boundary parsed twice.
+- **Simplicity:** an abstraction with one caller, an option nobody uses, an old path left beside its replacement.
+- **Tests:** a loop or `if` in a test body, several actions in one test, a flag-driven fixture, a test that survives breaking the rule it names.
+
+### 5. Review the release diff for behaviour
 
 Run `/code-review` on `git diff <last tag>...HEAD` for correctness, and `/simplify` for reuse and simplification candidates. Take their findings into the same report; do not let them edit yet.
 
-### 5. Report
+### 6. Report
 
-Write the ranked findings into the task's `### Plan` (TaskPlanner tools), most valuable first. One line each: **file:line, what, why it costs, proposed fix, effort S/M/L**. Group them as:
+Write the ranked findings into the task's `### Plan` (TaskPlanner tools), most valuable first. One line each: **rule, file:line, what, why it costs, proposed fix, effort S/M/L**. Group them as:
 
-1. **Fix before release:** correctness risks, invariant breaks, cycles, untested core branches.
-2. **Worth it now:** dead code, duplication inside a harness, a hotspot that is both large and churning.
-3. **Later:** becomes a Backlog task (`taskplanner_create`, epic left empty), not silently dropped.
+1. **Fix before release:** correctness risks, invariant breaks, a domain rule in an edge (A3), cycles, untested core branches.
+2. **Worth it now:** dead code, an old path beside its replacement, duplication inside a harness, a hotspot that is both large and churning, tests that break the testing rules in code this release touched.
+3. **Later:** becomes a Backlog task (`taskplanner_create`, epic left empty), not silently dropped. Large reshapes (splitting a 1600-line webview, a lint rule against logic in test bodies) usually land here.
 
 Stop here and ask the user which groups to do.
 
 ## Phase 2: improve
 
 - One finding (or one tight group) per commit. The commit message says what got simpler, not "refactor".
+- Smallest correct change, and replace rather than accumulate: a fix that moves logic deletes it from where it was, with its now-redundant tests. Account for the net line count of each commit.
 - Behaviour stays the same: no new features, no board format change, no public API change in `src/core/index.ts` (a removal there is a breaking change and needs its own task).
-- After each commit: `npm run build && npm run typecheck && npm test && npm run lint`. Add a test before refactoring code that has none.
-- At the end, compare with the baseline: the same or more tests, bundle sizes not larger (say so if one is), lint warnings not more.
+- Before refactoring code with no test, add one written to [testing.md](testing.md) and mutation-check it. A test you touch is brought up to that standard.
+- After each commit: `npm run build && npm run typecheck && npm test && npm run lint`, plus `npm run smoke:mcp-server` when `mcp/` or core changed.
+- At the end, compare with the baseline: the same or more meaningful tests (a deleted worthless test is fine; say which), bundle sizes not larger (say so if one is), lint warnings not more.
+- A decision worth defending later goes to the task's Plan and the WORK_LOG `**Decisions:**` line (A8), not into a comment.
 - Trim the task's `### Plan` to what was done and what was deferred (with the task IDs created for it), and add a CHANGELOG line only if users notice something (for example a smaller bundle or a fixed edge case).

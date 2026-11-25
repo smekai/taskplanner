@@ -2,21 +2,36 @@
 
 ## TASK-094: 3.1 phase F: code quality pass before the release
 **Priority:** P1 | **Tags:** refactor, testing | **Epic:** 3.1
-**Updated:** 2026-11-25 12:20
+**Updated:** 2026-11-25 13:00
 
 Phase F of TASK-088. Starts after phases A–E (TASK-087, TASK-089…092) and before the release (TASK-093, now phase G).
 
-Run the project skill `/code-quality` (`.claude/skills/code-quality/SKILL.md`) over everything since `v3.0.12`, in its two phases:
-- **Analyse.** Take a green baseline with test count and bundle sizes. Measure unused code, duplication inside a harness, complexity, import cycles, type escapes and hotspots. Check the project invariants: UTC dates only through `time.ts`, atomic board writes, byte identity, hard-coded state names, errors reaching the user. Run `/code-review` and `/simplify` on the release diff. The ranked report goes into this task's `### Plan`.
-- **Improve.** Do only the groups the user accepts, one finding per commit, with behaviour and the public API of `src/core/index.ts` unchanged. Anything deferred becomes its own Backlog task.
+Run the project skill `/code-quality` (`.claude/skills/code-quality/`) over everything since `v3.0.12`. Its yardstick is the Isotopy standard adapted to this repo:
+- **`standard.md`:** simplicity first (smallest correct change, replace don't accumulate), then A1–A9: comments are a smell, SOLID and interfaces, fat domain and thin edges, named shapes, strict types, evidence in Markdown, judged by tier. Plus errors and cross-platform.
+- **`testing.md`:** AAAAA, one action per test, no logic in a test body, generators over flag factories, component tests first, the mutation check.
 
-Already seen while writing the skill (2026-11-25):
-- `taskListPanel.ts` (1609 lines) and `kanbanPanel.ts` (1050) are the largest files.
-- The complexity rules flag 37 candidates.
-- 128 hard-coded state-name literals. Phase C adds `'Recurring'` to several views, so check this list after it.
-- 8 type escapes.
+The pass runs in two phases:
+- **Analyse:**
+  - Take a green baseline.
+  - Run the measurements and the board invariants.
+  - Read the diff and the hotspots against every rule.
+  - Run `/code-review` and `/simplify` on the release diff.
+  - Write a ranked report into this task's `### Plan`, each finding naming its rule.
+- **Improve:** only the groups the user accepts, one finding per commit, behaviour and the public API unchanged. Anything deferred becomes its own Backlog task.
 
-**Done looks like:** every "fix before release" finding is fixed. Tests have not shrunk, bundles have not grown, lint warnings have not increased. Deferred items have task IDs.
+Already seen (2026-11-25):
+- **Size and counts:**
+  - `taskListPanel.ts` (1609 lines) and `kanbanPanel.ts` (1050) are the largest files (A9).
+  - 37 complexity candidates.
+  - 128 hard-coded state-name literals (A6). Phase C adds `'Recurring'` to several views.
+  - 8 type escapes (A7).
+  - `noUncheckedIndexedAccess` is off.
+- **Phase A and B code, against the standard:**
+  - **A3:** "a new task with `repeats` and no state goes to Recurring" is decided in `mcp/src/server.ts` (TASK-089); it belongs in core.
+  - **A1/A8:** the `WHY:` in `configManager.addRecurringState` (version gating) and the search-span `WHY:` in `cron.ts` explain design choices, not local logic, so they move to docs or the Plan.
+  - **Tests:** "keeps only the latest MAX_RUNS entries" in `taskStore.test.ts` has a `for` loop in its body, and the new store tests have no Arrange/Act/Assert banners.
+
+**Done looks like:** every "fix before release" finding is fixed. Tests have not shrunk without a reason, bundles have not grown, lint warnings have not increased. Deferred items have task IDs.
 
 ---
 ## TASK-093: 3.1 phase G: docs and release 3.1 on every store

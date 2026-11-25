@@ -20,6 +20,8 @@ npm run release:check    # full pre-release gate
 
 **Architecture:** one markdown file per state; config in `.tasks/config.json`; dates UTC via `src/core/util/time.ts` (`YYYY-MM-DD` / `YYYY-MM-DD HH:MM` only).
 
+**Code standard:** write code to `.claude/skills/code-quality/standard.md` (simplicity first, A1–A9) and tests to `testing.md` beside it (AAAAA); `/code-quality` checks a change or the whole repo against both.
+
 **Comments:** `npm run lint` fails on comments in `src/`, `mcp/src/`, `views/vscode/src/`, `views/mcp-app/` and `views/claude/mod/src/`; tests are exempt (machine directives exempt; `WHY:` escape hatch). Prefer clearer names over comments.
 
 <!-- TASKPLANNER:START -->
