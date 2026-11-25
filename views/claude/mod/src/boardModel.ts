@@ -21,6 +21,7 @@ export interface BoardSnapshot {
   states: StateViewData[];
   workspaceRoot: string | null;
   deferredStates?: readonly string[];
+  dueCounts: Readonly<Record<string, number>>;
 }
 
 export interface TaskDetail {
@@ -295,12 +296,8 @@ export function startPrompt(task: TaskDetail): string {
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
 }
 
-export function dueCount(state: StateViewData): number {
-  return state.tasks.filter((task) => task.due).length;
-}
-
 export function boardDueCount(board: BoardSnapshot): number {
-  return board.states.reduce((total, state) => total + dueCount(state), 0);
+  return Object.values(board.dueCounts).reduce((total, count) => total + count, 0);
 }
 
 export function truncate(text: string, width: number): string {

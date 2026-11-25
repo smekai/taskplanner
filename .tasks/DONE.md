@@ -2,7 +2,7 @@
 
 ## TASK-090: 3.1 phase C: show recurring tasks in every view
 **Priority:** P0 | **Tags:** feature, ui | **Epic:** 3.1
-**Updated:** 2026-11-25 16:55
+**Updated:** 2026-11-25 18:12
 
 Phase C of TASK-088. Starts after TASK-087 (core). It can run alongside phase B.
 
@@ -25,14 +25,17 @@ Done:
 - **Unchanged, already in place:**
   - Every view draws columns and tabs from `config.states`, so Recurring (TASK-087 migration) needed no layout work.
   - The band's focus order (In Progress → Next → Backlog) never picks a recurring task.
-- **Core:** `TaskViewItem` gains `repeats`, `lastRun` and a required `due` (from `isDue` in `taskToViewItem`). The compiler pointed at every fixture that builds one.
+- **Core:**
+  - `TaskViewItem` gains `repeats`, `lastRun` and a required `due` (from `isDue` in `taskToViewItem`). The compiler pointed at every fixture that builds one.
+  - `filterAndPaginate` and `groupTasks` take an optional `now`.
 - **Claude pane and band:**
   - A due chip, or `🔁 schedule UTC`, on cards; "due" in terminal rows.
   - Tab label "Recurring 2 · 1 due".
   - Task detail shows Repeats (UTC), Last run and the Runs history.
   - Start on a recurring task asks for a run plus `taskplanner_record_run`, never Done.
   - The band adds "· N recurring due". With no other work it shows "Recurring · N due" with a Board button.
-  - While the pane polls, it rebuilds from the files it already read when a schedule fires (`scheduleFiredSince`), not only when a file changes.
+  - Due counts come from every parsed task, before the 50-card limit (`snapshot.dueCounts`).
+  - Time comes from `$.clock.now()`. A once-a-minute schedule check runs for the whole session, pane open or closed, and the open pane's poll calls it too. When a schedule has fired since the last build, it rebuilds from the files already read (`scheduleFiredSince`).
 - **MCP App board:** a `due` / `🔁 schedule` badge on cards. The drawer already got the schedule and history from `taskplanner_get`.
 - **VS Code:**
   - Kanban and list cards show `🔁 schedule · due`.
@@ -44,8 +47,13 @@ Done:
   - `initialize-taskplanner` now asks for schema 4 and six states; it was still at schema 2 and five states.
   - The Codex submission expects six state files.
   - This repo's managed blocks were regenerated, and its config migrated to Recurring and schema 4.
-- **Review on PR #43:** the four points above (stale due flag while polling, a band for recurring-only boards, the schedule inside other fields' autosave, raw text in inline scripts).
-- **Tests:** 513 pass, `release:check` green including the mod kit (two new band tests) and the plugin validators. The new pane and `scriptJson` tests fail without their change.
+- **Review on PR #43:**
+  - **Round 1:** a stale due flag while polling, a band for recurring-only boards, the schedule inside other fields' autosave, raw text in inline scripts.
+  - **Round 2:** the band with the pane closed, due counts past the card limit.
+- **Tests:**
+  - 514 pass; `release:check` green including the mod kit and the plugin validators.
+  - The mod kit tests start `mock.clock` at a fixed time and advance it past the next fire with the pane closed.
+  - Each new test fails without its change.
 - **Not checked by eye:** the Claude pane, the MCP board and the VS Code webviews. `docs/INSTALL.md` still shows five state files; that's TASK-093.
 
 ---

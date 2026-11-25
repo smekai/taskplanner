@@ -195,6 +195,7 @@ export interface Engine {
     }) => Promise<{ tool: string }>;
   };
   clock: {
+    now: () => Promise<number>;
     after: (ms: number, fn: () => void) => Timer;
     every: (ms: number, fn: () => void) => Timer;
   };

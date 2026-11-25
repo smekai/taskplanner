@@ -7,7 +7,6 @@ import {
   TaskDetail,
   TaskDraft,
   describeError,
-  dueCount,
   isCompletedState,
   moveKey,
   moveTargets,
@@ -124,8 +123,8 @@ function scheduleChip(style: Style, task: TaskViewItem): ElementNode {
     : caption(style, `🔁 ${task.repeats} UTC`);
 }
 
-function tabLabel(state: StateViewData): string {
-  const due = dueCount(state);
+function tabLabel(board: BoardSnapshot, state: StateViewData): string {
+  const due = board.dueCounts[state.name] ?? 0;
   const label = `${state.name} ${state.totalCount}`;
   return due > 0 ? `${label} · ${due} due` : label;
 }
@@ -225,7 +224,7 @@ function tabs(
     children: board.states.map((state, index) =>
       style.el.Button({
         key: `tab-${slug(state.name)}`,
-        label: tabLabel(state),
+        label: tabLabel(board, state),
         ...digitHotkey(index),
         ...chrome(style),
         ...(style.isRich ? { variant: state.name === active ? 'primary' : 'secondary' } : {}),

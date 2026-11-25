@@ -63,6 +63,7 @@ function board(counts: Record<string, number>): BoardSnapshot {
       totalCount: count,
       hasMore: false,
     })),
+    dueCounts: {},
   };
 }
 
@@ -147,12 +148,10 @@ describe('a recurring task in the pane model', () => {
     );
   });
 
-  it('counts the due tasks across every state', () => {
-    const snapshot = board({ Recurring: 3, Next: 1 });
-    snapshot.states[0].tasks[0].due = true;
-    snapshot.states[0].tasks[2].due = true;
+  it('adds up the due counts of every state', () => {
+    const snapshot = { ...board({ Recurring: 3, Next: 1 }), dueCounts: { Recurring: 2, Next: 1 } };
 
-    expect(boardDueCount(snapshot)).toBe(2);
+    expect(boardDueCount(snapshot)).toBe(3);
   });
 });
 
@@ -247,7 +246,7 @@ describe('pickTab', () => {
   it('falls back to the first preferred state, then the first state', () => {
     expect(pickTab(board({ Backlog: 0, Next: 0, 'In Progress': 0 }), null)).toBe('In Progress');
     expect(pickTab(board({ Todo: 0, Shipped: 0 }), null)).toBe('Todo');
-    expect(pickTab({ states: [], workspaceRoot: null }, null)).toBeNull();
+    expect(pickTab({ states: [], workspaceRoot: null, dueCounts: {} }, null)).toBeNull();
   });
 });
 

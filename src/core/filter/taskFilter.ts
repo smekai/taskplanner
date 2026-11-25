@@ -23,7 +23,7 @@ function applyLimit<T>(
   return { sliced: items.slice(0, limit), hasMore: totalCount > limit };
 }
 
-function taskToViewItem(task: Task): TaskViewItem {
+function taskToViewItem(task: Task, now: Date): TaskViewItem {
   return {
     id: task.id,
     title: task.title,
@@ -34,7 +34,7 @@ function taskToViewItem(task: Task): TaskViewItem {
     updatedAt: task.updatedAt,
     repeats: task.repeats,
     lastRun: task.lastRun,
-    due: isDue(task.repeats, task.lastRun),
+    due: isDue(task.repeats, task.lastRun, now),
     description: task.description,
   };
 }
@@ -93,6 +93,7 @@ export function filterAndPaginate(
   limit: number | null = DEFAULT_LIMIT,
   sortBy: TaskListSortBy = 'priority',
   stateDisplayCounts?: ReadonlyMap<string, number>,
+  now = new Date(),
 ): TaskViewData {
   const result: StateViewData[] = [];
 
@@ -121,7 +122,7 @@ export function filterAndPaginate(
 
     result.push({
       name: state.name,
-      tasks: sliced.map(taskToViewItem),
+      tasks: sliced.map((task) => taskToViewItem(task, now)),
       totalCount,
       hasMore,
     });
@@ -140,6 +141,7 @@ export function groupTasks(
   limit: number | null = DEFAULT_LIMIT,
   sortBy: TaskListSortBy = 'priority',
   stateDisplayCounts?: ReadonlyMap<string, number>,
+  now = new Date(),
 ): GroupViewData[] {
   let allTasks: { task: Task; stateName: string }[] = [];
   for (const state of states) {
@@ -206,7 +208,7 @@ export function groupTasks(
       const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
       result.push({
         label: state.name,
-        tasks: sliced.map(taskToViewItem),
+        tasks: sliced.map((task) => taskToViewItem(task, now)),
         totalCount,
         hasMore,
         collapsed: COLLAPSED_STATES.has(state.name),
@@ -224,7 +226,7 @@ export function groupTasks(
       const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
       result.push({
         label: key,
-        tasks: sliced.map(taskToViewItem),
+        tasks: sliced.map((task) => taskToViewItem(task, now)),
         totalCount,
         hasMore,
       });

@@ -204,11 +204,8 @@ function startPrompt(task) {
   const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
   return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
 }
-function dueCount(state) {
-  return state.tasks.filter((task) => task.due).length;
-}
 function boardDueCount(board2) {
-  return board2.states.reduce((total, state) => total + dueCount(state), 0);
+  return Object.values(board2.dueCounts).reduce((total, count) => total + count, 0);
 }
 function truncate(text, width) {
   if (width <= 1) return text.slice(0, Math.max(0, width));
@@ -415,7 +412,7 @@ function applyLimit(items, totalCount, limit) {
   }
   return { sliced: items.slice(0, limit), hasMore: totalCount > limit };
 }
-function taskToViewItem(task) {
+function taskToViewItem(task, now) {
   return {
     id: task.id,
     title: task.title,
@@ -426,7 +423,7 @@ function taskToViewItem(task) {
     updatedAt: task.updatedAt,
     repeats: task.repeats,
     lastRun: task.lastRun,
-    due: isDue(task.repeats, task.lastRun),
+    due: isDue(task.repeats, task.lastRun, now),
     description: task.description
   };
 }
@@ -464,7 +461,7 @@ function sortTasks(tasks, sortBy) {
   });
   return sorted;
 }
-function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, sortBy = "priority", stateDisplayCounts) {
+function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, sortBy = "priority", stateDisplayCounts, now = /* @__PURE__ */ new Date()) {
   const result = [];
   for (const state of states) {
     if (filter?.status && filter.status !== state.name) {
@@ -483,7 +480,7 @@ function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, 
     const { sliced, hasMore } = applyLimit(tasks, totalCount, limit);
     result.push({
       name: state.name,
-      tasks: sliced.map(taskToViewItem),
+      tasks: sliced.map((task) => taskToViewItem(task, now)),
       totalCount,
       hasMore
     });
@@ -828,14 +825,21 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
       void 0,
       options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
       isCompletedState(state.name) ? "file" : "priority",
-      displayCounts
+      displayCounts,
+      options.now
     ).states[0]
   );
   const focusCandidates2 = FOCUS_ORDER.flatMap(
     (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))
   );
+  const dueCounts = Object.fromEntries(
+    states.map((state) => [
+      state.name,
+      (tasksByState.get(state.name) ?? []).filter((task) => isDue(task.repeats, task.lastRun, options.now)).length
+    ])
+  );
   return {
-    snapshot: { states: viewStates, workspaceRoot, deferredStates },
+    snapshot: { states: viewStates, workspaceRoot, deferredStates, dueCounts },
     tasks,
     focusCandidates: focusCandidates2,
     issueCount: issueCount2
@@ -917,8 +921,8 @@ function priorityChip(style, priority) {
 function scheduleChip(style, task) {
   return task.due ? style.el.Text({ ...textStyle(style, "chip"), color: "warning", children: ["due"] }) : caption(style, `\u{1F501} ${task.repeats} UTC`);
 }
-function tabLabel(state) {
-  const due = dueCount(state);
+function tabLabel(board2, state) {
+  const due = board2.dueCounts[state.name] ?? 0;
   const label = `${state.name} ${state.totalCount}`;
   return due > 0 ? `${label} \xB7 ${due} due` : label;
 }
@@ -1002,7 +1006,7 @@ function tabs(style, board2, active, actions) {
     children: board2.states.map(
       (state, index) => style.el.Button({
         key: `tab-${slug(state.name)}`,
-        label: tabLabel(state),
+        label: tabLabel(board2, state),
         ...digitHotkey(index),
         ...chrome(style),
         ...style.isRich ? { variant: state.name === active ? "primary" : "secondary" } : {},
@@ -1369,6 +1373,7 @@ var PANE_ID = "taskplanner";
 var PANE_TITLE = "TaskPlanner";
 var SERVER_KEY = "taskplanner";
 var POLL_INTERVAL_MS = 5e3;
+var SCHEDULE_CHECK_INTERVAL_MS = 6e4;
 var MISSING_BOARD_TEXT = "No .tasks/ board in this folder or above it.";
 var serverName = null;
 var boardRoot = null;
@@ -1392,6 +1397,7 @@ var lastSignature = null;
 var lastInput = null;
 var builtAt = /* @__PURE__ */ new Date(0);
 var pollTimer = null;
+var scheduleTimer = null;
 var refreshRun = null;
 var needsRefresh = false;
 var hasTextScale = false;
@@ -1517,16 +1523,17 @@ async function answerSetUpBandTool($, e) {
     return { deny: errorMessage(error) };
   }
 }
-function applyBoard(input) {
+function applyBoard(input, now) {
   const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
-  const read = buildBoard(input.states, input.texts, { loadCompleted, expandedStates }, input.root);
+  const options = { loadCompleted, expandedStates, now };
+  const read = buildBoard(input.states, input.texts, options, input.root);
   board = read.snapshot;
   taskIndex = read.tasks;
   focusCandidates = read.focusCandidates;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastInput = input;
-  builtAt = /* @__PURE__ */ new Date();
+  builtAt = now;
   reopenDetail();
 }
 async function loadBoard($) {
@@ -1543,7 +1550,7 @@ async function loadBoard($) {
   for (const state of states) {
     texts.set(state.fileName, await readTextOrEmpty($, joinPath(tasksDir, state.fileName)));
   }
-  applyBoard({ states, texts, root });
+  applyBoard({ states, texts, root }, new Date(await $.clock.now()));
   lastSignature = signature;
 }
 async function runRefresh($) {
@@ -1584,10 +1591,7 @@ async function syncIfChanged($) {
       return;
     }
     if (board && await readSignature($, joinPath(root, ".tasks")) === lastSignature) {
-      if (lastInput && scheduleFiredSince(taskIndex, builtAt, /* @__PURE__ */ new Date())) {
-        applyBoard(lastInput);
-        $.ui.invalidate("ui.render");
-      }
+      await refreshDueFlags($);
       return;
     }
   } catch (error) {
@@ -1596,6 +1600,18 @@ async function syncIfChanged($) {
     return;
   }
   await refreshBoard($);
+}
+async function refreshDueFlags($) {
+  const now = new Date(await $.clock.now());
+  if (!lastInput || !scheduleFiredSince(taskIndex, builtAt, now)) return;
+  applyBoard(lastInput, now);
+  $.ui.invalidate("ui.render");
+}
+function startScheduleChecks($) {
+  if (scheduleTimer) return;
+  scheduleTimer = $.clock.every(SCHEDULE_CHECK_INTERVAL_MS, () => {
+    void refreshDueFlags($);
+  });
 }
 function startPolling($) {
   if (pollTimer) return;
@@ -1615,6 +1631,7 @@ async function openPane($) {
 async function resumeAfterLoad($) {
   const panes = await $.ui.panes();
   if (panes.some((pane) => pane.id === PANE_ID)) startPolling($);
+  startScheduleChecks($);
   await syncIfChanged($);
 }
 async function selectTab($, state) {

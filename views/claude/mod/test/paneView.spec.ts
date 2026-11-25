@@ -46,6 +46,7 @@ function texts(tree: ElementNode): string[] {
 
 const BOARD: BoardSnapshot = {
   workspaceRoot: '/work',
+  dueCounts: {},
   states: [
     {
       name: 'Backlog',
@@ -214,6 +215,7 @@ const detail = {
 describe('a recurring state in the pane', () => {
   const recurringBoard: BoardSnapshot = {
     workspaceRoot: '/work',
+    dueCounts: { Recurring: 1 },
     states: [
       {
         name: 'Recurring',

@@ -49,6 +49,7 @@ const PANE_ID = 'taskplanner';
 const PANE_TITLE = 'TaskPlanner';
 const SERVER_KEY = 'taskplanner';
 const POLL_INTERVAL_MS = 5000;
+const SCHEDULE_CHECK_INTERVAL_MS = 60_000;
 const MISSING_BOARD_TEXT = 'No .tasks/ board in this folder or above it.';
 
 interface TaskRef {
@@ -78,6 +79,7 @@ let lastSignature: string | null = null;
 let lastInput: BoardInput | null = null;
 let builtAt = new Date(0);
 let pollTimer: Timer | null = null;
+let scheduleTimer: Timer | null = null;
 let refreshRun: Promise<void> | null = null;
 let needsRefresh = false;
 let hasTextScale = false;
@@ -218,16 +220,17 @@ async function answerSetUpBandTool($: Engine, e: ToolCallEvent): Promise<unknown
   }
 }
 
-function applyBoard(input: BoardInput): void {
+function applyBoard(input: BoardInput, now: Date): void {
   const loadCompleted = isCompletedState(activeTab) || detail !== null || pendingDetail !== null;
-  const read = buildBoard(input.states, input.texts, { loadCompleted, expandedStates }, input.root);
+  const options = { loadCompleted, expandedStates, now };
+  const read = buildBoard(input.states, input.texts, options, input.root);
   board = read.snapshot;
   taskIndex = read.tasks;
   focusCandidates = read.focusCandidates;
   issueCount = read.issueCount;
   activeTab = pickTab(board, activeTab);
   lastInput = input;
-  builtAt = new Date();
+  builtAt = now;
   reopenDetail();
 }
 
@@ -245,7 +248,7 @@ async function loadBoard($: Engine): Promise<void> {
   for (const state of states) {
     texts.set(state.fileName, await readTextOrEmpty($, joinPath(tasksDir, state.fileName)));
   }
-  applyBoard({ states, texts, root });
+  applyBoard({ states, texts, root }, new Date(await $.clock.now()));
   lastSignature = signature;
 }
 
@@ -289,10 +292,7 @@ async function syncIfChanged($: Engine): Promise<void> {
       return;
     }
     if (board && (await readSignature($, joinPath(root, '.tasks'))) === lastSignature) {
-      if (lastInput && scheduleFiredSince(taskIndex, builtAt, new Date())) {
-        applyBoard(lastInput);
-        $.ui.invalidate('ui.render');
-      }
+      await refreshDueFlags($);
       return;
     }
   } catch (error) {
@@ -301,6 +301,20 @@ async function syncIfChanged($: Engine): Promise<void> {
     return;
   }
   await refreshBoard($);
+}
+
+async function refreshDueFlags($: Engine): Promise<void> {
+  const now = new Date(await $.clock.now());
+  if (!lastInput || !scheduleFiredSince(taskIndex, builtAt, now)) return;
+  applyBoard(lastInput, now);
+  $.ui.invalidate('ui.render');
+}
+
+function startScheduleChecks($: Engine): void {
+  if (scheduleTimer) return;
+  scheduleTimer = $.clock.every(SCHEDULE_CHECK_INTERVAL_MS, () => {
+    void refreshDueFlags($);
+  });
 }
 
 function startPolling($: Engine): void {
@@ -324,6 +338,7 @@ async function openPane($: Engine): Promise<void> {
 async function resumeAfterLoad($: Engine): Promise<void> {
   const panes = await $.ui.panes();
   if (panes.some((pane) => pane.id === PANE_ID)) startPolling($);
+  startScheduleChecks($);
   await syncIfChanged($);
 }
 

@@ -92,6 +92,7 @@ function engine(
     store?: Record<string, unknown>;
     failStoreReads?: boolean;
     failStoreWrites?: boolean;
+    now?: number;
   } = {},
 ) {
   const store: Record<string, unknown> = { ...options.store };
@@ -125,7 +126,7 @@ function engine(
       section(`TASK-${100 + index}`, `Backlog task ${index}`, 'P2', 'Body.'),
     ).join('');
   }
-  const clock = mock.clock(on);
+  const clock = mock.clock(on, options.now === undefined ? undefined : { now: options.now });
   let mtimeMs = 1000;
   let gate: Promise<void> | null = null;
   let cwd = options.cwd ?? ROOT;
@@ -373,15 +374,42 @@ test('the band shows the In Progress task beside what others draw and opens the 
   expect(world.opened).toEqual(['taskplanner']);
 });
 
-function onlyRecurringWork(world: ReturnType<typeof engine>) {
+// Never run by default, so it is due wherever the clock starts.
+function onlyRecurringWork(world: ReturnType<typeof engine>, lastRun = '') {
   delete world.files['IN_PROGRESS.md'];
   delete world.files['BACKLOG.md'];
   const states = [...STATES, { name: 'Recurring', fileName: 'RECURRING.md', order: 5 }];
   world.files['config.json'] = JSON.stringify({ version: 4, idPrefix: 'TASK', nextId: 6, states });
-  // Never run, so it is due whatever the real clock says.
+  const ran = lastRun ? `\n**Last run:** ${lastRun}` : '';
   world.files['RECURRING.md'] =
-    '# Recurring\n\n## TASK-005: Hourly check\n**Priority:** P2\n**Repeats:** @hourly\n\n---\n';
+    `# Recurring\n\n## TASK-005: Hourly check\n**Priority:** P2\n**Repeats:** @hourly${ran}\n\n---\n`;
 }
+
+const HALF_PAST_TEN = Date.parse('2026-11-25T10:30:00Z');
+const THIRTY_ONE_MINUTES = 31 * 60_000;
+
+test('a run recorded this hour keeps the band hidden', async ($, on) => {
+  const world = engine(on, { now: HALF_PAST_TEN });
+  onlyRecurringWork(world, '2026-11-25 10:00');
+  await startSession($, world.clock);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+
+  expect(await band.find({ type: 'Text', text: /Recurring/ })).toBeUndefined();
+});
+
+test('with the pane closed, the next hour brings up the due band without a file change', async ($, on) => {
+  const world = engine(on, { now: HALF_PAST_TEN });
+  onlyRecurringWork(world, '2026-11-25 10:00');
+  await startSession($, world.clock);
+  const reads = world.configReads();
+
+  await world.clock.advance(THIRTY_ONE_MINUTES);
+
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
+  expect(await band.find({ type: 'Text', text: 'Recurring · 1 due' })).toBeDefined();
+  expect(world.configReads()).toBe(reads);
+});
 
 test('with only recurring work due, the band counts it', async ($, on) => {
   const world = engine(on);
