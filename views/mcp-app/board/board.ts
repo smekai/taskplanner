@@ -160,7 +160,10 @@ function renderBoard(data: TaskViewData): void {
   root.dataset.state = 'ready';
   root.dataset.layout = isNarrowLayout ? 'compact' : 'wide';
   const columns = data.states.map(renderColumn).join('');
+  const scrollLeft = root.querySelector('.board')?.scrollLeft ?? 0;
   root.innerHTML = `<div class="board">${columns}</div>`;
+  const board = root.querySelector('.board');
+  if (board) board.scrollLeft = scrollLeft;
   wireColumnToggles();
   wireDragAndDrop();
   wireCardClicks();

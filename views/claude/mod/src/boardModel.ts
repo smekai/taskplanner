@@ -1,4 +1,5 @@
 import type { StateViewData } from '../../../../src/core/model/messages.js';
+import { RECURRING_STATE_NAME } from '../../../../src/core/model/state.js';
 import type { McpToolResult } from './modApi.js';
 
 export const IN_PROGRESS_STATE = 'In Progress';
@@ -216,7 +217,7 @@ export function describeError(message: string): ErrorSummary {
 
 export function newTaskStates(board: BoardSnapshot | null): string[] {
   const names = board?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name));
+  return names.filter((name) => !isCompletedState(name) && name !== RECURRING_STATE_NAME);
 }
 
 export function startDraft(board: BoardSnapshot | null): TaskDraft {
