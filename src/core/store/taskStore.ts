@@ -1,5 +1,5 @@
 import { Task } from '../model/task.js';
-import { COMPLETED_STATE_NAMES, TaskState } from '../model/state.js';
+import { COMPLETED_STATE_NAMES, STATE_NAMES, TaskState } from '../model/state.js';
 import { TaskPlannerConfig } from '../model/config.js';
 import { ParseIssue } from '../model/parseResult.js';
 import { ConfigManager } from '../config/configManager.js';
@@ -230,7 +230,7 @@ export class TaskStore {
 
   archiveCompleted(now = new Date()): ArchiveResult {
     const afterDays = this.config.archiveDoneAfterDays ?? 0;
-    const doneState = this.config.states.find((state) => state.name === 'Done');
+    const doneState = this.config.states.find((state) => state.name === STATE_NAMES.done);
     if (afterDays <= 0 || !doneState) return { archived: 0, files: [] };
 
     this.ensureStateLoaded(doneState.name);
@@ -464,7 +464,7 @@ export class TaskStore {
         { state: found.state, tasks: sourceTasks },
       );
     }
-    if (targetStateName === 'Done') this.archiveCompleted();
+    if (targetStateName === STATE_NAMES.done) this.archiveCompleted();
     return moved;
   }
 

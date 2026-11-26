@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { ConfigManager } from '../../src/core/config/configManager.js';
 import { TaskStore } from '../../src/core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../../src/core/model/task.js';
-import { isDueWork, stateForNewTask } from '../../src/core/model/state.js';
+import { COMPLETED_STATE_NAMES, isDueWork, stateForNewTask } from '../../src/core/model/state.js';
 import { ParseIssue } from '../../src/core/model/parseResult.js';
 import { buildBoardViewModel } from '../../src/core/view/boardViewModel.js';
 import { renderBoardDigest } from '../../src/core/ai/boardDigest.js';
@@ -226,7 +226,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.51',
+  version: '3.0.52',
 });
 
 server.registerTool(
@@ -713,8 +713,7 @@ server.registerTool(
   async ({ workspace_root, query, include_completed, limit }) => {
     const { taskStore, configManager, workspaceRoot } = await freshStore(workspace_root);
     if (include_completed) {
-      taskStore.ensureStateLoaded('Done');
-      taskStore.ensureStateLoaded('Rejected');
+      COMPLETED_STATE_NAMES.forEach((name) => taskStore.ensureStateLoaded(name));
     }
     const viewModel = buildBoardViewModel(taskStore, configManager, {
       searchQuery: query,

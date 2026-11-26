@@ -1,10 +1,11 @@
 import type { StateViewData } from '../../../../src/core/model/messages.js';
 import type { McpToolResult } from './modApi.js';
+import { COMPLETED_STATE_NAMES, STATE_NAMES } from '../../../../src/core/model/state.js';
 
-export const IN_PROGRESS_STATE = 'In Progress';
-export const NEXT_STATE = 'Next';
-export const BACKLOG_STATE = 'Backlog';
-export const COMPLETED_STATES: readonly string[] = ['Done', 'Rejected'];
+export const IN_PROGRESS_STATE = STATE_NAMES.inProgress;
+export const NEXT_STATE = STATE_NAMES.next;
+export const BACKLOG_STATE = STATE_NAMES.backlog;
+export const COMPLETED_STATES = COMPLETED_STATE_NAMES;
 export const BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
 
 const DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { TaskStore } from '../../../../src/core/store/taskStore.js';
 import { ConfigManager } from '../../../../src/core/config/configManager.js';
 import { Priority, isPriority } from '../../../../src/core/model/task.js';
+import { STATE_NAMES } from '../../../../src/core/model/state.js';
 
 export function registerCreateTaskCommand(
   context: vscode.ExtensionContext,
@@ -72,7 +73,9 @@ export function registerCreateTaskCommand(
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('taskplanner.createTask', () => createTask('Backlog')),
+    vscode.commands.registerCommand('taskplanner.createTask', () =>
+      createTask(STATE_NAMES.backlog),
+    ),
     vscode.commands.registerCommand('taskplanner.createTaskInState', (stateName: string) =>
       createTask(stateName),
     ),

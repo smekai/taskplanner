@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { TaskPlannerConfig, createDefaultConfig } from '../model/config.js';
-import { RECURRING_STATE_NAME } from '../model/state.js';
+import { RECURRING_STATE_NAME, STATE_NAMES } from '../model/state.js';
 import { normalizeStates } from './configStates.js';
 
 const CONFIG_SCHEMA_VERSION = 4;
@@ -131,8 +131,8 @@ export class ConfigManager {
   }
 
   private addRejectedState(): boolean {
-    if (this.config.states.some((s) => s.name === 'Rejected')) return false;
-    this.config.states.push({ name: 'Rejected', fileName: 'REJECTED.md', order: 4 });
+    if (this.config.states.some((s) => s.name === STATE_NAMES.rejected)) return false;
+    this.config.states.push({ name: STATE_NAMES.rejected, fileName: 'REJECTED.md', order: 4 });
     return true;
   }
 

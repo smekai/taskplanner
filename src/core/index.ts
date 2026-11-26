@@ -5,6 +5,7 @@ export {
   TaskState,
   DEFAULT_STATES,
   RECURRING_STATE_NAME,
+  STATE_NAMES,
   COMPLETED_STATE_NAMES,
   isCompletedStateName,
   isDueWork,

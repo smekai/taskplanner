@@ -10,6 +10,7 @@ import {
   TaskViewItem,
 } from '../../../../../src/core/model/messages.js';
 import { watchDueFlags } from './dueClock.js';
+import { COMPLETED_STATE_NAMES, STATE_NAMES } from '../../../../../src/core/model/state.js';
 import { getWebviewHtml } from './webviewHelper.js';
 import { getSortBy, setSortBy } from '../../config/extensionConfig.js';
 
@@ -98,10 +99,10 @@ export class KanbanPanel {
         this.update();
         break;
       case 'showCompleted':
-        this.taskStore.ensureStateLoaded('Done');
-        this.taskStore.ensureStateLoaded('Rejected');
-        this.showAllForState.add('Done');
-        this.showAllForState.add('Rejected');
+        for (const name of COMPLETED_STATE_NAMES) {
+          this.taskStore.ensureStateLoaded(name);
+          this.showAllForState.add(name);
+        }
         this.update();
         break;
       case 'moveTask':
@@ -211,13 +212,18 @@ export class KanbanPanel {
 
   private buildHtml(data: TaskViewData): string {
     const stateMap = new Map(data.states.map((s) => [s.name, s]));
-    const nextState = stateMap.get('Next');
-    const backlogState = stateMap.get('Backlog');
-    const inProgressState = stateMap.get('In Progress');
-    const doneState = stateMap.get('Done');
-    const rejectedState = stateMap.get('Rejected');
+    const nextState = stateMap.get(STATE_NAMES.next);
+    const backlogState = stateMap.get(STATE_NAMES.backlog);
+    const inProgressState = stateMap.get(STATE_NAMES.inProgress);
+    const doneState = stateMap.get(STATE_NAMES.done);
+    const rejectedState = stateMap.get(STATE_NAMES.rejected);
 
-    const knownNames = new Set(['Next', 'Backlog', 'In Progress', 'Done', 'Rejected']);
+    const knownNames = new Set<string>([
+      STATE_NAMES.next,
+      STATE_NAMES.backlog,
+      STATE_NAMES.inProgress,
+      ...COMPLETED_STATE_NAMES,
+    ]);
     const customStates = data.states.filter((s) => !knownNames.has(s.name));
 
     let columns = '';
@@ -933,7 +939,7 @@ export class KanbanPanel {
     const doneCount = doneState?.totalCount ?? 0;
     const rejectedCount = rejectedState?.totalCount ?? 0;
     const totalCompleted = doneCount + rejectedCount;
-    const isExpanded = this.showAllForState.has('Done') || this.showAllForState.has('Rejected');
+    const isExpanded = COMPLETED_STATE_NAMES.some((name) => this.showAllForState.has(name));
 
     let innerContent: string;
 

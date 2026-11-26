@@ -1,6 +1,6 @@
 import { Task } from '../model/task.js';
 import { TaskState } from '../model/state.js';
-import { isDueWork } from '../model/state.js';
+import { STATE_NAMES, isDueWork } from '../model/state.js';
 import {
   TaskFilter,
   TaskViewData,
@@ -142,7 +142,11 @@ export function filterAndPaginate(
   return { states: result, filter };
 }
 
-const COLLAPSED_STATES = new Set(['Backlog', 'Done', 'Rejected']);
+const COLLAPSED_STATES = new Set<string>([
+  STATE_NAMES.backlog,
+  STATE_NAMES.done,
+  STATE_NAMES.rejected,
+]);
 
 export function groupTasks(
   tasksByState: Map<string, Task[]>,
