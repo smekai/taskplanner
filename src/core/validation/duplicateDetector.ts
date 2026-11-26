@@ -70,14 +70,6 @@ export function resolveConflict(
   conflict: DuplicateConflict,
   states: TaskState[],
 ): DuplicateResolution {
-  if (conflict.occurrences.length < 2) {
-    return {
-      taskId: conflict.taskId,
-      keep: conflict.occurrences[0],
-      remove: [],
-    };
-  }
-
   const stateOrder = new Map(states.map((state) => [state.name, state.order]));
   const ranked = [...conflict.occurrences].sort((a, b) => {
     const updatedDiff = compareByUpdatedAt(a, b);
@@ -94,6 +86,7 @@ export function resolveConflict(
   });
 
   const keep = ranked[ranked.length - 1];
+  if (!keep) throw new Error(`Task ${conflict.taskId} has no copies to resolve.`);
   const remove = ranked.filter((occurrence) => occurrence !== keep);
   return {
     taskId: conflict.taskId,

@@ -8,10 +8,10 @@ export class IdGenerator {
   }
 
   parseId(id: string): { prefix: string; number: number } | null {
-    const match = id.match(/^([A-Z]+)-(\d+)$/);
-    if (!match) {
+    const [, prefix, digits] = id.match(/^([A-Z]+)-(\d+)$/) ?? [];
+    if (prefix === undefined || digits === undefined) {
       return null;
     }
-    return { prefix: match[1], number: parseInt(match[2], 10) };
+    return { prefix, number: parseInt(digits, 10) };
   }
 }

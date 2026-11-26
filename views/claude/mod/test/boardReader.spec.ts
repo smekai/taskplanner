@@ -98,7 +98,7 @@ describe('buildBoard', () => {
       totalCount: BOARD_TASK_LIMIT + 2,
       hasMore: true,
     });
-    expect(snapshot.states[0].tasks).toHaveLength(BOARD_TASK_LIMIT);
+    expect(snapshot.states[0]?.tasks).toHaveLength(BOARD_TASK_LIMIT);
   });
 
   it('shows every task of a state the person expanded', () => {
@@ -113,7 +113,7 @@ describe('buildBoard', () => {
       null,
     );
     expect(snapshot.states[0]).toMatchObject({ totalCount: BOARD_TASK_LIMIT + 2, hasMore: false });
-    expect(snapshot.states[0].tasks).toHaveLength(BOARD_TASK_LIMIT + 2);
+    expect(snapshot.states[0]?.tasks).toHaveLength(BOARD_TASK_LIMIT + 2);
   });
 
   it('keeps Done in file order, newest first, rather than by priority', () => {
@@ -164,7 +164,7 @@ describe('due counts', () => {
 
     const { snapshot } = buildBoard(RECURRING, new Map([['RECURRING.md', text]]), COLLAPSED, null);
 
-    expect(snapshot.states[0].tasks).toHaveLength(BOARD_TASK_LIMIT);
+    expect(snapshot.states[0]?.tasks).toHaveLength(BOARD_TASK_LIMIT);
     expect(snapshot.dueCounts).toEqual({ Recurring: 1 });
   });
 

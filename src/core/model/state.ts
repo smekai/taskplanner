@@ -7,18 +7,27 @@ export interface TaskState {
   order: number;
 }
 
+export const STATE_NAMES = {
+  backlog: 'Backlog',
+  next: 'Next',
+  inProgress: 'In Progress',
+  done: 'Done',
+  rejected: 'Rejected',
+  recurring: 'Recurring',
+} as const;
+
 export const DEFAULT_STATES: TaskState[] = [
-  { name: 'Backlog', fileName: 'BACKLOG.md', order: 0 },
-  { name: 'Next', fileName: 'NEXT.md', order: 1 },
-  { name: 'In Progress', fileName: 'IN_PROGRESS.md', order: 2 },
-  { name: 'Done', fileName: 'DONE.md', order: 3 },
-  { name: 'Rejected', fileName: 'REJECTED.md', order: 4 },
-  { name: 'Recurring', fileName: 'RECURRING.md', order: 5 },
+  { name: STATE_NAMES.backlog, fileName: 'BACKLOG.md', order: 0 },
+  { name: STATE_NAMES.next, fileName: 'NEXT.md', order: 1 },
+  { name: STATE_NAMES.inProgress, fileName: 'IN_PROGRESS.md', order: 2 },
+  { name: STATE_NAMES.done, fileName: 'DONE.md', order: 3 },
+  { name: STATE_NAMES.rejected, fileName: 'REJECTED.md', order: 4 },
+  { name: STATE_NAMES.recurring, fileName: 'RECURRING.md', order: 5 },
 ];
 
-export const RECURRING_STATE_NAME = 'Recurring';
+export const RECURRING_STATE_NAME = STATE_NAMES.recurring;
 
-export const COMPLETED_STATE_NAMES: readonly string[] = ['Done', 'Rejected'];
+export const COMPLETED_STATE_NAMES: readonly string[] = [STATE_NAMES.done, STATE_NAMES.rejected];
 
 export function isCompletedStateName(name: string): boolean {
   return COMPLETED_STATE_NAMES.includes(name);
@@ -36,7 +45,7 @@ export function isDueWork(
   );
 }
 
-export const NEW_TASK_STATE_NAME = 'Backlog';
+export const NEW_TASK_STATE_NAME = STATE_NAMES.backlog;
 
 export type NewTaskState = { state: TaskState } | { error: string };
 

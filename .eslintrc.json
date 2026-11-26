@@ -77,6 +77,15 @@
           ]
         }]
       }
+    },
+    {
+      "files": ["test/**/*.ts", "views/*/test/**/*.ts", "views/claude/mod/test/**/*.ts"],
+      "rules": {
+        "no-restricted-syntax": ["error", {
+          "selector": "CallExpression:matches([callee.name=/^(it|test)$/], [callee.object.name=/^(it|test)$/], [callee.object.object.name=/^(it|test)$/], [callee.callee.object.name=/^(it|test)$/], [callee.callee.object.object.name=/^(it|test)$/], [callee.tag.object.name=/^(it|test)$/]) > :function :matches(IfStatement, ForStatement, ForOfStatement, ForInStatement, WhileStatement, DoWhileStatement, TryStatement)",
+          "message": "No logic in a test body: use it.each for a table, or a helper below the tests for a loop (code-quality skill, Part 2)."
+        }]
+      }
     }
   ],
   "ignorePatterns": ["dist", "node_modules", "esbuild.js"]
