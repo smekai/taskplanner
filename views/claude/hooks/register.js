@@ -1,220 +1,3 @@
-// views/claude/mod/src/boardModel.ts
-var IN_PROGRESS_STATE = "In Progress";
-var NEXT_STATE = "Next";
-var BACKLOG_STATE = "Backlog";
-var COMPLETED_STATES = ["Done", "Rejected"];
-var BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
-var DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
-var TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
-var TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
-var PRIORITIES = ["P0", "P1", "P2", "P3", "P4"];
-var DEFAULT_NEW_PRIORITY = "P2";
-var OWN_PLUGIN_ID = /^taskplanner(@[^@\s]+)?$/;
-var FILE_EDIT_TOOLS = /* @__PURE__ */ new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
-var TASKS_DIR_SEGMENT = /(^|[\\/])\.tasks[\\/]/;
-var PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
-function resultText(result) {
-  return result.content.filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n").trim();
-}
-function slug(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-function stringField(record, key) {
-  const value = record[key];
-  return typeof value === "string" ? value.trim() : "";
-}
-function tagsOf(task) {
-  return Array.isArray(task.tags) ? task.tags.filter((tag) => typeof tag === "string") : [];
-}
-function runsOf(task) {
-  return Array.isArray(task.runs) ? task.runs.filter((run) => typeof run === "string") : [];
-}
-function taskBody(task) {
-  const sections = [];
-  const description = stringField(task, "description");
-  if (description) sections.push(description);
-  const plan = stringField(task, "plan");
-  if (plan) sections.push(`### Plan
-
-${plan}`);
-  const runs = runsOf(task);
-  if (runs.length > 0) sections.push(`### Runs
-
-${runs.map((run) => `- ${run}`).join("\n")}`);
-  return sections.join("\n\n");
-}
-function taskMarkdown(task) {
-  const meta = [
-    `**Priority:** ${stringField(task, "priority")}`,
-    `**State:** ${stringField(task, "state")}`
-  ];
-  const tags = tagsOf(task);
-  if (tags.length > 0) meta.push(`**Tags:** ${tags.join(", ")}`);
-  for (const [key, label] of [
-    ["epic", "Epic"],
-    ["assignee", "Assignee"],
-    ["waitingUntil", "Waiting until"],
-    ["repeats", "Repeats (UTC)"],
-    ["lastRun", "Last run"],
-    ["updatedAt", "Updated"]
-  ]) {
-    const value = stringField(task, key);
-    if (value) meta.push(`**${label}:** ${value}`);
-  }
-  const sections = [
-    `## ${stringField(task, "id")}: ${stringField(task, "title")}`,
-    meta.join(" \xB7 ")
-  ];
-  const body = taskBody(task);
-  if (body) sections.push(body);
-  return sections.join("\n\n");
-}
-function boardDigestText(board2) {
-  const counts = board2.states.map((state) => `${state.name} ${state.totalCount}`).join(" \xB7 ");
-  const lines = [counts];
-  for (const name of [IN_PROGRESS_STATE, NEXT_STATE]) {
-    for (const task of stateNamed(board2, name)?.tasks ?? []) {
-      lines.push(`- ${name}: ${task.id} ${task.priority} ${task.title}`);
-    }
-  }
-  return lines.join("\n");
-}
-function stateNamed(board2, name) {
-  return board2.states.find((state) => state.name === name);
-}
-function pickTab(board2, current) {
-  if (current && stateNamed(board2, current)) return current;
-  const withTasks = DEFAULT_TAB_ORDER.find(
-    (name) => (stateNamed(board2, name)?.totalCount ?? 0) > 0
-  );
-  if (withTasks) return withTasks;
-  const present = DEFAULT_TAB_ORDER.find((name) => stateNamed(board2, name));
-  return present ?? board2.states[0]?.name ?? null;
-}
-function isCompletedState(name) {
-  return name !== null && COMPLETED_STATES.includes(name);
-}
-function moveTargets(board2, currentState) {
-  return board2.states.map((state) => state.name).filter((name) => name !== currentState);
-}
-function moveKey(target) {
-  return `move-${slug(target)}`;
-}
-function moveTargetForKey(board2, currentState, key) {
-  return moveTargets(board2, currentState).find((target) => moveKey(target) === key) ?? null;
-}
-function shouldRefreshAfterTool(tool, input) {
-  if (TASKPLANNER_WRITE_TOOL.test(tool)) return true;
-  if (!FILE_EDIT_TOOLS.has(tool)) return false;
-  const target = input.file_path ?? input.notebook_path;
-  return typeof target === "string" && TASKS_DIR_SEGMENT.test(target);
-}
-var TEXT_SCALE_VERSION = [2, 1, 299];
-function supportsTextScale(version) {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
-  if (!match) return false;
-  const parts = match.slice(1).map(Number);
-  for (let index = 0; index < TEXT_SCALE_VERSION.length; index += 1) {
-    if (parts[index] !== TEXT_SCALE_VERSION[index]) return parts[index] > TEXT_SCALE_VERSION[index];
-  }
-  return true;
-}
-function isOwnPlugin(name) {
-  return OWN_PLUGIN_ID.test(name);
-}
-function ancestorDirs(start) {
-  const dirs = [];
-  let current = start.replace(/[\\/]+$/, "") || start;
-  for (; ; ) {
-    dirs.push(current);
-    const cut = current.search(/[\\/][^\\/]*$/);
-    if (cut < 0) break;
-    const parent = cut === 0 ? current[0] : current.slice(0, cut);
-    if (parent === current) break;
-    current = parent;
-  }
-  return dirs;
-}
-function describeError(message) {
-  if (PERMISSION_REFUSAL.test(message)) {
-    return {
-      title: "Claude Code did not allow the change.",
-      detail: `Allow the TaskPlanner move and create tools for this project, then try again. ${message}`
-    };
-  }
-  return { title: "Something went wrong with the board.", detail: message };
-}
-function newTaskStates(board2) {
-  const names = board2?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name));
-}
-function startDraft(board2) {
-  const states = newTaskStates(board2);
-  const state = states.includes(BACKLOG_STATE) ? BACKLOG_STATE : states[0] ?? BACKLOG_STATE;
-  return { title: "", priority: DEFAULT_NEW_PRIORITY, state };
-}
-function createdTaskId(result) {
-  const structured = result.structuredContent;
-  if (typeof structured?.task?.id === "string") return structured.task.id;
-  const text = resultText(result);
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed.task?.id === "string") return parsed.task.id;
-  } catch {
-    return TASK_ID_IN_TEXT.exec(text)?.[1] ?? null;
-  }
-  return TASK_ID_IN_TEXT.exec(text)?.[1] ?? null;
-}
-function editPrompt(task) {
-  return `Update ${task.id} (${task.title}): `;
-}
-function boardSignature(files) {
-  return [...files].sort((a, b) => a.name.localeCompare(b.name)).map((file) => `${file.name}:${file.size}:${file.mtimeMs}`).join("|");
-}
-function joinPath(root, ...parts) {
-  return [root.replace(/[\\/]+$/, ""), ...parts].join("/");
-}
-var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-taskplanner skill.";
-function setUpDismissedKey(folder) {
-  return `setupDismissed:${folder}`;
-}
-var SETUP_BAND_TOOL = {
-  name: "setup_band",
-  description: 'Show or hide the TaskPlanner "no board here" setup band above the prompt in the current folder. Use when the user asks to hide, dismiss, bring back or show the TaskPlanner setup band, banner or hint. Hiding lasts across sessions in this folder; showing undoes it.',
-  inputSchema: {
-    type: "object",
-    properties: {
-      show: {
-        type: "boolean",
-        description: "true shows the band again in this folder, false hides it for good"
-      }
-    },
-    required: ["show"],
-    additionalProperties: false
-  }
-};
-function setUpBandToolText(show, folder, hasBoard) {
-  const done = show ? `The TaskPlanner setup band shows again in ${folder}.` : `The TaskPlanner setup band is hidden in ${folder} for good; ask to show it again any time.`;
-  return hasBoard ? `${done} This folder already has a board, so the band shows tasks instead of setup.` : done;
-}
-function startPrompt(task) {
-  if (task.repeats) {
-    return `Run recurring task ${task.id} (${task.title}) now, then record the result with taskplanner_record_run. Do not move it to Done.`;
-  }
-  const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
-  return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
-}
-function boardDueCount(board2) {
-  return Object.values(board2.dueCounts).reduce((total, count) => total + count, 0);
-}
-function truncate(text, width) {
-  if (width <= 1) return text.slice(0, Math.max(0, width));
-  return text.length <= width ? text : `${text.slice(0, width - 1)}\u2026`;
-}
-function errorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-
 // src/core/util/time.ts
 var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
 function parseTimestamp(value) {
@@ -375,12 +158,230 @@ var DEFAULT_STATES = [
   { name: "Rejected", fileName: "REJECTED.md", order: 4 },
   { name: "Recurring", fileName: "RECURRING.md", order: 5 }
 ];
+var RECURRING_STATE_NAME = "Recurring";
 var COMPLETED_STATE_NAMES = ["Done", "Rejected"];
 function isCompletedStateName(name) {
   return COMPLETED_STATE_NAMES.includes(name);
 }
 function isDueWork(task, stateName, now = /* @__PURE__ */ new Date()) {
   return !isCompletedStateName(stateName) && !isWaiting(task.waitingUntil, now) && isDue(task.repeats, task.lastRun, now);
+}
+
+// views/claude/mod/src/boardModel.ts
+var IN_PROGRESS_STATE = "In Progress";
+var NEXT_STATE = "Next";
+var BACKLOG_STATE = "Backlog";
+var COMPLETED_STATES = ["Done", "Rejected"];
+var BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
+var DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
+var TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
+var TASK_ID_IN_TEXT = /\b([A-Z][A-Z0-9]*-\d+)\b/;
+var PRIORITIES = ["P0", "P1", "P2", "P3", "P4"];
+var DEFAULT_NEW_PRIORITY = "P2";
+var OWN_PLUGIN_ID = /^taskplanner(@[^@\s]+)?$/;
+var FILE_EDIT_TOOLS = /* @__PURE__ */ new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
+var TASKS_DIR_SEGMENT = /(^|[\\/])\.tasks[\\/]/;
+var PERMISSION_REFUSAL = /refused|permission|classifier|haven't granted/i;
+function resultText(result) {
+  return result.content.filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n").trim();
+}
+function slug(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+function stringField(record, key) {
+  const value = record[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+function tagsOf(task) {
+  return Array.isArray(task.tags) ? task.tags.filter((tag) => typeof tag === "string") : [];
+}
+function runsOf(task) {
+  return Array.isArray(task.runs) ? task.runs.filter((run) => typeof run === "string") : [];
+}
+function taskBody(task) {
+  const sections = [];
+  const description = stringField(task, "description");
+  if (description) sections.push(description);
+  const plan = stringField(task, "plan");
+  if (plan) sections.push(`### Plan
+
+${plan}`);
+  const runs = runsOf(task);
+  if (runs.length > 0) sections.push(`### Runs
+
+${runs.map((run) => `- ${run}`).join("\n")}`);
+  return sections.join("\n\n");
+}
+function taskMarkdown(task) {
+  const meta = [
+    `**Priority:** ${stringField(task, "priority")}`,
+    `**State:** ${stringField(task, "state")}`
+  ];
+  const tags = tagsOf(task);
+  if (tags.length > 0) meta.push(`**Tags:** ${tags.join(", ")}`);
+  for (const [key, label] of [
+    ["epic", "Epic"],
+    ["assignee", "Assignee"],
+    ["waitingUntil", "Waiting until"],
+    ["repeats", "Repeats (UTC)"],
+    ["lastRun", "Last run"],
+    ["updatedAt", "Updated"]
+  ]) {
+    const value = stringField(task, key);
+    if (value) meta.push(`**${label}:** ${value}`);
+  }
+  const sections = [
+    `## ${stringField(task, "id")}: ${stringField(task, "title")}`,
+    meta.join(" \xB7 ")
+  ];
+  const body = taskBody(task);
+  if (body) sections.push(body);
+  return sections.join("\n\n");
+}
+function boardDigestText(board2) {
+  const counts = board2.states.map((state) => `${state.name} ${state.totalCount}`).join(" \xB7 ");
+  const lines = [counts];
+  for (const name of [IN_PROGRESS_STATE, NEXT_STATE]) {
+    for (const task of stateNamed(board2, name)?.tasks ?? []) {
+      lines.push(`- ${name}: ${task.id} ${task.priority} ${task.title}`);
+    }
+  }
+  return lines.join("\n");
+}
+function stateNamed(board2, name) {
+  return board2.states.find((state) => state.name === name);
+}
+function pickTab(board2, current) {
+  if (current && stateNamed(board2, current)) return current;
+  const withTasks = DEFAULT_TAB_ORDER.find(
+    (name) => (stateNamed(board2, name)?.totalCount ?? 0) > 0
+  );
+  if (withTasks) return withTasks;
+  const present = DEFAULT_TAB_ORDER.find((name) => stateNamed(board2, name));
+  return present ?? board2.states[0]?.name ?? null;
+}
+function isCompletedState(name) {
+  return name !== null && COMPLETED_STATES.includes(name);
+}
+function moveTargets(board2, currentState) {
+  return board2.states.map((state) => state.name).filter((name) => name !== currentState);
+}
+function moveKey(target) {
+  return `move-${slug(target)}`;
+}
+function moveTargetForKey(board2, currentState, key) {
+  return moveTargets(board2, currentState).find((target) => moveKey(target) === key) ?? null;
+}
+function shouldRefreshAfterTool(tool, input) {
+  if (TASKPLANNER_WRITE_TOOL.test(tool)) return true;
+  if (!FILE_EDIT_TOOLS.has(tool)) return false;
+  const target = input.file_path ?? input.notebook_path;
+  return typeof target === "string" && TASKS_DIR_SEGMENT.test(target);
+}
+var TEXT_SCALE_VERSION = [2, 1, 299];
+function supportsTextScale(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+  if (!match) return false;
+  const parts = match.slice(1).map(Number);
+  for (let index = 0; index < TEXT_SCALE_VERSION.length; index += 1) {
+    if (parts[index] !== TEXT_SCALE_VERSION[index]) return parts[index] > TEXT_SCALE_VERSION[index];
+  }
+  return true;
+}
+function isOwnPlugin(name) {
+  return OWN_PLUGIN_ID.test(name);
+}
+function ancestorDirs(start) {
+  const dirs = [];
+  let current = start.replace(/[\\/]+$/, "") || start;
+  for (; ; ) {
+    dirs.push(current);
+    const cut = current.search(/[\\/][^\\/]*$/);
+    if (cut < 0) break;
+    const parent = cut === 0 ? current[0] : current.slice(0, cut);
+    if (parent === current) break;
+    current = parent;
+  }
+  return dirs;
+}
+function describeError(message) {
+  if (PERMISSION_REFUSAL.test(message)) {
+    return {
+      title: "Claude Code did not allow the change.",
+      detail: `Allow the TaskPlanner move and create tools for this project, then try again. ${message}`
+    };
+  }
+  return { title: "Something went wrong with the board.", detail: message };
+}
+function newTaskStates(board2) {
+  const names = board2?.states.map((state) => state.name) ?? [];
+  return names.filter((name) => !isCompletedState(name) && name !== RECURRING_STATE_NAME);
+}
+function startDraft(board2) {
+  const states = newTaskStates(board2);
+  const state = states.includes(BACKLOG_STATE) ? BACKLOG_STATE : states[0] ?? BACKLOG_STATE;
+  return { title: "", priority: DEFAULT_NEW_PRIORITY, state };
+}
+function createdTaskId(result) {
+  const structured = result.structuredContent;
+  if (typeof structured?.task?.id === "string") return structured.task.id;
+  const text = resultText(result);
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed.task?.id === "string") return parsed.task.id;
+  } catch {
+    return TASK_ID_IN_TEXT.exec(text)?.[1] ?? null;
+  }
+  return TASK_ID_IN_TEXT.exec(text)?.[1] ?? null;
+}
+function editPrompt(task) {
+  return `Update ${task.id} (${task.title}): `;
+}
+function boardSignature(files) {
+  return [...files].sort((a, b) => a.name.localeCompare(b.name)).map((file) => `${file.name}:${file.size}:${file.mtimeMs}`).join("|");
+}
+function joinPath(root, ...parts) {
+  return [root.replace(/[\\/]+$/, ""), ...parts].join("/");
+}
+var SETUP_PROMPT = "Set up TaskPlanner in this repository with the initialize-taskplanner skill.";
+function setUpDismissedKey(folder) {
+  return `setupDismissed:${folder}`;
+}
+var SETUP_BAND_TOOL = {
+  name: "setup_band",
+  description: 'Show or hide the TaskPlanner "no board here" setup band above the prompt in the current folder. Use when the user asks to hide, dismiss, bring back or show the TaskPlanner setup band, banner or hint. Hiding lasts across sessions in this folder; showing undoes it.',
+  inputSchema: {
+    type: "object",
+    properties: {
+      show: {
+        type: "boolean",
+        description: "true shows the band again in this folder, false hides it for good"
+      }
+    },
+    required: ["show"],
+    additionalProperties: false
+  }
+};
+function setUpBandToolText(show, folder, hasBoard) {
+  const done = show ? `The TaskPlanner setup band shows again in ${folder}.` : `The TaskPlanner setup band is hidden in ${folder} for good; ask to show it again any time.`;
+  return hasBoard ? `${done} This folder already has a board, so the band shows tasks instead of setup.` : done;
+}
+function startPrompt(task) {
+  if (task.repeats) {
+    return `Run recurring task ${task.id} (${task.title}) now, then record the result with taskplanner_record_run. Do not move it to Done.`;
+  }
+  const verb = task.state === IN_PROGRESS_STATE ? "Continue" : "Work on";
+  return `${verb} ${task.id} (${task.title}) following the TaskPlanner workflow.`;
+}
+function boardDueCount(board2) {
+  return Object.values(board2.dueCounts).reduce((total, count) => total + count, 0);
+}
+function truncate(text, width) {
+  if (width <= 1) return text.slice(0, Math.max(0, width));
+  return text.length <= width ? text : `${text.slice(0, width - 1)}\u2026`;
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 // src/core/config/configStates.ts
