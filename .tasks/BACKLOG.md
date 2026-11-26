@@ -55,7 +55,7 @@ Then TASK-085 (LinkedIn post) can start.
 ---
 ## TASK-088: TaskPlanner 3.1 release: recurring tasks
 **Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
-**Updated:** 2026-11-25 20:05
+**Updated:** 2026-11-26 09:26
 
 Scope for 3.1. Some work never reaches Done. The daily store-status watch (Claude directory, Cursor Marketplace, Codex directory, VS Code Marketplace, Open VSX, npm) runs every day as the `taskplanner-release-watch` scheduled task, and the board doesn't know about it. 3.1 puts that kind of work on the board.
 
@@ -70,9 +70,9 @@ Scope for 3.1. Some work never reaches Done. The daily store-status watch (Claud
 - A. TASK-087: core. The state, the fields, `isDue` and `recordRun`. Done (PR #40).
 - B. TASK-089: MCP tools, including `taskplanner_record_run`. Done (PR #42).
 - C. TASK-090: views (Claude pane and band, MCP-app board, VS Code) and agent instructions. Done (PR #43).
-- D. TASK-091: the daily release watch records its runs on the board. Starts after B.
+- D. TASK-091: the daily release watch records its runs on the board as TASK-095. Done (PR #45, first run 2026-11-26).
 - E. TASK-092: skip the write when nothing changed. Already delivered in 3.0 by TASK-077; closed without code.
-- F. TASK-094: code quality pass with `/code-quality`. Starts after A–E.
+- F. TASK-094: code quality pass with `/code-quality`. Next.
 - G. TASK-093: docs and release on every store. Last.
 
 The LinkedIn announcement (TASK-085) follows the release.

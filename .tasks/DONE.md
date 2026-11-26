@@ -1,5 +1,37 @@
 # Done
 
+## TASK-091: 3.1 phase D: the daily release watch records its runs on the board
+**Priority:** P1 | **Tags:** setup | **Epic:** 3.1
+**Updated:** 2026-11-26 09:25
+
+Phase D of TASK-088: dogfooding. Starts after TASK-087 and phase B (the `taskplanner_record_run` tool).
+
+- Create a recurring task "Daily store-status watch" in this repo's Recurring state with `Repeats: 0 8 * * *` (UTC). The scheduled task runs at `0 10 * * *` local time: 09:00 UTC in winter (UTC+1) and 08:00 UTC in summer (UTC+2). A UTC schedule of 08:00 fires at or before the run all year, so a finished check is never shown as due.
+- Where the run is recorded (decided 2026-11-25): in the watch's own worktree `C:\Development\smekai\taskplanner-readme-stats`, committed to the daily "README stats" PR. The main checkout and the user's branches stay untouched, and board changes still go through a PR. Accepted cost: `main` shows the watch as due until that PR is merged, and only runs from merged PRs stay in `main`'s history (`history.jsonl` keeps every run).
+- Change the `taskplanner-release-watch` scheduled task prompt (`~/.claude/scheduled-tasks/taskplanner-release-watch/SKILL.md`, outside the repo) to record the run with `taskplanner_record_run` and a one-line result, with a by-hand fallback.
+- After a few days, check that the board shows the watch as not due after each run and as due when a run is missed.
+
+### Plan
+
+Done:
+- **Board (PR #45):** TASK-095 "Daily store-status watch" is in Recurring with `Repeats: 0 8 * * *` UTC. The 10:00 local watch runs at 09:00 UTC in winter and 08:00 in summer, at or after the fire all year.
+- **Scheduled prompt** (`~/.claude/scheduled-tasks/taskplanner-release-watch/SKILL.md`, step 5):
+  - after the README stats script, record the run with `taskplanner_record_run` for TASK-095 in the stats worktree `taskplanner-readme-stats`, with a by-hand fallback;
+  - commit `.tasks/RECURRING.md` with the README;
+  - PR title "README stats and release-watch run";
+  - the run is recorded even when the README marker is missing.
+
+  The report now has a line on how the run was recorded, and the main checkout is still never touched.
+- **Verified by the scheduled run of 2026-11-26 09:07 UTC:**
+  - the run was recorded through the tool, not by hand;
+  - TASK-095 is not due in the stats worktree;
+  - PR #46 "README stats and release-watch run" carries `Last run: 2026-11-26 09:08` and the first Runs line.
+
+  No extra manual run was needed.
+- **Found on the way:** the user's Claude runs the TaskPlanner plugin from this repo folder (directory marketplace `refined-taskplanner`), so the watch's MCP server is whatever the main checkout has checked out.
+- **Still to watch:** over the next days, TASK-095 should read as due on `main` until a stats PR is merged, and as not due in the stats worktree after each run.
+
+---
 ## TASK-092: 3.1 phase E: skip writing a state file when nothing changed
 **Priority:** P1 | **Tags:** core | **Epic:** 3.1
 **Updated:** 2026-11-25 20:05
@@ -272,18 +304,5 @@ Done:
 - New Install section for Claude Code and Desktop (repository marketplace, not yet in the official directory), Codex, Cursor, VS Code and any MCP host. Commands checked against `claude plugin` and `codex plugin` help.
 - Usage table between `README-STATS` markers, written by `scripts/update-readme-stats.js` (`npm run readme:stats`) from the release watch's `history.jsonl`; tested in `test/scripts/`.
 - The daily `taskplanner-release-watch` job (outside the repo) now rebuilds `feature/readme-stats` from origin/main in its own worktree, refreshes the table and keeps one PR open; it never merges. It starts working once this PR is on main.
-
----
-## TASK-083: Claude: dismiss the "no board here" setup band per folder
-**Priority:** P2 | **Tags:** ui, feature
-**Updated:** 2026-11-11 22:08
-
-In Claude Code the band above the prompt says `TaskPlanner · no board here` with `Set up` in every folder without `.tasks/config.json`, and cannot be closed.
-
-Add a close button; pressing it asks for confirmation that the band will not come back in this folder (`/taskboard` still offers setup). On confirm, remember the folder in the plugin store (`$.store`) and stop drawing the band there. Other platforms have no such band.
-
-### Plan
-
-Done: the setup band has a close button (`role: 'dismiss'`) that switches to "Never show this here again? Ask Claude to bring it back." with Hide / Cancel. Hide sets `setupDismissed:<session root>` to `true` in `$.store`, one key per folder so concurrent sessions and failed reads cannot drop other folders. The mod also registers a `setup_band` tool (`show: boolean`) so Claude can hide the band or bring it back on request. The store is read before the band first draws, so it never flashes. Covered by paneView/boardModel specs and mod kit tests (hide flow, unreadable store, tool hide/show, previously hidden folder).
 
 ---
