@@ -292,6 +292,23 @@ describe('groupBy vocabulary', () => {
     expect(offered.sort()).toEqual([...GROUP_BY_VALUES].sort());
   });
 
+  // Board timestamps are "YYYY-MM-DD HH:MM"; grouping by date must bucket by day, not by minute.
+  it('groups tasks updated on the same day into one date group', () => {
+    const tasks = new Map<string, Task[]>([
+      [
+        'Backlog',
+        [
+          { ...makeTask('TASK-001', 'Morning'), updatedAt: '2026-11-25 08:15' },
+          { ...makeTask('TASK-002', 'Evening'), updatedAt: '2026-11-25 19:40' },
+        ],
+      ],
+    ]);
+
+    const groups = groupTasks(tasks, states, 'date');
+
+    expect(groups.map((group) => [group.label, group.tasks.length])).toEqual([['2026-11-25', 2]]);
+  });
+
   it.each(GROUP_BY_VALUES)('groups by %s without falling through', (value) => {
     const tasks = new Map<string, Task[]>([['Backlog', [makeTask('TASK-001', 'One')]]]);
 

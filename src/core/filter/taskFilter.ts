@@ -195,7 +195,7 @@ export function groupTasks(
         key = entry.task.epic || 'No epic';
         break;
       case 'date':
-        key = entry.task.updatedAt ? entry.task.updatedAt.split('T')[0] : 'No date';
+        key = entry.task.updatedAt?.slice(0, 10) || 'No date';
         break;
       case 'none':
         key = 'All Tasks';
