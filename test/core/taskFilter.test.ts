@@ -285,7 +285,7 @@ describe('groupBy vocabulary', () => {
   });
 
   it('matches the grouping menu offered in the task list panel', () => {
-    const panel = fs.readFileSync('views/vscode/src/views/webview/taskListPanel.ts', 'utf8');
+    const panel = fs.readFileSync('views/vscode/src/views/webview/taskListHtml.ts', 'utf8');
     const block = /const groupByItems = \[([\s\S]*?)\]/.exec(panel);
     expect(block).not.toBeNull();
     const offered = [...block![1].matchAll(/value: '([^']+)'/g)].map((m) => m[1]);
