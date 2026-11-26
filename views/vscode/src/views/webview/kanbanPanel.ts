@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { TaskStore } from '../../../../../src/core/store/taskStore.js';
 import { ConfigManager } from '../../../../../src/core/config/configManager.js';
 import { TaskListSortBy } from '../../../../../src/core/filter/taskFilter.js';
 import { buildBoardViewModel } from '../../../../../src/core/view/boardViewModel.js';
 import { watchDueFlags } from './dueClock.js';
+import { openTaskFileAtLine } from './openTaskFile.js';
 import { parseWarningBanner } from './parseWarningBanner.js';
 import { kanbanHtml } from './kanbanHtml.js';
 import { COMPLETED_STATE_NAMES } from '../../../../../src/core/model/state.js';
@@ -127,18 +127,9 @@ export class KanbanPanel {
       case 'implementWithAi':
         vscode.commands.executeCommand('taskplanner.implementWithAi', msg.taskId as string);
         break;
-      case 'openParseWarningFile': {
-        const fileName = msg.fileName as string;
-        const line = typeof msg.line === 'number' ? msg.line : 1;
-        const dir = this.configManager.getTasksDir();
-        const uri = vscode.Uri.file(path.join(dir, fileName));
-        void vscode.workspace.openTextDocument(uri).then((doc) => {
-          void vscode.window.showTextDocument(doc, {
-            selection: new vscode.Range(line - 1, 0, line - 1, 0),
-          });
-        });
+      case 'openParseWarningFile':
+        openTaskFileAtLine(this.configManager.getTasksDir(), msg.fileName as string, msg.line);
         break;
-      }
       case 'dismissParseWarnings':
         this.parseWarningsDismissed = true;
         this.update();

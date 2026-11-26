@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { TaskStore } from '../../../../../src/core/store/taskStore.js';
 import { ConfigManager } from '../../../../../src/core/config/configManager.js';
 import { groupTasks, TaskListSortBy } from '../../../../../src/core/filter/taskFilter.js';
@@ -8,6 +7,7 @@ import { Task, Priority } from '../../../../../src/core/model/task.js';
 import { isValidCron } from '../../../../../src/core/util/cron.js';
 import { TaskFilter } from '../../../../../src/core/model/messages.js';
 import { watchDueFlags } from './dueClock.js';
+import { openTaskFileAtLine } from './openTaskFile.js';
 import { parseWarningBanner } from './parseWarningBanner.js';
 import { taskDetailHtml } from './taskDetailHtml.js';
 import { taskListHtml, welcomeHtml } from './taskListHtml.js';
@@ -98,69 +98,17 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
   private handleMessage(msg: { type: string; [key: string]: unknown }): void {
     switch (msg.type) {
       case 'applyFilter':
-        {
-          const prevGroupBy = this.filter.groupBy ?? 'status';
-          const prevSortBy = this.sortBy;
-
-          this.filter = (msg.filter as TaskFilter) ?? { groupBy: 'status' };
-          if (msg.sortBy) {
-            this.sortBy = msg.sortBy as TaskListSortBy;
-          }
-
-          const nextGroupBy = this.filter.groupBy ?? 'status';
-          const nextSortBy = this.sortBy;
-
-          if (nextGroupBy !== prevGroupBy) {
-            void setGroupBy(nextGroupBy as GroupBy);
-          }
-
-          if (nextSortBy !== prevSortBy) {
-            void setSortBy(nextSortBy);
-          }
-        }
+        this.applyFilter(msg.filter as TaskFilter | undefined, msg.sortBy as TaskListSortBy);
         this.showAllForGroup.clear();
         this.update();
         break;
       case 'showAll':
-        if (msg.groupLabel) {
-          const gl = msg.groupLabel as string;
-          if (isDeferredStateName(gl)) {
-            this.taskStore.ensureStateLoaded(gl);
-          }
-          this.showAllForGroup.add(gl);
-        }
+        if (msg.groupLabel) this.showAllOf(msg.groupLabel as string);
         this.update();
         break;
       case 'toggleGroup':
-        {
-          const label = msg.groupLabel as string;
-          const before = this.toggledGroups.has(label);
-          if (before) {
-            this.toggledGroups.delete(label);
-          } else {
-            this.toggledGroups.add(label);
-          }
-          const after = this.toggledGroups.has(label);
-          if (!before && after && isDeferredStateName(label)) {
-            this.taskStore.ensureStateLoaded(label);
-          }
-        }
-        this.update();
-        break;
       case 'expandGroup':
-        if (msg.groupLabel) {
-          const label = msg.groupLabel as string;
-          const before = this.toggledGroups.has(label);
-          if (before) {
-            this.toggledGroups.delete(label);
-          } else {
-            this.toggledGroups.add(label);
-          }
-          const after = this.toggledGroups.has(label);
-          if (!before && after && isDeferredStateName(label)) {
-            this.taskStore.ensureStateLoaded(label);
-          }
-        }
+        if (msg.groupLabel) this.toggleGroup(msg.groupLabel as string);
         this.update();
         break;
       case 'viewTask':
@@ -177,37 +125,15 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       case 'reorderTask':
         this.taskStore.reorderTaskToIndex(msg.taskId as string, msg.newIndex as number);
         break;
-      case 'moveTask': {
-        const ti = msg.targetIndex;
+      case 'moveTask':
         this.taskStore.moveTask(
           msg.taskId as string,
           msg.targetState as string,
-          typeof ti === 'number' ? ti : undefined,
+          typeof msg.targetIndex === 'number' ? msg.targetIndex : undefined,
         );
         break;
-      }
       case 'saveTask':
-        {
-          const taskId = msg.taskId as string;
-          const updates: Partial<Omit<Task, 'id'>> = {};
-          if (msg.title !== undefined) updates.title = msg.title as string;
-          if (msg.description !== undefined) updates.description = msg.description as string;
-          if (msg.priority !== undefined) updates.priority = msg.priority as Priority;
-          if (msg.tags !== undefined) updates.tags = msg.tags as string[];
-          if (msg.assignee !== undefined) updates.assignee = (msg.assignee as string) || undefined;
-          if (msg.epic !== undefined) updates.epic = (msg.epic as string) || undefined;
-          if (msg.repeats !== undefined) {
-            const schedule = (msg.repeats as string).trim();
-            if (schedule && !isValidCron(schedule)) {
-              void vscode.window.showWarningMessage(
-                `"${schedule}" is not a cron schedule. Use 5 fields in UTC, such as "0 7 * * *", or @daily. The schedule was not saved.`,
-              );
-            } else {
-              updates.repeats = schedule || undefined;
-            }
-          }
-          this.taskStore.updateTask(taskId, updates);
-        }
+        this.taskStore.updateTask(msg.taskId as string, taskUpdatesFrom(msg));
         break;
       case 'openInEditor':
         vscode.commands.executeCommand('taskplanner.openTask', msg.taskId as string);
@@ -218,23 +144,36 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
       case 'command':
         vscode.commands.executeCommand(msg.command as string);
         break;
-      case 'openParseWarningFile': {
-        const fileName = msg.fileName as string;
-        const line = typeof msg.line === 'number' ? msg.line : 1;
-        const dir = this.configManager.getTasksDir();
-        const uri = vscode.Uri.file(path.join(dir, fileName));
-        void vscode.workspace.openTextDocument(uri).then((doc) => {
-          void vscode.window.showTextDocument(doc, {
-            selection: new vscode.Range(line - 1, 0, line - 1, 0),
-          });
-        });
+      case 'openParseWarningFile':
+        openTaskFileAtLine(this.configManager.getTasksDir(), msg.fileName as string, msg.line);
         break;
-      }
       case 'dismissParseWarnings':
         this.parseWarningsDismissed = true;
         this.update();
         break;
     }
+  }
+
+  private applyFilter(filter: TaskFilter | undefined, sortBy: TaskListSortBy | undefined): void {
+    const prevGroupBy = this.filter.groupBy ?? 'status';
+    const prevSortBy = this.sortBy;
+    this.filter = filter ?? { groupBy: 'status' };
+    if (sortBy) this.sortBy = sortBy;
+
+    const nextGroupBy = this.filter.groupBy ?? 'status';
+    if (nextGroupBy !== prevGroupBy) void setGroupBy(nextGroupBy as GroupBy);
+    if (this.sortBy !== prevSortBy) void setSortBy(this.sortBy);
+  }
+
+  private showAllOf(groupLabel: string): void {
+    if (isDeferredStateName(groupLabel)) this.taskStore.ensureStateLoaded(groupLabel);
+    this.showAllForGroup.add(groupLabel);
+  }
+
+  private toggleGroup(label: string): void {
+    if (this.toggledGroups.delete(label)) return;
+    this.toggledGroups.add(label);
+    if (isDeferredStateName(label)) this.taskStore.ensureStateLoaded(label);
   }
 
   private syncParseWarningDismissState(): void {
@@ -325,4 +264,24 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
   private parseWarningBanner(): string {
     return this.parseWarningsDismissed ? '' : parseWarningBanner(this.taskStore.getWarnings());
   }
+}
+
+function taskUpdatesFrom(msg: Record<string, unknown>): Partial<Omit<Task, 'id'>> {
+  const updates: Partial<Omit<Task, 'id'>> = {};
+  if (msg.title !== undefined) updates.title = msg.title as string;
+  if (msg.description !== undefined) updates.description = msg.description as string;
+  if (msg.priority !== undefined) updates.priority = msg.priority as Priority;
+  if (msg.tags !== undefined) updates.tags = msg.tags as string[];
+  if (msg.assignee !== undefined) updates.assignee = (msg.assignee as string) || undefined;
+  if (msg.epic !== undefined) updates.epic = (msg.epic as string) || undefined;
+  if (msg.repeats === undefined) return updates;
+
+  const schedule = (msg.repeats as string).trim();
+  if (schedule && !isValidCron(schedule)) {
+    void vscode.window.showWarningMessage(
+      `"${schedule}" is not a cron schedule. Use 5 fields in UTC, such as "0 7 * * *", or @daily. The schedule was not saved.`,
+    );
+    return updates;
+  }
+  return { ...updates, repeats: schedule || undefined };
 }
