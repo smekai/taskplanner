@@ -158,7 +158,7 @@ function originalSections(
   const originals = new Map<string, OriginalSection>();
   for (let i = firstTaskAt; i < segments.length; i++) {
     const segment = segments[i];
-    if (segment.kind !== 'task') continue;
+    if (segment?.kind !== 'task') continue;
     const before = segments[i - 1];
     const leading = i > firstTaskAt && before?.kind === 'text' ? before.raw : '';
     if (!originals.has(segment.task.id)) {
@@ -172,16 +172,16 @@ export function serializeBoard(segments: BoardSegment[], tasks: Task[]): string 
   const whole = segments.map((segment) => segment.raw).join('');
   const lineEnding = lineEndingOf(whole);
   const taskIndexes = segments.flatMap((segment, i) => (segment.kind === 'task' ? [i] : []));
+  const firstTaskAt = taskIndexes[0];
+  const lastTaskAt = taskIndexes[taskIndexes.length - 1];
 
-  if (taskIndexes.length === 0) {
+  if (firstTaskAt === undefined || lastTaskAt === undefined) {
     return tasks.reduce(
       (acc, task) => afterBlankLine(acc, lineEnding) + freshSection(task, lineEnding),
       whole,
     );
   }
 
-  const firstTaskAt = taskIndexes[0];
-  const lastTaskAt = taskIndexes[taskIndexes.length - 1];
   const join = (from: number, to: number) =>
     segments
       .slice(from, to)

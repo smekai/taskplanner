@@ -60,6 +60,7 @@ function parseField(field: string, spec: FieldSpec): boolean[] | undefined {
     const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
     if (!match) return undefined;
     const [, range, stepText] = match;
+    if (range === undefined) return undefined;
     const step = stepText === undefined ? 1 : Number(stepText);
     if (step < 1) return undefined;
 
@@ -69,10 +70,10 @@ function parseField(field: string, spec: FieldSpec): boolean[] | undefined {
       from = spec.min;
       to = spec.max;
     } else {
-      const bounds = range.split('-');
-      if (bounds.length > 2) return undefined;
-      from = valueOf(bounds[0], spec);
-      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
+      const [low = '', high, ...extra] = range.split('-');
+      if (extra.length > 0) return undefined;
+      from = valueOf(low, spec);
+      to = high !== undefined ? valueOf(high, spec) : stepText ? spec.max : from;
     }
     if (from === undefined || to === undefined || from > to) return undefined;
 
@@ -84,14 +85,15 @@ function parseField(field: string, spec: FieldSpec): boolean[] | undefined {
 export function parseCron(expression: string | undefined): CronSchedule | undefined {
   const trimmed = expression?.trim() ?? '';
   const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
-  const fields = source.split(/\s+/);
-  if (fields.length !== 5) return undefined;
+  const [minuteField, hourField, dayField, monthField, weekdayField, ...extra] =
+    source.split(/\s+/);
+  if (weekdayField === undefined || extra.length > 0) return undefined;
 
-  const minutes = parseField(fields[0], MINUTE);
-  const hours = parseField(fields[1], HOUR);
-  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
-  const months = parseField(fields[3], MONTH);
-  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
+  const minutes = parseField(minuteField ?? '', MINUTE);
+  const hours = parseField(hourField ?? '', HOUR);
+  const daysOfMonth = parseField(dayField ?? '', DAY_OF_MONTH);
+  const months = parseField(monthField ?? '', MONTH);
+  const daysOfWeek = parseField(weekdayField, DAY_OF_WEEK);
   if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return undefined;
 
   if (daysOfWeek[7]) daysOfWeek[0] = true;
@@ -101,8 +103,8 @@ export function parseCron(expression: string | undefined): CronSchedule | undefi
     daysOfMonth,
     months,
     daysOfWeek,
-    dayOfMonthRestricted: !fields[2].startsWith('*'),
-    dayOfWeekRestricted: !fields[4].startsWith('*'),
+    dayOfMonthRestricted: !dayField?.startsWith('*'),
+    dayOfWeekRestricted: !weekdayField.startsWith('*'),
   };
 }
 
@@ -112,8 +114,8 @@ export function isValidCron(expression: string | undefined): boolean {
 
 function dayMatches(schedule: CronSchedule, day: Date): boolean {
   if (!schedule.months[day.getUTCMonth() + 1]) return false;
-  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()];
-  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()];
+  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()] === true;
+  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()] === true;
   // WHY: cron's rule; when both day fields are restricted a day matching either one fires.
   if (schedule.dayOfMonthRestricted && schedule.dayOfWeekRestricted) return byMonthDay || byWeekDay;
   return byMonthDay && byWeekDay;

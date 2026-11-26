@@ -32,8 +32,9 @@ function lineSpans(content: string): LineSpan[] {
 
 function sectionEnd(spans: LineSpan[], from: number): number {
   for (let i = from; i < spans.length; i++) {
-    if (isSectionSeparatorLine(spans[i].text)) return i + 1;
-    if (i > from && taskHeadingIdOf(spans[i].text) !== undefined) return i;
+    const text = spans[i]?.text ?? '';
+    if (isSectionSeparatorLine(text)) return i + 1;
+    if (i > from && taskHeadingIdOf(text) !== undefined) return i;
   }
   return spans.length;
 }
@@ -41,7 +42,8 @@ function sectionEnd(spans: LineSpan[], from: number): number {
 export function splitSections(content: string): RawSection[] {
   const spans = lineSpans(content);
   const sections: RawSection[] = [];
-  const sliceOf = (from: number, to: number) => content.slice(spans[from].start, spans[to - 1].end);
+  const sliceOf = (from: number, to: number) =>
+    content.slice(spans[from]?.start ?? content.length, spans[to - 1]?.end ?? content.length);
 
   let at = 0;
   let textFrom = 0;
@@ -52,7 +54,7 @@ export function splitSections(content: string): RawSection[] {
   };
 
   while (at < spans.length) {
-    const id = taskHeadingIdOf(spans[at].text);
+    const id = taskHeadingIdOf(spans[at]?.text ?? '');
     if (id === undefined) {
       at++;
       continue;

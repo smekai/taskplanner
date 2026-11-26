@@ -402,6 +402,7 @@ export class TaskStore {
   private applyReorder(state: TaskState, tasks: Task[], from: number, to: number): boolean {
     if (from === to) return true;
     const [item] = tasks.splice(from, 1);
+    if (!item) return false;
     tasks.splice(to, 0, item);
     this.commit({ state, tasks });
     return true;

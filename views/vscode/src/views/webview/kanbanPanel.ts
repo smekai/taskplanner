@@ -188,7 +188,8 @@ export class KanbanPanel {
 
     const rows = grouped
       .map(({ fileName, warnings }) => {
-        const first = warnings[0];
+        const [first] = warnings;
+        if (!first) return '';
         const summary =
           warnings.length === 1
             ? `Line ${first.line}: ${this.escapeHtml(first.message)}`

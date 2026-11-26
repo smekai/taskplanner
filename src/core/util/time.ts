@@ -6,7 +6,9 @@ export function parseTimestamp(value: string | undefined): Date | null {
   const match = TIMESTAMP_RE.exec(value?.trim() ?? '');
   if (!match) return null;
 
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const [year = 0, month = 0, day = 0, hour = 0, minute = 0] = match
+    .slice(1)
+    .map((part) => Number(part ?? 0));
   const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
 
   const survivesRoundTrip =

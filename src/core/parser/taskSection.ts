@@ -92,7 +92,8 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
   const errors: ParseIssue[] = [];
   const warnings: ParseIssue[] = [];
 
-  const heading = taskHeadingOf(lines[0]);
+  const [headingLine = '', ...bodyLines] = lines;
+  const heading = taskHeadingOf(headingLine);
   if (!heading) {
     return { errors, warnings };
   }
@@ -109,8 +110,8 @@ export function parseTaskSection(raw: string, startLine: number): SectionParse {
   let priorityLine = startLine;
   let repeatsLine = startLine;
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [index, line] of bodyLines.entries()) {
+    const i = index + 1;
     if (isSectionSeparatorLine(line)) break;
 
     if (inMetadata) {

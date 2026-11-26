@@ -18,7 +18,7 @@ function brokenHeadings(section: RawSection): ParseIssue[] {
 
   return starts.map((start, nth) => ({
     line: section.line + start,
-    message: `"${lines[start].trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
+    message: `"${(lines[start] ?? '').trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
     raw: lines.slice(start, starts[nth + 1] ?? lines.length).join('\n'),
   }));
 }

@@ -3,7 +3,7 @@ var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
 function parseTimestamp(value) {
   const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
   if (!match) return null;
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const [year = 0, month = 0, day = 0, hour = 0, minute = 0] = match.slice(1).map((part) => Number(part ?? 0));
   const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
   const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
   return survivesRoundTrip ? date : null;
@@ -56,6 +56,7 @@ function parseField(field, spec) {
     const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
     if (!match) return void 0;
     const [, range, stepText] = match;
+    if (range === void 0) return void 0;
     const step = stepText === void 0 ? 1 : Number(stepText);
     if (step < 1) return void 0;
     let from;
@@ -64,10 +65,10 @@ function parseField(field, spec) {
       from = spec.min;
       to = spec.max;
     } else {
-      const bounds = range.split("-");
-      if (bounds.length > 2) return void 0;
-      from = valueOf(bounds[0], spec);
-      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
+      const [low = "", high, ...extra] = range.split("-");
+      if (extra.length > 0) return void 0;
+      from = valueOf(low, spec);
+      to = high !== void 0 ? valueOf(high, spec) : stepText ? spec.max : from;
     }
     if (from === void 0 || to === void 0 || from > to) return void 0;
     for (let value = from; value <= to; value += step) allowed[value] = true;
@@ -77,13 +78,13 @@ function parseField(field, spec) {
 function parseCron(expression) {
   const trimmed = expression?.trim() ?? "";
   const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
-  const fields = source.split(/\s+/);
-  if (fields.length !== 5) return void 0;
-  const minutes = parseField(fields[0], MINUTE);
-  const hours = parseField(fields[1], HOUR);
-  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
-  const months = parseField(fields[3], MONTH);
-  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
+  const [minuteField, hourField, dayField, monthField, weekdayField, ...extra] = source.split(/\s+/);
+  if (weekdayField === void 0 || extra.length > 0) return void 0;
+  const minutes = parseField(minuteField ?? "", MINUTE);
+  const hours = parseField(hourField ?? "", HOUR);
+  const daysOfMonth = parseField(dayField ?? "", DAY_OF_MONTH);
+  const months = parseField(monthField ?? "", MONTH);
+  const daysOfWeek = parseField(weekdayField, DAY_OF_WEEK);
   if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
   if (daysOfWeek[7]) daysOfWeek[0] = true;
   return {
@@ -92,8 +93,8 @@ function parseCron(expression) {
     daysOfMonth,
     months,
     daysOfWeek,
-    dayOfMonthRestricted: !fields[2].startsWith("*"),
-    dayOfWeekRestricted: !fields[4].startsWith("*")
+    dayOfMonthRestricted: !dayField?.startsWith("*"),
+    dayOfWeekRestricted: !weekdayField.startsWith("*")
   };
 }
 function isValidCron(expression) {
@@ -101,8 +102,8 @@ function isValidCron(expression) {
 }
 function dayMatches(schedule, day) {
   if (!schedule.months[day.getUTCMonth() + 1]) return false;
-  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()];
-  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()];
+  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()] === true;
+  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()] === true;
   if (schedule.dayOfMonthRestricted && schedule.dayOfWeekRestricted) return byMonthDay || byWeekDay;
   return byMonthDay && byWeekDay;
 }
@@ -292,8 +293,9 @@ function supportsTextScale(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
   if (!match) return false;
   const parts = match.slice(1).map(Number);
-  for (let index = 0; index < TEXT_SCALE_VERSION.length; index += 1) {
-    if (parts[index] !== TEXT_SCALE_VERSION[index]) return parts[index] > TEXT_SCALE_VERSION[index];
+  for (const [index, wanted] of TEXT_SCALE_VERSION.entries()) {
+    const part = parts[index] ?? 0;
+    if (part !== wanted) return part > wanted;
   }
   return true;
 }
@@ -307,7 +309,7 @@ function ancestorDirs(start) {
     dirs.push(current);
     const cut = current.search(/[\\/][^\\/]*$/);
     if (cut < 0) break;
-    const parent = cut === 0 ? current[0] : current.slice(0, cut);
+    const parent = current.slice(0, cut === 0 ? 1 : cut);
     if (parent === current) break;
     current = parent;
   }
@@ -555,8 +557,8 @@ var BUILT_IN_FIELD_RES = {
   lastRun: /^\*\*Last run:\*\*\s*(.+)/
 };
 function taskHeadingOf(line) {
-  const match = line.match(TASK_HEADING_RE);
-  return match ? { id: match[1], title: match[2].trim() } : void 0;
+  const [, id, title] = line.match(TASK_HEADING_RE) ?? [];
+  return id !== void 0 && title !== void 0 ? { id, title: title.trim() } : void 0;
 }
 function taskHeadingIdOf(line) {
   return taskHeadingOf(line)?.id;
@@ -579,14 +581,14 @@ function runEntryOf(line) {
 }
 function builtInFieldOf(segment) {
   for (const [field, pattern] of Object.entries(BUILT_IN_FIELD_RES)) {
-    const match = segment.match(pattern);
-    if (match) return { field, value: match[1].trim() };
+    const [, value] = segment.match(pattern) ?? [];
+    if (value !== void 0) return { field, value: value.trim() };
   }
   return void 0;
 }
 function attributeOf(segment) {
-  const match = segment.match(ATTRIBUTE_RE);
-  return match ? { key: match[1].trim(), value: match[2].trim() } : void 0;
+  const [, key, value] = segment.match(ATTRIBUTE_RE) ?? [];
+  return key !== void 0 && value !== void 0 ? { key: key.trim(), value: value.trim() } : void 0;
 }
 function splitFieldGroup(line) {
   return line.split(SEPARATOR_BEFORE_NEXT_FIELD).map((segment) => segment.trim());
@@ -616,15 +618,16 @@ function lineSpans(content) {
 }
 function sectionEnd(spans, from) {
   for (let i = from; i < spans.length; i++) {
-    if (isSectionSeparatorLine(spans[i].text)) return i + 1;
-    if (i > from && taskHeadingIdOf(spans[i].text) !== void 0) return i;
+    const text = spans[i]?.text ?? "";
+    if (isSectionSeparatorLine(text)) return i + 1;
+    if (i > from && taskHeadingIdOf(text) !== void 0) return i;
   }
   return spans.length;
 }
 function splitSections(content) {
   const spans = lineSpans(content);
   const sections = [];
-  const sliceOf = (from, to) => content.slice(spans[from].start, spans[to - 1].end);
+  const sliceOf = (from, to) => content.slice(spans[from]?.start ?? content.length, spans[to - 1]?.end ?? content.length);
   let at = 0;
   let textFrom = 0;
   const flushText = (to) => {
@@ -633,7 +636,7 @@ function splitSections(content) {
     }
   };
   while (at < spans.length) {
-    const id = taskHeadingIdOf(spans[at].text);
+    const id = taskHeadingIdOf(spans[at]?.text ?? "");
     if (id === void 0) {
       at++;
       continue;
@@ -691,7 +694,8 @@ function parseTaskSection(raw, startLine) {
   const lines = raw.split(LINE_BREAK);
   const errors = [];
   const warnings = [];
-  const heading = taskHeadingOf(lines[0]);
+  const [headingLine = "", ...bodyLines] = lines;
+  const heading = taskHeadingOf(headingLine);
   if (!heading) {
     return { errors, warnings };
   }
@@ -706,8 +710,8 @@ function parseTaskSection(raw, startLine) {
   let body = "description";
   let priorityLine = startLine;
   let repeatsLine = startLine;
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [index, line] of bodyLines.entries()) {
+    const i = index + 1;
     if (isSectionSeparatorLine(line)) break;
     if (inMetadata) {
       if (readFieldOrFieldGroup(collected, line)) {
@@ -775,7 +779,7 @@ function brokenHeadings(section) {
   const starts = lines.map((line, index) => looksLikeTaskHeading(line) ? index : -1).filter((index) => index !== -1);
   return starts.map((start, nth) => ({
     line: section.line + start,
-    message: `"${lines[start].trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
+    message: `"${(lines[start] ?? "").trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
     raw: lines.slice(start, starts[nth + 1] ?? lines.length).join("\n")
   }));
 }
@@ -855,13 +859,13 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
     displayCounts.set(state.name, parsed.tasks.length);
     for (const task of parsed.tasks) indexTask(tasks, { task, state: state.name });
   }
-  const viewStates = states.map(
+  const viewStates = states.flatMap(
     (state) => filterAndPaginate(tasksByState, [state], {
       limit: options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
       sortBy: isCompletedState(state.name) ? "file" : "priority",
       stateDisplayCounts: displayCounts,
       now: options.now
-    }).states[0]
+    }).states
   );
   const focusCandidates2 = FOCUS_ORDER.flatMap(
     (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))
