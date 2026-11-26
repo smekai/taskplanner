@@ -162,24 +162,12 @@ git worktree remove --force "$base"
 
 #### 2. Measure
 
-Run these from the repo root in a POSIX shell (Git Bash on Windows). knip, jscpd and madge are not dependencies: `npx -y` downloads them from npm, so ask the user before the first run and skip any they decline (say so in the report). Do not add them to `package.json`.
+Only the repo's own tools: lint, `tsc` and the read in step 4. Do not bring in knip, jscpd, madge or other `npx -y` tools, and do not measure test coverage. Unused files, duplication inside a harness and import cycles are found by reading; tests are judged by the mutation check, not by a coverage number. Run these from the repo root in a POSIX shell (Git Bash on Windows).
 
 Unused locals and parameters. Real findings, except `_`-prefixed parameters:
 
 ```bash
 npx tsc -p tsconfig.json --noEmit --noUnusedLocals --noUnusedParameters
-```
-
-Unused files, exports and dependencies. Filter out core's public API and the entry points in `esbuild.js`:
-
-```bash
-npx -y knip --no-progress
-```
-
-Duplication. Keep only clones whose two sides are in the same harness, or both in core:
-
-```bash
-npx -y jscpd src mcp/src views --min-lines 8 --ignore "**/dist/**,**/ui/**,**/*.js" --reporters console
 ```
 
 Complexity. Candidates, not verdicts: a long `switch` can be fine:
@@ -188,12 +176,6 @@ Complexity. Candidates, not verdicts: a long `switch` can be fine:
 npx eslint src mcp/src views/vscode/src views/claude/mod/src views/mcp-app --ext ts \
   --rule "complexity: [warn, 12]" --rule "max-depth: [warn, 4]" \
   --rule "max-lines-per-function: [warn, 80]" --rule "max-params: [warn, 4]"
-```
-
-Import cycles. Every cycle is a finding:
-
-```bash
-npx -y madge --circular --extensions ts src mcp/src views/vscode/src views/claude/mod/src
 ```
 
 Type escapes. Each needs a reason; tests are lenient:
@@ -208,8 +190,6 @@ Hotspots: large files, and files changed most often. Large and often changed is 
 git ls-files "*.ts" ":!**/dist/**" | xargs wc -l | sort -n | tail -15
 git log --since="3 months ago" --name-only --format= -- "*.ts" | sort | uniq -c | sort -rn | head -15
 ```
-
-Coverage, when the change touched core logic (this also installs a package, so ask first): `npm i --no-save @vitest/coverage-v8@$(node -p "require('vitest/package.json').version")` then `node scripts/run-vitest.js run --coverage --coverage.include=src/core`. Report untested branches in parser, serializer, store and cron, not a percentage.
 
 #### 3. Check the project invariants
 
@@ -231,6 +211,7 @@ The measurements find candidates; this pass finds what no tool sees. Go through 
 - **A6:** a repeated literal, an unnamed payload or options shape.
 - **A7:** a cast past a real gap; a boundary parsed twice.
 - **Simplicity:** an abstraction with one caller, an option nobody uses, an old path left beside its replacement.
+- **Dead code and cycles:** a file, export or branch nothing reaches (core's public API excepted), duplication inside one harness, two modules importing each other.
 - **Tests:** a loop or `if` in a test body, several actions in one test, a flag-driven fixture, a test that survives breaking the rule it names.
 
 #### 5. Review the release diff for behaviour
