@@ -31,8 +31,8 @@ const BUILT_IN_FIELD_RES = {
 export type BuiltInField = keyof typeof BUILT_IN_FIELD_RES;
 
 export function taskHeadingOf(line: string): { id: string; title: string } | undefined {
-  const match = line.match(TASK_HEADING_RE);
-  return match ? { id: match[1], title: match[2].trim() } : undefined;
+  const [, id, title] = line.match(TASK_HEADING_RE) ?? [];
+  return id !== undefined && title !== undefined ? { id, title: title.trim() } : undefined;
 }
 
 export function taskHeadingIdOf(line: string): string | undefined {
@@ -75,15 +75,17 @@ export function builtInFieldOf(
   segment: string,
 ): { field: BuiltInField; value: string } | undefined {
   for (const [field, pattern] of Object.entries(BUILT_IN_FIELD_RES)) {
-    const match = segment.match(pattern);
-    if (match) return { field: field as BuiltInField, value: match[1].trim() };
+    const [, value] = segment.match(pattern) ?? [];
+    if (value !== undefined) return { field: field as BuiltInField, value: value.trim() };
   }
   return undefined;
 }
 
 export function attributeOf(segment: string): FieldMatch | undefined {
-  const match = segment.match(ATTRIBUTE_RE);
-  return match ? { key: match[1].trim(), value: match[2].trim() } : undefined;
+  const [, key, value] = segment.match(ATTRIBUTE_RE) ?? [];
+  return key !== undefined && value !== undefined
+    ? { key: key.trim(), value: value.trim() }
+    : undefined;
 }
 
 export function isReservedAttributeKey(key: string): boolean {

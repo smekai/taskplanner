@@ -51,11 +51,12 @@ export function compareTaskPlannerVersions(
 
   const installedParts = installedVersion.split('.').map(Number);
   const storedParts = storedVersion.split('.').map(Number);
-  for (let index = 0; index < installedParts.length; index++) {
-    if (installedParts[index] > storedParts[index]) {
+  for (const [index, installed] of installedParts.entries()) {
+    const stored = storedParts[index] ?? 0;
+    if (installed > stored) {
       return { status: 'installed-newer', installedVersion, storedVersion };
     }
-    if (installedParts[index] < storedParts[index]) {
+    if (installed < stored) {
       return { status: 'installed-older', installedVersion, storedVersion };
     }
   }

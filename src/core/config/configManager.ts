@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { TaskPlannerConfig, createDefaultConfig } from '../model/config.js';
-import { RECURRING_STATE_NAME } from '../model/state.js';
+import { RECURRING_STATE_NAME, STATE_NAMES } from '../model/state.js';
 import { normalizeStates } from './configStates.js';
 
 const CONFIG_SCHEMA_VERSION = 4;
@@ -22,8 +22,10 @@ type Report = (message: string) => void;
 const isStringArray = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((item) => typeof item === 'string');
 
+const isValidVersion = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+
 const FIELDS: Record<string, (value: unknown) => boolean> = {
-  version: (v) => typeof v === 'number' && Number.isFinite(v),
+  version: isValidVersion,
   taskplannerVersion: (v) => typeof v === 'string',
   idPrefix: (v) => typeof v === 'string' && v.length > 0,
   nextId: (v) => typeof v === 'number' && Number.isInteger(v) && v >= 1,
@@ -101,7 +103,7 @@ export class ConfigManager {
       }
     }
     const readableButUnversioned =
-      Object.keys(parsed).length > 0 && !FIELDS.version(parsed.version);
+      Object.keys(parsed).length > 0 && !isValidVersion(parsed.version);
     if (readableButUnversioned) merged.version = UNVERSIONED_SCHEMA_VERSION;
     merged.states =
       parsed.states !== undefined ? normalizeStates(parsed.states, report) : defaults.states;
@@ -131,8 +133,8 @@ export class ConfigManager {
   }
 
   private addRejectedState(): boolean {
-    if (this.config.states.some((s) => s.name === 'Rejected')) return false;
-    this.config.states.push({ name: 'Rejected', fileName: 'REJECTED.md', order: 4 });
+    if (this.config.states.some((s) => s.name === STATE_NAMES.rejected)) return false;
+    this.config.states.push({ name: STATE_NAMES.rejected, fileName: 'REJECTED.md', order: 4 });
     return true;
   }
 

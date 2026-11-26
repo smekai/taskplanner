@@ -11,14 +11,24 @@ export function parseTimestamp(value: string | undefined): Date | null {
   if (zoned) return parseZonedIso(zoned);
   const match = TIMESTAMP_RE.exec(text);
   if (!match) return null;
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const [year = 0, month = 0, day = 0, hour = 0, minute = 0] = match
+    .slice(1)
+    .map((part) => Number(part ?? 0));
   return utcDate(year, month, day, hour, minute, 0);
 }
 
 function parseZonedIso(match: RegExpExecArray): Date | null {
-  const [year, month, day, hour, minute, second, , offsetHours, offsetMinutes] = match
-    .slice(1)
-    .map((part) => Number(part ?? 0));
+  const [
+    year = 0,
+    month = 0,
+    day = 0,
+    hour = 0,
+    minute = 0,
+    second = 0,
+    ,
+    offsetHours = 0,
+    offsetMinutes = 0,
+  ] = match.slice(1).map((part) => Number(part ?? 0));
   const wallClock = utcDate(year, month, day, hour, minute, second);
   if (!wallClock) return null;
   const offsetSign = match[7] === '-' ? -1 : 1;

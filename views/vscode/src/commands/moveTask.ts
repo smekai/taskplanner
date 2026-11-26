@@ -35,7 +35,7 @@ export function registerMoveTaskCommand(
         if (!picked) {
           return;
         }
-        taskId = picked.label.split(':')[0].trim();
+        taskId = (picked.label.split(':')[0] ?? '').trim();
       }
 
       const found = taskStore.findTask(taskId);

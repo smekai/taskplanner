@@ -1,6 +1,6 @@
 import { Task } from '../model/task.js';
 import { TaskState } from '../model/state.js';
-import { isDueWork } from '../model/state.js';
+import { STATE_NAMES, isDueWork } from '../model/state.js';
 import {
   TaskFilter,
   TaskViewData,
@@ -142,7 +142,111 @@ export function filterAndPaginate(
   return { states: result, filter };
 }
 
-const COLLAPSED_STATES = new Set(['Backlog', 'Done', 'Rejected']);
+const COLLAPSED_STATES = new Set<string>([
+  STATE_NAMES.backlog,
+  STATE_NAMES.done,
+  STATE_NAMES.rejected,
+]);
+
+interface StateEntry {
+  task: Task;
+  stateName: string;
+}
+
+function entriesFor(
+  tasksByState: Map<string, Task[]>,
+  states: TaskState[],
+  filter: TaskFilter | undefined,
+): StateEntry[] {
+  const query = filter?.query;
+  const tag = filter?.tag;
+  return states
+    .filter((state) => !filter?.status || filter.status === state.name)
+    .flatMap((state) =>
+      (tasksByState.get(state.name) ?? []).map((task) => ({ task, stateName: state.name })),
+    )
+    .filter(({ task }) => !query || matchesQuery(task, query))
+    .filter(({ task }) => !tag || matchesTag(task, tag));
+}
+
+function groupKey(entry: StateEntry, groupBy: GroupBy): string {
+  switch (groupBy) {
+    case 'status':
+      return entry.stateName;
+    case 'assignee':
+      return entry.task.assignee || 'Unassigned';
+    case 'epic':
+      return entry.task.epic || 'No epic';
+    case 'date':
+      return entry.task.updatedAt?.slice(0, 10) || 'No date';
+    case 'none':
+      return 'All Tasks';
+    default: {
+      const unhandled: never = groupBy;
+      return unhandled;
+    }
+  }
+}
+
+interface GroupOptions {
+  filter?: TaskFilter;
+  limit: number | null;
+  sortBy: TaskListSortBy;
+  stateDisplayCounts?: ReadonlyMap<string, number>;
+  now: Date;
+}
+
+function groupsByStatus(
+  groups: Map<string, StateEntry[]>,
+  states: TaskState[],
+  options: GroupOptions,
+): GroupViewData[] {
+  const { filter, limit, sortBy, stateDisplayCounts, now } = options;
+  const hasContentFilter = Boolean(filter?.query?.trim()) || Boolean(filter?.tag);
+  return states
+    .filter((state) => !filter?.status || filter.status === state.name)
+    .map((state) => {
+      const sorted = sortTasks(
+        (groups.get(state.name) ?? []).map((entry) => entry.task),
+        sortBy,
+      );
+      const totalCount = hasContentFilter
+        ? sorted.length
+        : (stateDisplayCounts?.get(state.name) ?? sorted.length);
+      const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
+      return {
+        label: state.name,
+        tasks: sliced.map((task) => taskToViewItem(task, state.name, now)),
+        totalCount,
+        hasMore,
+        collapsed: COLLAPSED_STATES.has(state.name),
+      };
+    });
+}
+
+function groupsByKey(
+  groups: Map<string, StateEntry[]>,
+  limit: number | null,
+  sortBy: TaskListSortBy,
+  now: Date,
+): GroupViewData[] {
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, entries]) => {
+      const stateOf = new Map(entries.map((entry) => [entry.task, entry.stateName]));
+      const sorted = sortTasks(
+        entries.map((entry) => entry.task),
+        sortBy,
+      );
+      const { sliced, hasMore } = applyLimit(sorted, sorted.length, limit);
+      return {
+        label: key,
+        tasks: sliced.map((task) => taskToViewItem(task, stateOf.get(task) ?? '', now)),
+        totalCount: sorted.length,
+        hasMore,
+      };
+    });
+}
 
 export function groupTasks(
   tasksByState: Map<string, Task[]>,
@@ -157,96 +261,14 @@ export function groupTasks(
     stateDisplayCounts,
     now = new Date(),
   } = options;
-  let allTasks: { task: Task; stateName: string }[] = [];
-  for (const state of states) {
-    if (filter?.status && filter.status !== state.name) {
-      continue;
-    }
-    const tasks = tasksByState.get(state.name) ?? [];
-    for (const task of tasks) {
-      allTasks.push({ task, stateName: state.name });
-    }
+  const groups = new Map<string, StateEntry[]>();
+  for (const entry of entriesFor(tasksByState, states, filter)) {
+    const key = groupKey(entry, groupBy);
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(entry);
+    else groups.set(key, [entry]);
   }
-
-  if (filter?.query) {
-    allTasks = allTasks.filter((t) => matchesQuery(t.task, filter.query!));
-  }
-
-  if (filter?.tag) {
-    allTasks = allTasks.filter((t) => matchesTag(t.task, filter.tag!));
-  }
-
-  const groups = new Map<string, { task: Task; stateName: string }[]>();
-
-  for (const entry of allTasks) {
-    let key: string;
-    switch (groupBy) {
-      case 'status':
-        key = entry.stateName;
-        break;
-      case 'assignee':
-        key = entry.task.assignee || 'Unassigned';
-        break;
-      case 'epic':
-        key = entry.task.epic || 'No epic';
-        break;
-      case 'date':
-        key = entry.task.updatedAt ? entry.task.updatedAt.split('T')[0] : 'No date';
-        break;
-      case 'none':
-        key = 'All Tasks';
-        break;
-    }
-    if (!groups.has(key)) {
-      groups.set(key, []);
-    }
-    groups.get(key)!.push(entry);
-  }
-
-  const result: GroupViewData[] = [];
-
-  if (groupBy === 'status') {
-    for (const state of states) {
-      if (filter?.status && filter.status !== state.name) {
-        continue;
-      }
-      const entries = groups.get(state.name) ?? [];
-      const sorted = sortTasks(
-        entries.map((e) => e.task),
-        sortBy,
-      );
-      const hasContentFilter = Boolean(filter?.query?.trim()) || Boolean(filter?.tag);
-      const totalCount = hasContentFilter
-        ? sorted.length
-        : (stateDisplayCounts?.get(state.name) ?? sorted.length);
-      const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
-      result.push({
-        label: state.name,
-        tasks: sliced.map((task) => taskToViewItem(task, state.name, now)),
-        totalCount,
-        hasMore,
-        collapsed: COLLAPSED_STATES.has(state.name),
-      });
-    }
-  } else {
-    const keys = [...groups.keys()].sort();
-    for (const key of keys) {
-      const entries = groups.get(key)!;
-      const stateOf = new Map(entries.map((entry) => [entry.task, entry.stateName]));
-      const sorted = sortTasks(
-        entries.map((e) => e.task),
-        sortBy,
-      );
-      const totalCount = sorted.length;
-      const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
-      result.push({
-        label: key,
-        tasks: sliced.map((task) => taskToViewItem(task, stateOf.get(task) ?? '', now)),
-        totalCount,
-        hasMore,
-      });
-    }
-  }
-
-  return result;
+  return groupBy === 'status'
+    ? groupsByStatus(groups, states, { filter, limit, sortBy, stateDisplayCounts, now })
+    : groupsByKey(groups, limit, sortBy, now);
 }

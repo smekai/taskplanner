@@ -1,5 +1,14 @@
 # Backlog
 
+## TASK-096: Type the Claude mod kit test so lint has no warnings
+**Priority:** P3 | **Tags:** testing, refactor
+**Updated:** 2026-11-26 10:08
+
+Deferred from the TASK-094 quality pass. `views/claude/mod/test/pane.test.ts` has the only two lint warnings in the repo (`@typescript-eslint/no-explicit-any` on the mod kit's `on` and `$`). The kit's types live in a gitignored folder, so the file is not typechecked either.
+
+Give the kit a small local type for what the test uses (mount, press, the engine handle) and drop the `any`s. Done looks like: `npm run lint` reports 0 warnings and `npm run validate:claude-plugin` still passes.
+
+---
 ## TASK-093: 3.1 phase G: docs and release 3.1 on every store
 **Priority:** P1 | **Tags:** docs, ci | **Epic:** 3.1
 **Updated:** 2026-11-25 12:20

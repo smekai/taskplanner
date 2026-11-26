@@ -94,14 +94,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
   registerInitCommand(context, configManager, fileStore, taskStore, installedVersion);
   registerInitAiCommand(context, configManager, installedVersion);
-  registerSetupCommand(
-    context,
+  registerSetupCommand(context, {
     tasksDir,
     configManager,
-    workspaceFolder.uri.fsPath,
+    workspaceRoot: workspaceFolder.uri.fsPath,
     installedVersion,
     taskStore,
-  );
+  });
   registerCreateTaskCommand(context, taskStore, configManager);
   registerMoveTaskCommand(context, taskStore, configManager);
   registerOpenTaskCommand(context, taskStore, fileStore, configManager);
@@ -161,9 +160,10 @@ function reportConfigDiagnostics(configManager: ConfigManager, log: vscode.Outpu
   for (const diagnostic of diagnostics) {
     log.appendLine(`[config] ${diagnostic.message}`);
   }
+  const [onlyDiagnostic] = diagnostics;
   const summary =
-    diagnostics.length === 1
-      ? diagnostics[0].message
+    diagnostics.length === 1 && onlyDiagnostic
+      ? onlyDiagnostic.message
       : `${diagnostics.length} problems in .tasks/config.json; defaults were used where needed.`;
   void vscode.window
     .showWarningMessage(`TaskPlanner: ${summary}`, 'Show details')

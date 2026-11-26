@@ -118,15 +118,11 @@ export function splitWorkLog(content: string): { header: string; entries: WorkLo
   if (starts.length === 0) return { header: content, entries: [] };
 
   const entries: WorkLogEntry[] = [];
-  for (let i = 0; i < starts.length; i += 1) {
-    const from = starts[i];
-    const to = i + 1 < starts.length ? starts[i + 1] : lines.length;
-    const match = heading.exec(lines[from]);
-    entries.push({
-      id: match![1],
-      date: match![2],
-      text: lines.slice(from, to).join('\n').replace(/\s+$/, ''),
-    });
+  for (const [i, from] of starts.entries()) {
+    const to = starts[i + 1] ?? lines.length;
+    const [, id, date] = heading.exec(lines[from] ?? '') ?? [];
+    if (id === undefined || date === undefined) continue;
+    entries.push({ id, date, text: lines.slice(from, to).join('\n').replace(/\s+$/, '') });
   }
 
   return { header: lines.slice(0, starts[0]).join('\n').replace(/\s+$/, ''), entries };

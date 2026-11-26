@@ -1,11 +1,11 @@
 import type { StateViewData } from '../../../../src/core/model/messages.js';
-import { RECURRING_STATE_NAME } from '../../../../src/core/model/state.js';
 import type { McpToolResult } from './modApi.js';
+import { COMPLETED_STATE_NAMES, STATE_NAMES } from '../../../../src/core/model/state.js';
 
-export const IN_PROGRESS_STATE = 'In Progress';
-export const NEXT_STATE = 'Next';
-export const BACKLOG_STATE = 'Backlog';
-export const COMPLETED_STATES: readonly string[] = ['Done', 'Rejected'];
+export const IN_PROGRESS_STATE = STATE_NAMES.inProgress;
+export const NEXT_STATE = STATE_NAMES.next;
+export const BACKLOG_STATE = STATE_NAMES.backlog;
+export const COMPLETED_STATES = COMPLETED_STATE_NAMES;
 export const BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
 
 const DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
@@ -181,8 +181,9 @@ export function supportsTextScale(version: string): boolean {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
   if (!match) return false;
   const parts = match.slice(1).map(Number);
-  for (let index = 0; index < TEXT_SCALE_VERSION.length; index += 1) {
-    if (parts[index] !== TEXT_SCALE_VERSION[index]) return parts[index] > TEXT_SCALE_VERSION[index];
+  for (const [index, wanted] of TEXT_SCALE_VERSION.entries()) {
+    const part = parts[index] ?? 0;
+    if (part !== wanted) return part > wanted;
   }
   return true;
 }
@@ -198,7 +199,7 @@ export function ancestorDirs(start: string): string[] {
     dirs.push(current);
     const cut = current.search(/[\\/][^\\/]*$/);
     if (cut < 0) break;
-    const parent = cut === 0 ? current[0] : current.slice(0, cut);
+    const parent = current.slice(0, cut === 0 ? 1 : cut);
     if (parent === current) break;
     current = parent;
   }
@@ -217,7 +218,7 @@ export function describeError(message: string): ErrorSummary {
 
 export function newTaskStates(board: BoardSnapshot | null): string[] {
   const names = board?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name) && name !== RECURRING_STATE_NAME);
+  return names.filter((name) => !isCompletedState(name) && name !== STATE_NAMES.recurring);
 }
 
 export function startDraft(board: BoardSnapshot | null): TaskDraft {

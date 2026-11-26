@@ -123,12 +123,11 @@ Just a simple task.
     expect(tasks[0][field]).toEqual(expected);
   });
 
-  it('handles an empty board', () => {
-    for (const content of ['# Backlog\n', '']) {
-      const { tasks, warnings } = parseTasks(content);
-      expect(tasks).toHaveLength(0);
-      expect(warnings).toHaveLength(0);
-    }
+  it.each(['# Backlog\n', ''])('handles an empty board (%j)', (content) => {
+    const { tasks, warnings } = parseTasks(content);
+
+    expect(tasks).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   it('handles task without separator at end of file', () => {

@@ -8,11 +8,21 @@ function parseTimestamp(value) {
   if (zoned) return parseZonedIso(zoned);
   const match = TIMESTAMP_RE.exec(text);
   if (!match) return null;
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const [year = 0, month = 0, day = 0, hour = 0, minute = 0] = match.slice(1).map((part) => Number(part ?? 0));
   return utcDate(year, month, day, hour, minute, 0);
 }
 function parseZonedIso(match) {
-  const [year, month, day, hour, minute, second, , offsetHours, offsetMinutes] = match.slice(1).map((part) => Number(part ?? 0));
+  const [
+    year = 0,
+    month = 0,
+    day = 0,
+    hour = 0,
+    minute = 0,
+    second = 0,
+    ,
+    offsetHours = 0,
+    offsetMinutes = 0
+  ] = match.slice(1).map((part) => Number(part ?? 0));
   const wallClock = utcDate(year, month, day, hour, minute, second);
   if (!wallClock) return null;
   const offsetSign = match[7] === "-" ? -1 : 1;
@@ -72,6 +82,7 @@ function parseField(field, spec) {
     const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
     if (!match) return void 0;
     const [, range, stepText] = match;
+    if (range === void 0) return void 0;
     const step = stepText === void 0 ? 1 : Number(stepText);
     if (step < 1) return void 0;
     let from;
@@ -80,10 +91,10 @@ function parseField(field, spec) {
       from = spec.min;
       to = spec.max;
     } else {
-      const bounds = range.split("-");
-      if (bounds.length > 2) return void 0;
-      from = valueOf(bounds[0], spec);
-      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
+      const [low = "", high, ...extra] = range.split("-");
+      if (extra.length > 0) return void 0;
+      from = valueOf(low, spec);
+      to = high !== void 0 ? valueOf(high, spec) : stepText ? spec.max : from;
     }
     if (from === void 0 || to === void 0 || from > to) return void 0;
     for (let value = from; value <= to; value += step) allowed[value] = true;
@@ -93,13 +104,13 @@ function parseField(field, spec) {
 function parseCron(expression) {
   const trimmed = expression?.trim() ?? "";
   const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
-  const fields = source.split(/\s+/);
-  if (fields.length !== 5) return void 0;
-  const minutes = parseField(fields[0], MINUTE);
-  const hours = parseField(fields[1], HOUR);
-  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
-  const months = parseField(fields[3], MONTH);
-  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
+  const [minuteField, hourField, dayField, monthField, weekdayField, ...extra] = source.split(/\s+/);
+  if (weekdayField === void 0 || extra.length > 0) return void 0;
+  const minutes = parseField(minuteField ?? "", MINUTE);
+  const hours = parseField(hourField ?? "", HOUR);
+  const daysOfMonth = parseField(dayField ?? "", DAY_OF_MONTH);
+  const months = parseField(monthField ?? "", MONTH);
+  const daysOfWeek = parseField(weekdayField, DAY_OF_WEEK);
   if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
   if (daysOfWeek[7]) daysOfWeek[0] = true;
   return {
@@ -108,8 +119,8 @@ function parseCron(expression) {
     daysOfMonth,
     months,
     daysOfWeek,
-    dayOfMonthRestricted: !fields[2].startsWith("*"),
-    dayOfWeekRestricted: !fields[4].startsWith("*")
+    dayOfMonthRestricted: !dayField?.startsWith("*"),
+    dayOfWeekRestricted: !weekdayField.startsWith("*")
   };
 }
 function isValidCron(expression) {
@@ -117,8 +128,8 @@ function isValidCron(expression) {
 }
 function dayMatches(schedule, day) {
   if (!schedule.months[day.getUTCMonth() + 1]) return false;
-  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()];
-  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()];
+  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()] === true;
+  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()] === true;
   if (schedule.dayOfMonthRestricted && schedule.dayOfWeekRestricted) return byMonthDay || byWeekDay;
   return byMonthDay && byWeekDay;
 }
@@ -166,28 +177,37 @@ function isDue(repeats, lastRun, now = /* @__PURE__ */ new Date()) {
 }
 
 // src/core/model/state.ts
+var STATE_NAMES = {
+  backlog: "Backlog",
+  next: "Next",
+  inProgress: "In Progress",
+  done: "Done",
+  rejected: "Rejected",
+  recurring: "Recurring"
+};
 var DEFAULT_STATES = [
-  { name: "Backlog", fileName: "BACKLOG.md", order: 0 },
-  { name: "Next", fileName: "NEXT.md", order: 1 },
-  { name: "In Progress", fileName: "IN_PROGRESS.md", order: 2 },
-  { name: "Done", fileName: "DONE.md", order: 3 },
-  { name: "Rejected", fileName: "REJECTED.md", order: 4 },
-  { name: "Recurring", fileName: "RECURRING.md", order: 5 }
+  { name: STATE_NAMES.backlog, fileName: "BACKLOG.md", order: 0 },
+  { name: STATE_NAMES.next, fileName: "NEXT.md", order: 1 },
+  { name: STATE_NAMES.inProgress, fileName: "IN_PROGRESS.md", order: 2 },
+  { name: STATE_NAMES.done, fileName: "DONE.md", order: 3 },
+  { name: STATE_NAMES.rejected, fileName: "REJECTED.md", order: 4 },
+  { name: STATE_NAMES.recurring, fileName: "RECURRING.md", order: 5 }
 ];
-var RECURRING_STATE_NAME = "Recurring";
-var COMPLETED_STATE_NAMES = ["Done", "Rejected"];
+var RECURRING_STATE_NAME = STATE_NAMES.recurring;
+var COMPLETED_STATE_NAMES = [STATE_NAMES.done, STATE_NAMES.rejected];
 function isCompletedStateName(name) {
   return COMPLETED_STATE_NAMES.includes(name);
 }
 function isDueWork(task, stateName, now = /* @__PURE__ */ new Date()) {
   return !isCompletedStateName(stateName) && !isWaiting(task.waitingUntil, now) && isDue(task.repeats, task.lastRun, now);
 }
+var NEW_TASK_STATE_NAME = STATE_NAMES.backlog;
 
 // views/claude/mod/src/boardModel.ts
-var IN_PROGRESS_STATE = "In Progress";
-var NEXT_STATE = "Next";
-var BACKLOG_STATE = "Backlog";
-var COMPLETED_STATES = ["Done", "Rejected"];
+var IN_PROGRESS_STATE = STATE_NAMES.inProgress;
+var NEXT_STATE = STATE_NAMES.next;
+var BACKLOG_STATE = STATE_NAMES.backlog;
+var COMPLETED_STATES = COMPLETED_STATE_NAMES;
 var BOARD_FILE_PATTERN = /^(.+\.md|config\.json)$/;
 var DEFAULT_TAB_ORDER = [IN_PROGRESS_STATE, NEXT_STATE, BACKLOG_STATE];
 var TASKPLANNER_WRITE_TOOL = /__taskplanner_(create|move|update)$/;
@@ -299,8 +319,9 @@ function supportsTextScale(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
   if (!match) return false;
   const parts = match.slice(1).map(Number);
-  for (let index = 0; index < TEXT_SCALE_VERSION.length; index += 1) {
-    if (parts[index] !== TEXT_SCALE_VERSION[index]) return parts[index] > TEXT_SCALE_VERSION[index];
+  for (const [index, wanted] of TEXT_SCALE_VERSION.entries()) {
+    const part = parts[index] ?? 0;
+    if (part !== wanted) return part > wanted;
   }
   return true;
 }
@@ -314,7 +335,7 @@ function ancestorDirs(start) {
     dirs.push(current);
     const cut = current.search(/[\\/][^\\/]*$/);
     if (cut < 0) break;
-    const parent = cut === 0 ? current[0] : current.slice(0, cut);
+    const parent = current.slice(0, cut === 0 ? 1 : cut);
     if (parent === current) break;
     current = parent;
   }
@@ -331,7 +352,7 @@ function describeError(message) {
 }
 function newTaskStates(board2) {
   const names = board2?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name) && name !== RECURRING_STATE_NAME);
+  return names.filter((name) => !isCompletedState(name) && name !== STATE_NAMES.recurring);
 }
 function startDraft(board2) {
   const states = newTaskStates(board2);
@@ -526,6 +547,11 @@ function filterAndPaginate(tasksByState, states, options = {}) {
   }
   return { states: result, filter };
 }
+var COLLAPSED_STATES = /* @__PURE__ */ new Set([
+  STATE_NAMES.backlog,
+  STATE_NAMES.done,
+  STATE_NAMES.rejected
+]);
 
 // src/core/model/task.ts
 var Priority = /* @__PURE__ */ ((Priority2) => {
@@ -557,8 +583,8 @@ var BUILT_IN_FIELD_RES = {
   lastRun: /^\*\*Last run:\*\*\s*(.+)/
 };
 function taskHeadingOf(line) {
-  const match = line.match(TASK_HEADING_RE);
-  return match ? { id: match[1], title: match[2].trim() } : void 0;
+  const [, id, title] = line.match(TASK_HEADING_RE) ?? [];
+  return id !== void 0 && title !== void 0 ? { id, title: title.trim() } : void 0;
 }
 function taskHeadingIdOf(line) {
   return taskHeadingOf(line)?.id;
@@ -581,14 +607,14 @@ function runEntryOf(line) {
 }
 function builtInFieldOf(segment) {
   for (const [field, pattern] of Object.entries(BUILT_IN_FIELD_RES)) {
-    const match = segment.match(pattern);
-    if (match) return { field, value: match[1].trim() };
+    const [, value] = segment.match(pattern) ?? [];
+    if (value !== void 0) return { field, value: value.trim() };
   }
   return void 0;
 }
 function attributeOf(segment) {
-  const match = segment.match(ATTRIBUTE_RE);
-  return match ? { key: match[1].trim(), value: match[2].trim() } : void 0;
+  const [, key, value] = segment.match(ATTRIBUTE_RE) ?? [];
+  return key !== void 0 && value !== void 0 ? { key: key.trim(), value: value.trim() } : void 0;
 }
 function splitFieldGroup(line) {
   return line.split(SEPARATOR_BEFORE_NEXT_FIELD).map((segment) => segment.trim());
@@ -618,15 +644,16 @@ function lineSpans(content) {
 }
 function sectionEnd(spans, from) {
   for (let i = from; i < spans.length; i++) {
-    if (isSectionSeparatorLine(spans[i].text)) return i + 1;
-    if (i > from && taskHeadingIdOf(spans[i].text) !== void 0) return i;
+    const text = spans[i]?.text ?? "";
+    if (isSectionSeparatorLine(text)) return i + 1;
+    if (i > from && taskHeadingIdOf(text) !== void 0) return i;
   }
   return spans.length;
 }
 function splitSections(content) {
   const spans = lineSpans(content);
   const sections = [];
-  const sliceOf = (from, to) => content.slice(spans[from].start, spans[to - 1].end);
+  const sliceOf = (from, to) => content.slice(spans[from]?.start ?? content.length, spans[to - 1]?.end ?? content.length);
   let at = 0;
   let textFrom = 0;
   const flushText = (to) => {
@@ -635,7 +662,7 @@ function splitSections(content) {
     }
   };
   while (at < spans.length) {
-    const id = taskHeadingIdOf(spans[at].text);
+    const id = taskHeadingIdOf(spans[at]?.text ?? "");
     if (id === void 0) {
       at++;
       continue;
@@ -689,13 +716,57 @@ function priorityOf(raw, line, errors, warnings) {
   errors.push({ line, message });
   return MISSING_PRIORITY;
 }
+function readMetadata(lines, collected, startLine) {
+  const fieldLines = { priority: startLine, repeats: startLine };
+  for (const [index, line] of lines.entries()) {
+    if (isSectionSeparatorLine(line) || !readFieldOrFieldGroup(collected, line)) {
+      return { bodyFrom: index, fieldLines };
+    }
+    const lineNumber = startLine + index + 1;
+    if (collected.fields.priority !== void 0 && fieldLines.priority === startLine) {
+      fieldLines.priority = lineNumber;
+    }
+    if (collected.fields.repeats !== void 0 && fieldLines.repeats === startLine) {
+      fieldLines.repeats = lineNumber;
+    }
+  }
+  return { bodyFrom: lines.length, fieldLines };
+}
+function keepsRunHistory(collected) {
+  return collected.fields.repeats !== void 0 || collected.fields.lastRun !== void 0;
+}
+function readBody(lines, collected) {
+  const [first, ...rest] = lines;
+  let body = "description";
+  for (const line of first?.trim() === "" ? rest : lines) {
+    if (isSectionSeparatorLine(line)) return;
+    if (isPlanHeadingLine(line)) {
+      body = "plan";
+    } else if (isRunsHeadingLine(line) && keepsRunHistory(collected)) {
+      body = "runs";
+    } else if (body === "runs") {
+      const entry = runEntryOf(line);
+      if (entry !== void 0) collected.runs.push(entry);
+    } else {
+      collected[body].push(line);
+    }
+  }
+}
+function scheduleWarning(repeats, line) {
+  if (repeats === void 0 || isValidCron(repeats)) return [];
+  return [
+    {
+      line,
+      message: `**Repeats:** "${repeats}" is not a cron schedule, so the task is never due; expected 5 fields in UTC such as "0 7 * * *", or @daily.`
+    }
+  ];
+}
 function parseTaskSection(raw, startLine) {
-  const lines = raw.split(LINE_BREAK);
   const errors = [];
-  const warnings = [];
-  const heading = taskHeadingOf(lines[0]);
+  const [headingLine = "", ...bodyLines] = raw.split(LINE_BREAK);
+  const heading = taskHeadingOf(headingLine);
   if (!heading) {
-    return { errors, warnings };
+    return { errors, warnings: [] };
   }
   const collected = {
     fields: {},
@@ -704,62 +775,23 @@ function parseTaskSection(raw, startLine) {
     plan: [],
     runs: []
   };
-  let inMetadata = true;
-  let body = "description";
-  let priorityLine = startLine;
-  let repeatsLine = startLine;
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (isSectionSeparatorLine(line)) break;
-    if (inMetadata) {
-      if (readFieldOrFieldGroup(collected, line)) {
-        if (collected.fields.priority !== void 0 && priorityLine === startLine) {
-          priorityLine = startLine + i;
-        }
-        if (collected.fields.repeats !== void 0 && repeatsLine === startLine) {
-          repeatsLine = startLine + i;
-        }
-        continue;
-      }
-      inMetadata = false;
-      if (line.trim() === "") continue;
-    }
-    if (isPlanHeadingLine(line)) {
-      body = "plan";
-      continue;
-    }
-    const keepsRunHistory = collected.fields.repeats !== void 0 || collected.fields.lastRun !== void 0;
-    if (isRunsHeadingLine(line) && keepsRunHistory) {
-      body = "runs";
-      continue;
-    }
-    if (body === "runs") {
-      const entry = runEntryOf(line);
-      if (entry !== void 0) collected.runs.push(entry);
-      continue;
-    }
-    collected[body].push(line);
-  }
-  const repeats = collected.fields.repeats;
-  if (repeats !== void 0 && !isValidCron(repeats)) {
-    warnings.push({
-      line: repeatsLine,
-      message: `**Repeats:** "${repeats}" is not a cron schedule, so the task is never due; expected 5 fields in UTC such as "0 7 * * *", or @daily.`
-    });
-  }
+  const { bodyFrom, fieldLines } = readMetadata(bodyLines, collected, startLine);
+  readBody(bodyLines.slice(bodyFrom), collected);
+  const { fields } = collected;
+  const warnings = scheduleWarning(fields.repeats, fieldLines.repeats);
   const plan = collected.plan.join("\n").trim();
   const task = {
     id: heading.id,
     title: heading.title,
     description: collected.description.join("\n").trim(),
-    priority: priorityOf(collected.fields.priority, priorityLine, errors, warnings),
-    tags: tagsOf2(collected.fields.tags),
-    epic: collected.fields.epic,
-    assignee: collected.fields.assignee,
-    updatedAt: collected.fields.updatedAt,
-    waitingUntil: collected.fields.waitingUntil,
-    ...collected.fields.repeats !== void 0 ? { repeats: collected.fields.repeats } : {},
-    ...collected.fields.lastRun !== void 0 ? { lastRun: collected.fields.lastRun } : {},
+    priority: priorityOf(fields.priority, fieldLines.priority, errors, warnings),
+    tags: tagsOf2(fields.tags),
+    epic: fields.epic,
+    assignee: fields.assignee,
+    updatedAt: fields.updatedAt,
+    waitingUntil: fields.waitingUntil,
+    ...fields.repeats !== void 0 ? { repeats: fields.repeats } : {},
+    ...fields.lastRun !== void 0 ? { lastRun: fields.lastRun } : {},
     ...plan ? { plan } : {},
     ...collected.runs.length > 0 ? { runs: collected.runs } : {},
     ...Object.keys(collected.attributes).length > 0 ? { attributes: collected.attributes } : {}
@@ -777,7 +809,7 @@ function brokenHeadings(section) {
   const starts = lines.map((line, index) => looksLikeTaskHeading(line) ? index : -1).filter((index) => index !== -1);
   return starts.map((start, nth) => ({
     line: section.line + start,
-    message: `"${lines[start].trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
+    message: `"${(lines[start] ?? "").trim()}" is not a task heading, so this section was not read as a task. Use "## PREFIX-000: Title" with an uppercase prefix, digits, and a title.`,
     raw: lines.slice(start, starts[nth + 1] ?? lines.length).join("\n")
   }));
 }
@@ -857,13 +889,13 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
     displayCounts.set(state.name, parsed.tasks.length);
     for (const task of parsed.tasks) indexTask(tasks, { task, state: state.name });
   }
-  const viewStates = states.map(
+  const viewStates = states.flatMap(
     (state) => filterAndPaginate(tasksByState, [state], {
       limit: options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
       sortBy: isCompletedState(state.name) ? "file" : "priority",
       stateDisplayCounts: displayCounts,
       now: options.now
-    }).states[0]
+    }).states
   );
   const focusCandidates2 = FOCUS_ORDER.flatMap(
     (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))
@@ -1746,148 +1778,158 @@ async function runBoardCommand($) {
   await openPane($);
   return {};
 }
+async function startSession($) {
+  await $.command.register({
+    name: "taskboard",
+    description: "Open the TaskPlanner board pane",
+    immediate: true
+  }).catch((error) => {
+    errorText = errorMessage(error);
+  });
+  setUpBandTool = await $.tool.register(SETUP_BAND_TOOL).then(({ tool }) => tool).catch(() => null);
+  hasTextScale = await $.session.version().then(({ version }) => supportsTextScale(version)).catch(() => false);
+  $.clock.after(0, () => {
+    void resumeAfterLoad($);
+  });
+}
+function paneModel(e) {
+  return {
+    board,
+    tab: activeTab,
+    detail,
+    draft,
+    notice,
+    error: errorText,
+    issueCount,
+    isLoading,
+    isMissingBoard,
+    columns: e.props.bodyColumns,
+    surface: e.surface,
+    hasTextScale
+  };
+}
+function paneActions($) {
+  return {
+    selectTab: (state) => {
+      notice = null;
+      void selectTab($, state);
+    },
+    openTask: (id, state) => openTask($, id, state),
+    showAll: (state) => {
+      void showAll($, state);
+    },
+    back: () => {
+      detail = null;
+      notice = null;
+      $.ui.invalidate("ui.render");
+    },
+    move: (id, target) => {
+      void moveTask($, id, target);
+    },
+    start: (task) => {
+      void $.prompt.submit({ text: startPrompt(task), asUser: true });
+    },
+    refresh: () => {
+      void refreshBoard($);
+    },
+    edit: (task) => {
+      void editTask($, task);
+    },
+    newTask: () => {
+      draft = startDraft(board);
+      detail = null;
+      notice = null;
+      $.ui.invalidate("ui.render");
+    },
+    cancelNew: () => {
+      draft = null;
+      $.ui.invalidate("ui.render");
+    },
+    setDraftTitle: (title) => {
+      if (draft) draft = { ...draft, title };
+    },
+    setDraftPriority: (priority) => {
+      if (draft) draft = { ...draft, priority };
+      $.ui.invalidate("ui.render");
+    },
+    setDraftState: (state) => {
+      if (draft) draft = { ...draft, state };
+      $.ui.invalidate("ui.render");
+    },
+    create: () => {
+      void createTask($);
+    },
+    setUp: () => {
+      void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+    }
+  };
+}
+function setUpBandActions($) {
+  return {
+    setUp: () => {
+      void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+    },
+    askDismiss: () => {
+      isConfirmingSetUpDismiss = true;
+      setUpFailure = null;
+      $.ui.invalidate("ui.render");
+    },
+    confirmDismiss: () => {
+      setSetUpHidden($, true).catch((error) => {
+        isConfirmingSetUpDismiss = false;
+        setUpFailure = errorMessage(error);
+        $.ui.invalidate("ui.render");
+      });
+    },
+    cancelDismiss: () => {
+      isConfirmingSetUpDismiss = false;
+      $.ui.invalidate("ui.render");
+    }
+  };
+}
+async function renderAbovePrompt($, e, next) {
+  if (e.props.hasSurvey) return next(e);
+  if (isMissingBoard) {
+    if (isSetUpDismissed) return next(e);
+    const elements2 = $.ui.resolve(e);
+    const below2 = await next(e);
+    const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
+    return renderSetUpBand(elements2, e.props.bodyColumns, below2, state, setUpBandActions($));
+  }
+  const focus = focusTask(focusCandidates);
+  const recurringDue = board ? boardDueCount(board) : 0;
+  if (!focus && recurringDue === 0) return next(e);
+  const elements = $.ui.resolve(e);
+  const below = await next(e);
+  const open = () => {
+    void openPane($);
+  };
+  if (!focus) {
+    return renderDueBand(elements, recurringDue, e.props.bodyColumns, below, open);
+  }
+  const band = { id: focus.task.id, title: focus.task.title, state: focus.state, recurringDue };
+  return renderBand(elements, band, e.props.bodyColumns, below, {
+    open,
+    start: () => {
+      void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
+    }
+  });
+}
 function register(on) {
   on("session.start", async ($, e, next) => {
-    await $.command.register({
-      name: "taskboard",
-      description: "Open the TaskPlanner board pane",
-      immediate: true
-    }).catch((error) => {
-      errorText = errorMessage(error);
-    });
-    setUpBandTool = await $.tool.register(SETUP_BAND_TOOL).then(({ tool }) => tool).catch(() => null);
-    hasTextScale = await $.session.version().then(({ version }) => supportsTextScale(version)).catch(() => false);
-    $.clock.after(0, () => {
-      void resumeAfterLoad($);
-    });
+    await startSession($);
     return next(e);
   });
   on("command.run", { command: "taskboard" }, ($) => runBoardCommand($));
   on("command.run", { command: "taskplanner:board" }, ($) => runBoardCommand($)).catch(
     (_engine, e, next) => next(e)
   );
-  on("ui.render", { component: "Pane", requestId: "taskplanner" }, async ($, e) => {
-    const elements = $.ui.resolve(e);
-    return renderPane(
-      elements,
-      {
-        board,
-        tab: activeTab,
-        detail,
-        draft,
-        notice,
-        error: errorText,
-        issueCount,
-        isLoading,
-        isMissingBoard,
-        columns: e.props.bodyColumns,
-        surface: e.surface,
-        hasTextScale
-      },
-      {
-        selectTab: (state) => {
-          notice = null;
-          void selectTab($, state);
-        },
-        openTask: (id, state) => openTask($, id, state),
-        showAll: (state) => {
-          void showAll($, state);
-        },
-        back: () => {
-          detail = null;
-          notice = null;
-          $.ui.invalidate("ui.render");
-        },
-        move: (id, target) => {
-          void moveTask($, id, target);
-        },
-        start: (task) => {
-          void $.prompt.submit({ text: startPrompt(task), asUser: true });
-        },
-        refresh: () => {
-          void refreshBoard($);
-        },
-        edit: (task) => {
-          void editTask($, task);
-        },
-        newTask: () => {
-          draft = startDraft(board);
-          detail = null;
-          notice = null;
-          $.ui.invalidate("ui.render");
-        },
-        cancelNew: () => {
-          draft = null;
-          $.ui.invalidate("ui.render");
-        },
-        setDraftTitle: (title) => {
-          if (draft) draft = { ...draft, title };
-        },
-        setDraftPriority: (priority) => {
-          if (draft) draft = { ...draft, priority };
-          $.ui.invalidate("ui.render");
-        },
-        setDraftState: (state) => {
-          if (draft) draft = { ...draft, state };
-          $.ui.invalidate("ui.render");
-        },
-        create: () => {
-          void createTask($);
-        },
-        setUp: () => {
-          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
-        }
-      }
-    );
-  });
-  on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e);
-    if (isMissingBoard) {
-      if (isSetUpDismissed) return next(e);
-      const elements2 = $.ui.resolve(e);
-      const below2 = await next(e);
-      const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
-      return renderSetUpBand(elements2, e.props.bodyColumns, below2, state, {
-        setUp: () => {
-          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
-        },
-        askDismiss: () => {
-          isConfirmingSetUpDismiss = true;
-          setUpFailure = null;
-          $.ui.invalidate("ui.render");
-        },
-        confirmDismiss: () => {
-          setSetUpHidden($, true).catch((error) => {
-            isConfirmingSetUpDismiss = false;
-            setUpFailure = errorMessage(error);
-            $.ui.invalidate("ui.render");
-          });
-        },
-        cancelDismiss: () => {
-          isConfirmingSetUpDismiss = false;
-          $.ui.invalidate("ui.render");
-        }
-      });
-    }
-    const focus = focusTask(focusCandidates);
-    const recurringDue = board ? boardDueCount(board) : 0;
-    if (!focus && recurringDue === 0) return next(e);
-    const elements = $.ui.resolve(e);
-    const below = await next(e);
-    const open = () => {
-      void openPane($);
-    };
-    if (!focus) {
-      return renderDueBand(elements, recurringDue, e.props.bodyColumns, below, open);
-    }
-    const band = { id: focus.task.id, title: focus.task.title, state: focus.state, recurringDue };
-    return renderBand(elements, band, e.props.bodyColumns, below, {
-      open,
-      start: () => {
-        void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
-      }
-    });
-  });
+  on(
+    "ui.render",
+    { component: "Pane", requestId: "taskplanner" },
+    async ($, e) => renderPane($.ui.resolve(e), paneModel(e), paneActions($))
+  );
+  on("ui.render", { component: "AbovePrompt" }, renderAbovePrompt);
   on("ui.press", async ($, e, next) => {
     if (!isOwnPlugin(e.plugin)) return next(e);
     if (e.element === "create-task" && draft) {

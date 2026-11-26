@@ -159,7 +159,7 @@ describe('renderPane list view', () => {
     const tree = renderPane(el, model({ tab: 'Backlog' }), actions());
     const label = byKey(tree, 'task-TASK-002')?.props.label as string;
     expect(label).toHaveLength(30);
-    expect(label.endsWith('…')).toBe(true);
+    expect(label?.endsWith('…')).toBe(true);
     expect(texts(tree)).toContain('Showing 1 of 4.');
     const handlers = actions();
     press(renderPane(el, model({ tab: 'Backlog' }), handlers), 'show-all');
@@ -416,7 +416,7 @@ describe('renderBand', () => {
     };
     const [label] = texts(renderBand(el, task, 40, below, bandActions())).slice(-1);
     expect(label).toHaveLength(24);
-    expect(label.endsWith('…')).toBe(true);
+    expect(label?.endsWith('…')).toBe(true);
   });
 
   const idle = { isConfirmingDismiss: false, failure: null };

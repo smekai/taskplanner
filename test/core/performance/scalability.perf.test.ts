@@ -39,16 +39,7 @@ describe('scalability (timing smoke)', () => {
   });
 
   it('serializes and parses a round-trip for 300 tasks', () => {
-    const tasks: Task[] = [];
-    for (let i = 1; i <= 300; i++) {
-      tasks.push({
-        id: `TASK-${String(i).padStart(3, '0')}`,
-        title: `T ${i}`,
-        priority: Priority.P2,
-        tags: [],
-        description: `D ${i}`,
-      });
-    }
+    const tasks = numberedTasks(300);
     const md = serializeStateFile('Next', tasks);
     const t0 = performance.now();
     const back = parseTasks(md);
@@ -94,3 +85,13 @@ describe('scalability (timing smoke)', () => {
     expect(fMs).toBeLessThan(15_000);
   });
 });
+
+function numberedTasks(count: number): Task[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `TASK-${String(index + 1).padStart(3, '0')}`,
+    title: `T ${index + 1}`,
+    priority: Priority.P2,
+    tags: [],
+    description: `D ${index + 1}`,
+  }));
+}
