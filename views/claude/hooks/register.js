@@ -690,14 +690,57 @@ function priorityOf(raw, line, errors, warnings) {
   errors.push({ line, message });
   return MISSING_PRIORITY;
 }
+function readMetadata(lines, collected, startLine) {
+  const fieldLines = { priority: startLine, repeats: startLine };
+  for (const [index, line] of lines.entries()) {
+    if (isSectionSeparatorLine(line) || !readFieldOrFieldGroup(collected, line)) {
+      return { bodyFrom: index, fieldLines };
+    }
+    const lineNumber = startLine + index + 1;
+    if (collected.fields.priority !== void 0 && fieldLines.priority === startLine) {
+      fieldLines.priority = lineNumber;
+    }
+    if (collected.fields.repeats !== void 0 && fieldLines.repeats === startLine) {
+      fieldLines.repeats = lineNumber;
+    }
+  }
+  return { bodyFrom: lines.length, fieldLines };
+}
+function keepsRunHistory(collected) {
+  return collected.fields.repeats !== void 0 || collected.fields.lastRun !== void 0;
+}
+function readBody(lines, collected) {
+  const [first, ...rest] = lines;
+  let body = "description";
+  for (const line of first?.trim() === "" ? rest : lines) {
+    if (isSectionSeparatorLine(line)) return;
+    if (isPlanHeadingLine(line)) {
+      body = "plan";
+    } else if (isRunsHeadingLine(line) && keepsRunHistory(collected)) {
+      body = "runs";
+    } else if (body === "runs") {
+      const entry = runEntryOf(line);
+      if (entry !== void 0) collected.runs.push(entry);
+    } else {
+      collected[body].push(line);
+    }
+  }
+}
+function scheduleWarning(repeats, line) {
+  if (repeats === void 0 || isValidCron(repeats)) return [];
+  return [
+    {
+      line,
+      message: `**Repeats:** "${repeats}" is not a cron schedule, so the task is never due; expected 5 fields in UTC such as "0 7 * * *", or @daily.`
+    }
+  ];
+}
 function parseTaskSection(raw, startLine) {
-  const lines = raw.split(LINE_BREAK);
   const errors = [];
-  const warnings = [];
-  const [headingLine = "", ...bodyLines] = lines;
+  const [headingLine = "", ...bodyLines] = raw.split(LINE_BREAK);
   const heading = taskHeadingOf(headingLine);
   if (!heading) {
-    return { errors, warnings };
+    return { errors, warnings: [] };
   }
   const collected = {
     fields: {},
@@ -706,62 +749,23 @@ function parseTaskSection(raw, startLine) {
     plan: [],
     runs: []
   };
-  let inMetadata = true;
-  let body = "description";
-  let priorityLine = startLine;
-  let repeatsLine = startLine;
-  for (const [index, line] of bodyLines.entries()) {
-    const i = index + 1;
-    if (isSectionSeparatorLine(line)) break;
-    if (inMetadata) {
-      if (readFieldOrFieldGroup(collected, line)) {
-        if (collected.fields.priority !== void 0 && priorityLine === startLine) {
-          priorityLine = startLine + i;
-        }
-        if (collected.fields.repeats !== void 0 && repeatsLine === startLine) {
-          repeatsLine = startLine + i;
-        }
-        continue;
-      }
-      inMetadata = false;
-      if (line.trim() === "") continue;
-    }
-    if (isPlanHeadingLine(line)) {
-      body = "plan";
-      continue;
-    }
-    const keepsRunHistory = collected.fields.repeats !== void 0 || collected.fields.lastRun !== void 0;
-    if (isRunsHeadingLine(line) && keepsRunHistory) {
-      body = "runs";
-      continue;
-    }
-    if (body === "runs") {
-      const entry = runEntryOf(line);
-      if (entry !== void 0) collected.runs.push(entry);
-      continue;
-    }
-    collected[body].push(line);
-  }
-  const repeats = collected.fields.repeats;
-  if (repeats !== void 0 && !isValidCron(repeats)) {
-    warnings.push({
-      line: repeatsLine,
-      message: `**Repeats:** "${repeats}" is not a cron schedule, so the task is never due; expected 5 fields in UTC such as "0 7 * * *", or @daily.`
-    });
-  }
+  const { bodyFrom, fieldLines } = readMetadata(bodyLines, collected, startLine);
+  readBody(bodyLines.slice(bodyFrom), collected);
+  const { fields } = collected;
+  const warnings = scheduleWarning(fields.repeats, fieldLines.repeats);
   const plan = collected.plan.join("\n").trim();
   const task = {
     id: heading.id,
     title: heading.title,
     description: collected.description.join("\n").trim(),
-    priority: priorityOf(collected.fields.priority, priorityLine, errors, warnings),
-    tags: tagsOf2(collected.fields.tags),
-    epic: collected.fields.epic,
-    assignee: collected.fields.assignee,
-    updatedAt: collected.fields.updatedAt,
-    waitingUntil: collected.fields.waitingUntil,
-    ...collected.fields.repeats !== void 0 ? { repeats: collected.fields.repeats } : {},
-    ...collected.fields.lastRun !== void 0 ? { lastRun: collected.fields.lastRun } : {},
+    priority: priorityOf(fields.priority, fieldLines.priority, errors, warnings),
+    tags: tagsOf2(fields.tags),
+    epic: fields.epic,
+    assignee: fields.assignee,
+    updatedAt: fields.updatedAt,
+    waitingUntil: fields.waitingUntil,
+    ...fields.repeats !== void 0 ? { repeats: fields.repeats } : {},
+    ...fields.lastRun !== void 0 ? { lastRun: fields.lastRun } : {},
     ...plan ? { plan } : {},
     ...collected.runs.length > 0 ? { runs: collected.runs } : {},
     ...Object.keys(collected.attributes).length > 0 ? { attributes: collected.attributes } : {}
