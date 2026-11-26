@@ -361,24 +361,15 @@ describe('TaskStore', () => {
   });
 
   describe('recordRun', () => {
-    const recurring = () =>
-      taskStore.createTask(
-        {
-          title: 'Daily watch',
-          priority: Priority.P1,
-          tags: [],
-          description: 'Check the stores.',
-          repeats: '0 7 * * *',
-        },
-        'Recurring',
-      );
-
     it('stamps the last run and puts the result first in the history', () => {
+      // Arrange
       const created = recurring();
-
       taskStore.recordRun(created.id, 'all stores  on\n3.0.28', new Date('2026-11-24T07:05:00Z'));
+
+      // Act
       const task = taskStore.recordRun(created.id, 'ok', new Date('2026-11-25T07:12:30Z'));
 
+      // Assert
       expect(task?.lastRun).toBe('2026-11-25 07:12');
       expect(task?.runs).toEqual([
         '2026-11-25 07:12 — ok',
@@ -389,38 +380,79 @@ describe('TaskStore', () => {
       expect(onDisk).toContain('### Runs\n\n- 2026-11-25 07:12 — ok\n');
     });
 
-    it('keeps only the latest MAX_RUNS entries', () => {
+    // A run recorded for a given time stamps Updated from the same clock, not the machine's.
+    it('stamps Updated with the time of the run', () => {
+      // Arrange
       const created = recurring();
-      for (let day = 1; day <= MAX_RUNS + 3; day++) {
-        taskStore.recordRun(created.id, `run ${day}`, new Date(Date.UTC(2026, 10, day, 7)));
-      }
 
+      // Act
+      const task = taskStore.recordRun(created.id, 'ok', new Date('2026-11-25T07:12:30Z'));
+
+      // Assert
+      expect(task?.updatedAt).toBe('2026-11-25 07:12');
+    });
+
+    it('keeps only the latest MAX_RUNS entries', () => {
+      // Arrange
+      const created = recurring();
+      recordDailyRuns(created.id, MAX_RUNS + 2);
+
+      // Act
+      taskStore.recordRun(created.id, 'newest', new Date('2026-12-31T07:00:00Z'));
+
+      // Assert
       const runs = taskStore.getTasksByState('Recurring')[0].runs ?? [];
-
       expect(runs).toHaveLength(MAX_RUNS);
-      expect(runs[0]).toContain(`run ${MAX_RUNS + 3}`);
+      expect(runs[0]).toContain('newest');
       expect(runs[MAX_RUNS - 1]).toContain('run 4');
     });
 
     it('records a run with no result as the timestamp alone', () => {
+      // Arrange
       const created = recurring();
 
+      // Act
       const task = taskStore.recordRun(created.id, '  ', new Date('2026-11-25T07:00:00Z'));
 
+      // Assert
       expect(task?.runs).toEqual(['2026-11-25 07:00']);
     });
 
     it('refuses a task without a schedule', () => {
+      // Arrange
       const plain = taskStore.createTask(
         { title: 'One-off', priority: Priority.P2, tags: [], description: '' },
         'Backlog',
       );
 
-      expect(() => taskStore.recordRun(plain.id, 'ok')).toThrow(/Repeats/);
+      // Act
+      const record = () => taskStore.recordRun(plain.id, 'ok');
+
+      // Assert
+      expect(record).toThrow(/Repeats/);
     });
 
     it('returns null for an unknown task', () => {
       expect(taskStore.recordRun('TASK-999', 'ok')).toBeNull();
     });
   });
+
+  function recurring() {
+    return taskStore.createTask(
+      {
+        title: 'Daily watch',
+        priority: Priority.P1,
+        tags: [],
+        description: 'Check the stores.',
+        repeats: '0 7 * * *',
+      },
+      'Recurring',
+    );
+  }
+
+  function recordDailyRuns(taskId: string, days: number) {
+    for (let day = 1; day <= days; day++) {
+      taskStore.recordRun(taskId, `run ${day}`, new Date(Date.UTC(2026, 10, day, 7)));
+    }
+  }
 });

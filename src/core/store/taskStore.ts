@@ -477,7 +477,7 @@ export class TaskStore {
     return true;
   }
 
-  updateTask(taskId: string, updates: Partial<Omit<Task, 'id'>>): Task | null {
+  updateTask(taskId: string, updates: Partial<Omit<Task, 'id'>>, now = new Date()): Task | null {
     const found = this.locate(taskId);
     if (!found) return null;
     if (!TaskStore.hasChanges(found.task, updates)) return found.task;
@@ -486,7 +486,7 @@ export class TaskStore {
       ...found.task,
       ...updates,
       id: taskId,
-      updatedAt: currentTimestamp(),
+      updatedAt: currentTimestamp(now),
     };
     const tasks = this.getTasksByState(found.stateName).map((t) =>
       t.id === taskId ? updatedTask : t,
@@ -506,7 +506,7 @@ export class TaskStore {
     const summary = result.replace(/\s+/g, ' ').trim();
     const entry = summary ? `${lastRun} — ${summary}` : lastRun;
     const runs = [entry, ...(found.task.runs ?? [])].slice(0, MAX_RUNS);
-    return this.updateTask(taskId, { lastRun, runs });
+    return this.updateTask(taskId, { lastRun, runs }, now);
   }
 
   private static hasChanges(task: Task, updates: Partial<Omit<Task, 'id'>>): boolean {
