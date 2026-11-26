@@ -218,7 +218,7 @@ export function describeError(message: string): ErrorSummary {
 
 export function newTaskStates(board: BoardSnapshot | null): string[] {
   const names = board?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name));
+  return names.filter((name) => !isCompletedState(name) && name !== STATE_NAMES.recurring);
 }
 
 export function startDraft(board: BoardSnapshot | null): TaskDraft {

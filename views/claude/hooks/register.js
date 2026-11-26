@@ -173,7 +173,7 @@ function isCompletedStateName(name) {
   return COMPLETED_STATE_NAMES.includes(name);
 }
 function isDueWork(task, stateName, now = /* @__PURE__ */ new Date()) {
-  return !isCompletedStateName(stateName) && isDue(task.repeats, task.lastRun, now);
+  return !isCompletedStateName(stateName) && !isWaiting(task.waitingUntil, now) && isDue(task.repeats, task.lastRun, now);
 }
 var NEW_TASK_STATE_NAME = STATE_NAMES.backlog;
 
@@ -326,7 +326,7 @@ function describeError(message) {
 }
 function newTaskStates(board2) {
   const names = board2?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name));
+  return names.filter((name) => !isCompletedState(name) && name !== STATE_NAMES.recurring);
 }
 function startDraft(board2) {
   const states = newTaskStates(board2);

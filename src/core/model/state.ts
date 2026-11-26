@@ -1,4 +1,5 @@
 import { isDue } from '../util/cron.js';
+import { isWaiting } from '../util/time.js';
 
 export interface TaskState {
   name: string;
@@ -33,11 +34,15 @@ export function isCompletedStateName(name: string): boolean {
 }
 
 export function isDueWork(
-  task: { repeats?: string; lastRun?: string },
+  task: { repeats?: string; lastRun?: string; waitingUntil?: string },
   stateName: string,
   now = new Date(),
 ): boolean {
-  return !isCompletedStateName(stateName) && isDue(task.repeats, task.lastRun, now);
+  return (
+    !isCompletedStateName(stateName) &&
+    !isWaiting(task.waitingUntil, now) &&
+    isDue(task.repeats, task.lastRun, now)
+  );
 }
 
 export const NEW_TASK_STATE_NAME = STATE_NAMES.backlog;
