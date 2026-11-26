@@ -1,21 +1,47 @@
 const TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+const ZONED_ISO_RE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/;
 
 const MS_PER_DAY = 86_400_000;
+const MS_PER_MINUTE = 60_000;
 
 export function parseTimestamp(value: string | undefined): Date | null {
-  const match = TIMESTAMP_RE.exec(value?.trim() ?? '');
+  const text = value?.trim() ?? '';
+  const zoned = ZONED_ISO_RE.exec(text);
+  if (zoned) return parseZonedIso(zoned);
+  const match = TIMESTAMP_RE.exec(text);
   if (!match) return null;
-
   const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  return utcDate(year, month, day, hour, minute, 0);
+}
 
+function parseZonedIso(match: RegExpExecArray): Date | null {
+  const [year, month, day, hour, minute, second, , offsetHours, offsetMinutes] = match
+    .slice(1)
+    .map((part) => Number(part ?? 0));
+  const wallClock = utcDate(year, month, day, hour, minute, second);
+  if (!wallClock) return null;
+  const offsetSign = match[7] === '-' ? -1 : 1;
+  const offset = offsetSign * (offsetHours * 60 + offsetMinutes);
+  return new Date(wallClock.getTime() - offset * MS_PER_MINUTE);
+}
+
+function utcDate(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+): Date | null {
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
   const survivesRoundTrip =
     date.getUTCFullYear() === year &&
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day &&
     date.getUTCHours() === hour &&
-    date.getUTCMinutes() === minute;
-
+    date.getUTCMinutes() === minute &&
+    date.getUTCSeconds() === second;
   return survivesRoundTrip ? date : null;
 }
 

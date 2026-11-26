@@ -86,15 +86,26 @@ export function sortTasks(tasks: Task[], sortBy: TaskListSortBy): Task[] {
   return sorted;
 }
 
+export interface TaskViewOptions {
+  filter?: TaskFilter;
+  limit?: number | null;
+  sortBy?: TaskListSortBy;
+  stateDisplayCounts?: ReadonlyMap<string, number>;
+  now?: Date;
+}
+
 export function filterAndPaginate(
   tasksByState: Map<string, Task[]>,
   states: TaskState[],
-  filter?: TaskFilter,
-  limit: number | null = DEFAULT_LIMIT,
-  sortBy: TaskListSortBy = 'priority',
-  stateDisplayCounts?: ReadonlyMap<string, number>,
-  now = new Date(),
+  options: TaskViewOptions = {},
 ): TaskViewData {
+  const {
+    filter,
+    limit = DEFAULT_LIMIT,
+    sortBy = 'priority',
+    stateDisplayCounts,
+    now = new Date(),
+  } = options;
   const result: StateViewData[] = [];
 
   for (const state of states) {
@@ -137,12 +148,15 @@ export function groupTasks(
   tasksByState: Map<string, Task[]>,
   states: TaskState[],
   groupBy: GroupBy,
-  filter?: TaskFilter,
-  limit: number | null = DEFAULT_LIMIT,
-  sortBy: TaskListSortBy = 'priority',
-  stateDisplayCounts?: ReadonlyMap<string, number>,
-  now = new Date(),
+  options: TaskViewOptions = {},
 ): GroupViewData[] {
+  const {
+    filter,
+    limit = DEFAULT_LIMIT,
+    sortBy = 'priority',
+    stateDisplayCounts,
+    now = new Date(),
+  } = options;
   let allTasks: { task: Task; stateName: string }[] = [];
   for (const state of states) {
     if (filter?.status && filter.status !== state.name) {

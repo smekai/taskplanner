@@ -100,7 +100,8 @@ export class ConfigManager {
         merged[key] = defaults[key];
       }
     }
-    const readableButUnversioned = Object.keys(parsed).length > 0 && !('version' in parsed);
+    const readableButUnversioned =
+      Object.keys(parsed).length > 0 && !FIELDS.version(parsed.version);
     if (readableButUnversioned) merged.version = UNVERSIONED_SCHEMA_VERSION;
     merged.states =
       parsed.states !== undefined ? normalizeStates(parsed.states, report) : defaults.states;
@@ -136,7 +137,6 @@ export class ConfigManager {
   }
 
   private addRecurringState(): boolean {
-    // WHY: gated on the schema version so a board that removed Recurring after migrating keeps it removed.
     if (this.config.version >= RECURRING_SCHEMA_VERSION) return false;
     const states = this.config.states;
     // WHY: Windows and macOS file systems ignore case, so recurring.md and RECURRING.md are one file.

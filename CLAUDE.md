@@ -18,7 +18,7 @@ npm run release:check    # full pre-release gate
 
 **Versioning:** every commit bumps patch via `.githooks/pre-commit` (`scripts/bump-version.js`). Use `--no-verify` only when the exact version was already set and validated.
 
-**Architecture:** one markdown file per state; config in `.tasks/config.json`; dates UTC via `src/core/util/time.ts` (`YYYY-MM-DD` / `YYYY-MM-DD HH:MM` only).
+**Architecture:** one markdown file per state; config in `.tasks/config.json`; dates UTC via `src/core/util/time.ts` (`YYYY-MM-DD` / `YYYY-MM-DD HH:MM` only). Config migrations that add a state run once, gated on the schema `version`, so a board that later removes that state (e.g. Recurring) keeps it removed.
 
 **Code standard:** code and tests follow the `code-quality` skill (`.claude/skills/code-quality/SKILL.md`: simplicity first, A1–A9, AAAAA tests); `/code-quality` also runs a quality pass against it.
 

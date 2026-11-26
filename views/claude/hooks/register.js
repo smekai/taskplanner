@@ -1,11 +1,27 @@
 // src/core/util/time.ts
 var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+var ZONED_ISO_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/;
+var MS_PER_MINUTE = 6e4;
 function parseTimestamp(value) {
-  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
+  const text = value?.trim() ?? "";
+  const zoned = ZONED_ISO_RE.exec(text);
+  if (zoned) return parseZonedIso(zoned);
+  const match = TIMESTAMP_RE.exec(text);
   if (!match) return null;
   const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
+  return utcDate(year, month, day, hour, minute, 0);
+}
+function parseZonedIso(match) {
+  const [year, month, day, hour, minute, second, , offsetHours, offsetMinutes] = match.slice(1).map((part) => Number(part ?? 0));
+  const wallClock = utcDate(year, month, day, hour, minute, second);
+  if (!wallClock) return null;
+  const offsetSign = match[7] === "-" ? -1 : 1;
+  const offset = offsetSign * (offsetHours * 60 + offsetMinutes);
+  return new Date(wallClock.getTime() - offset * MS_PER_MINUTE);
+}
+function utcDate(year, month, day, hour, minute, second) {
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute && date.getUTCSeconds() === second;
   return survivesRoundTrip ? date : null;
 }
 function currentDate(now = /* @__PURE__ */ new Date()) {
@@ -40,7 +56,7 @@ var MACROS = {
   "@hourly": "0 * * * *"
 };
 var SEARCH_DAYS = 366 * 29;
-var MS_PER_MINUTE = 6e4;
+var MS_PER_MINUTE2 = 6e4;
 var MS_PER_DAY = 864e5;
 function valueOf(token, spec) {
   if (/^\d+$/.test(token)) {
@@ -113,7 +129,7 @@ function lastAllowedAtOrBelow(allowed, limit) {
   return void 0;
 }
 function previousFire(schedule, now) {
-  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
+  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE2) * MS_PER_MINUTE2;
   const startOfToday = Math.floor(flooredNow / MS_PER_DAY) * MS_PER_DAY;
   for (let back = 0; back <= SEARCH_DAYS; back++) {
     const dayStart = startOfToday - back * MS_PER_DAY;
@@ -125,7 +141,7 @@ function previousFire(schedule, now) {
       const minuteLimit = today && hour === limit.getUTCHours() ? limit.getUTCMinutes() : 59;
       const minute = lastAllowedAtOrBelow(schedule.minutes, minuteLimit);
       if (minute !== void 0) {
-        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE);
+        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE2);
       }
       hour = lastAllowedAtOrBelow(schedule.hours, hour - 1);
     }
@@ -477,7 +493,14 @@ function sortTasks(tasks, sortBy) {
   });
   return sorted;
 }
-function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, sortBy = "priority", stateDisplayCounts, now = /* @__PURE__ */ new Date()) {
+function filterAndPaginate(tasksByState, states, options = {}) {
+  const {
+    filter,
+    limit = DEFAULT_LIMIT,
+    sortBy = "priority",
+    stateDisplayCounts,
+    now = /* @__PURE__ */ new Date()
+  } = options;
   const result = [];
   for (const state of states) {
     if (filter?.status && filter.status !== state.name) {
@@ -835,15 +858,12 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
     for (const task of parsed.tasks) indexTask(tasks, { task, state: state.name });
   }
   const viewStates = states.map(
-    (state) => filterAndPaginate(
-      tasksByState,
-      [state],
-      void 0,
-      options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
-      isCompletedState(state.name) ? "file" : "priority",
-      displayCounts,
-      options.now
-    ).states[0]
+    (state) => filterAndPaginate(tasksByState, [state], {
+      limit: options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
+      sortBy: isCompletedState(state.name) ? "file" : "priority",
+      stateDisplayCounts: displayCounts,
+      now: options.now
+    }).states[0]
   );
   const focusCandidates2 = FOCUS_ORDER.flatMap(
     (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))
