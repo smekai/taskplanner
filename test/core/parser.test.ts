@@ -519,11 +519,32 @@ describe('parseTimestamp', () => {
     expect(parseTimestamp('0100-01-01')?.toISOString()).toBe('0100-01-01T00:00:00.000Z');
   });
 
-  it('rejects anything that is not one of the two forms', () => {
+  it('accepts an ISO timestamp that names its zone, read as the instant it names', () => {
+    // Hand-edited or imported boards carry these; duplicate resolution must still rank them.
+    expect(parseTimestamp('2026-08-27T14:30:00.000Z')?.toISOString()).toBe(
+      '2026-08-27T14:30:00.000Z',
+    );
+    expect(parseTimestamp('2026-08-27T14:30:15Z')?.toISOString()).toBe('2026-08-27T14:30:15.000Z');
+    expect(parseTimestamp('2026-08-28T01:30+02:00')?.toISOString()).toBe(
+      '2026-08-27T23:30:00.000Z',
+    );
+    expect(parseTimestamp('2026-08-27T20:00:00-05:30')?.toISOString()).toBe(
+      '2026-08-28T01:30:00.000Z',
+    );
+  });
+
+  it('rejects an ISO timestamp whose fields would roll over', () => {
+    expect(parseTimestamp('2026-02-31T10:00:00Z')).toBeNull();
+    expect(parseTimestamp('2026-08-27T14:30:60Z')).toBeNull();
+    expect(parseTimestamp('2026-08-27T14:30:00+24:00')).toBeNull();
+  });
+
+  it('rejects anything that is not one of the board forms or a zoned ISO timestamp', () => {
     expect(parseTimestamp(undefined)).toBeNull();
     expect(parseTimestamp('')).toBeNull();
     expect(parseTimestamp('27/08/2026')).toBeNull();
-    expect(parseTimestamp('2026-08-27T14:30:00.000Z')).toBeNull();
+    // Without a zone the instant depends on the reader's clock, so it stays unparsed.
+    expect(parseTimestamp('2026-08-27T14:30:00')).toBeNull();
   });
 });
 

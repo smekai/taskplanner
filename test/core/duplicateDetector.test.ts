@@ -67,6 +67,28 @@ describe('duplicateDetector', () => {
     expect(resolution.remove).toHaveLength(1);
   });
 
+  it('resolveConflict keeps the newer copy when its updatedAt is an ISO timestamp with a zone', () => {
+    const tasksByState = new Map<string, Task[]>([
+      ['In Progress', [task('TASK-001', 'Old', '2026-11-26 09:00')]],
+      ['Backlog', [task('TASK-001', 'New', '2026-11-26T10:00:00Z')]],
+    ]);
+
+    const resolution = resolveConflict(detectDuplicates(tasksByState)[0], states);
+
+    expect(resolution.keep.task.title).toBe('New');
+  });
+
+  it('resolveConflict compares an ISO timestamp by its offset, not the machine time zone', () => {
+    const tasksByState = new Map<string, Task[]>([
+      ['Next', [task('TASK-001', 'Old', '2026-11-26T11:00:00+02:00')]],
+      ['Backlog', [task('TASK-001', 'New', '2026-11-26T09:30:00Z')]],
+    ]);
+
+    const resolution = resolveConflict(detectDuplicates(tasksByState)[0], states);
+
+    expect(resolution.keep.task.title).toBe('New');
+  });
+
   it('resolveConflict falls back to highest state order when updatedAt is missing', () => {
     const tasksByState = new Map<string, Task[]>([
       ['Backlog', [task('TASK-001', 'Backlog')]],

@@ -1,11 +1,37 @@
 // src/core/util/time.ts
 var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+var ZONED_ISO_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/;
+var MS_PER_MINUTE = 6e4;
 function parseTimestamp(value) {
-  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
+  const text = value?.trim() ?? "";
+  const zoned = ZONED_ISO_RE.exec(text);
+  if (zoned) return parseZonedIso(zoned);
+  const match = TIMESTAMP_RE.exec(text);
   if (!match) return null;
   const [year = 0, month = 0, day = 0, hour = 0, minute = 0] = match.slice(1).map((part) => Number(part ?? 0));
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
+  return utcDate(year, month, day, hour, minute, 0);
+}
+function parseZonedIso(match) {
+  const [
+    year = 0,
+    month = 0,
+    day = 0,
+    hour = 0,
+    minute = 0,
+    second = 0,
+    ,
+    offsetHours = 0,
+    offsetMinutes = 0
+  ] = match.slice(1).map((part) => Number(part ?? 0));
+  const wallClock = utcDate(year, month, day, hour, minute, second);
+  if (!wallClock) return null;
+  const offsetSign = match[7] === "-" ? -1 : 1;
+  const offset = offsetSign * (offsetHours * 60 + offsetMinutes);
+  return new Date(wallClock.getTime() - offset * MS_PER_MINUTE);
+}
+function utcDate(year, month, day, hour, minute, second) {
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute && date.getUTCSeconds() === second;
   return survivesRoundTrip ? date : null;
 }
 function currentDate(now = /* @__PURE__ */ new Date()) {
@@ -40,7 +66,7 @@ var MACROS = {
   "@hourly": "0 * * * *"
 };
 var SEARCH_DAYS = 366 * 29;
-var MS_PER_MINUTE = 6e4;
+var MS_PER_MINUTE2 = 6e4;
 var MS_PER_DAY = 864e5;
 function valueOf(token, spec) {
   if (/^\d+$/.test(token)) {
@@ -114,7 +140,7 @@ function lastAllowedAtOrBelow(allowed, limit) {
   return void 0;
 }
 function previousFire(schedule, now) {
-  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
+  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE2) * MS_PER_MINUTE2;
   const startOfToday = Math.floor(flooredNow / MS_PER_DAY) * MS_PER_DAY;
   for (let back = 0; back <= SEARCH_DAYS; back++) {
     const dayStart = startOfToday - back * MS_PER_DAY;
@@ -126,7 +152,7 @@ function previousFire(schedule, now) {
       const minuteLimit = today && hour === limit.getUTCHours() ? limit.getUTCMinutes() : 59;
       const minute = lastAllowedAtOrBelow(schedule.minutes, minuteLimit);
       if (minute !== void 0) {
-        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE);
+        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE2);
       }
       hour = lastAllowedAtOrBelow(schedule.hours, hour - 1);
     }
