@@ -524,6 +524,8 @@ async function checkRecurring(serverPath, installDir, tempRoot) {
   await withServer({ args: [serverPath], cwd: installDir, label: 'recurring' }, async (c) => {
     const refused = await raw(c, 'create', { title: 'Bad', repeats: 'every morning' });
     expect(refused.isError, 'create accepted "every morning" as a schedule.');
+    const unscheduled = await raw(c, 'create', { title: 'No schedule', state: 'Recurring' });
+    expect(unscheduled.isError, 'create put a task without a schedule into Recurring.');
 
     const created = await c.callTool(tool('create'), {
       workspace_root,

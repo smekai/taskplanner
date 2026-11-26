@@ -30,3 +30,27 @@ export function isDueWork(
 ): boolean {
   return !isCompletedStateName(stateName) && isDue(task.repeats, task.lastRun, now);
 }
+
+export const NEW_TASK_STATE_NAME = 'Backlog';
+
+export type NewTaskState = { state: TaskState } | { error: string };
+
+export function stateForNewTask(
+  states: readonly TaskState[],
+  requested: string | undefined,
+  repeats: string | undefined,
+): NewTaskState {
+  const byName = (name: string) =>
+    states.find((state) => state.name.toLowerCase() === name.toLowerCase());
+  const fallback = repeats
+    ? (byName(RECURRING_STATE_NAME) ?? byName(NEW_TASK_STATE_NAME))
+    : byName(NEW_TASK_STATE_NAME);
+  const state = requested ? byName(requested) : fallback;
+  if (!state) return { error: `Unknown state "${requested ?? NEW_TASK_STATE_NAME}".` };
+  if (state.name === RECURRING_STATE_NAME && !repeats) {
+    return {
+      error: `A task in ${RECURRING_STATE_NAME} needs a schedule: pass repeats, a cron expression in UTC such as "0 7 * * *".`,
+    };
+  }
+  return { state };
+}
