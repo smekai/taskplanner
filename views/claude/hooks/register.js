@@ -476,7 +476,14 @@ function sortTasks(tasks, sortBy) {
   });
   return sorted;
 }
-function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, sortBy = "priority", stateDisplayCounts, now = /* @__PURE__ */ new Date()) {
+function filterAndPaginate(tasksByState, states, options = {}) {
+  const {
+    filter,
+    limit = DEFAULT_LIMIT,
+    sortBy = "priority",
+    stateDisplayCounts,
+    now = /* @__PURE__ */ new Date()
+  } = options;
   const result = [];
   for (const state of states) {
     if (filter?.status && filter.status !== state.name) {
@@ -834,15 +841,12 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
     for (const task of parsed.tasks) indexTask(tasks, { task, state: state.name });
   }
   const viewStates = states.map(
-    (state) => filterAndPaginate(
-      tasksByState,
-      [state],
-      void 0,
-      options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
-      isCompletedState(state.name) ? "file" : "priority",
-      displayCounts,
-      options.now
-    ).states[0]
+    (state) => filterAndPaginate(tasksByState, [state], {
+      limit: options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
+      sortBy: isCompletedState(state.name) ? "file" : "priority",
+      stateDisplayCounts: displayCounts,
+      now: options.now
+    }).states[0]
   );
   const focusCandidates2 = FOCUS_ORDER.flatMap(
     (name) => sortTasks(tasksByState.get(name) ?? [], "priority").map((task) => ({ task, state: name }))

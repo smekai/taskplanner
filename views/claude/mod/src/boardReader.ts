@@ -84,15 +84,12 @@ export function buildBoard(
   }
   const viewStates = states.map(
     (state) =>
-      filterAndPaginate(
-        tasksByState,
-        [state],
-        undefined,
-        options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
-        isCompletedState(state.name) ? 'file' : 'priority',
-        displayCounts,
-        options.now,
-      ).states[0],
+      filterAndPaginate(tasksByState, [state], {
+        limit: options.expandedStates.has(state.name) ? null : BOARD_TASK_LIMIT,
+        sortBy: isCompletedState(state.name) ? 'file' : 'priority',
+        stateDisplayCounts: displayCounts,
+        now: options.now,
+      }).states[0],
   );
   const focusCandidates = FOCUS_ORDER.flatMap((name) =>
     sortTasks(tasksByState.get(name) ?? [], 'priority').map((task) => ({ task, state: name })),

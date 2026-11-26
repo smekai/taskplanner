@@ -277,26 +277,19 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     const allTasks = this.taskStore.getAllTasks();
     const displayCounts = this.taskStore.getStateDisplayCounts();
 
-    const groups = groupTasks(
-      allTasks,
-      states,
-      groupBy,
-      this.filter,
-      undefined,
-      this.sortBy,
-      displayCounts,
-    );
+    const groups = groupTasks(allTasks, states, groupBy, {
+      filter: this.filter,
+      sortBy: this.sortBy,
+      stateDisplayCounts: displayCounts,
+    });
 
     if (this.showAllForGroup.size > 0) {
-      const unlimitedGroups = groupTasks(
-        allTasks,
-        states,
-        groupBy,
-        this.filter,
-        null,
-        this.sortBy,
-        displayCounts,
-      );
+      const unlimitedGroups = groupTasks(allTasks, states, groupBy, {
+        filter: this.filter,
+        limit: null,
+        sortBy: this.sortBy,
+        stateDisplayCounts: displayCounts,
+      });
       for (const group of groups) {
         if (this.showAllForGroup.has(group.label)) {
           const full = unlimitedGroups.find((g) => g.label === group.label);

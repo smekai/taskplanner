@@ -22,12 +22,10 @@ export function buildBoardViewModel(
   const allTasks = taskStore.getAllTasks();
   const filter: TaskFilter | undefined = query ? { query } : undefined;
   const displayCounts = taskStore.getStateDisplayCounts();
-  return filterAndPaginate(
-    allTasks,
-    states,
+  return filterAndPaginate(allTasks, states, {
     filter,
-    opts.limit,
-    opts.sortBy ?? 'priority',
-    displayCounts,
-  );
+    limit: opts.limit,
+    sortBy: opts.sortBy,
+    stateDisplayCounts: displayCounts,
+  });
 }

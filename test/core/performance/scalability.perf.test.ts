@@ -76,21 +76,19 @@ describe('scalability (timing smoke)', () => {
     ]);
 
     const t0 = performance.now();
-    const groups = groupTasks(
-      tasksByState,
-      sampleStates,
-      'status',
-      undefined,
-      50,
-      'priority',
-      displayCounts,
-    );
+    const groups = groupTasks(tasksByState, sampleStates, 'status', {
+      limit: 50,
+      stateDisplayCounts: displayCounts,
+    });
     const gMs = performance.now() - t0;
     expect(groups.length).toBeGreaterThan(0);
     expect(gMs).toBeLessThan(15_000);
 
     const t1 = performance.now();
-    const view = filterAndPaginate(tasksByState, sampleStates, undefined, 50, 'priority', displayCounts);
+    const view = filterAndPaginate(tasksByState, sampleStates, {
+      limit: 50,
+      stateDisplayCounts: displayCounts,
+    });
     const fMs = performance.now() - t1;
     expect(view.states.length).toBeGreaterThan(0);
     expect(fMs).toBeLessThan(15_000);

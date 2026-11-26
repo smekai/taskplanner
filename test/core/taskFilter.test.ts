@@ -93,7 +93,7 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, { status: 'Backlog' });
+    const result = filterAndPaginate(tasksByState, states, { filter: { status: 'Backlog' } });
     expect(result.states).toHaveLength(1);
     expect(result.states[0].name).toBe('Backlog');
   });
@@ -105,7 +105,7 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, { query: '001' });
+    const result = filterAndPaginate(tasksByState, states, { filter: { query: '001' } });
     expect(result.states[0].tasks).toHaveLength(1);
     expect(result.states[0].tasks[0].id).toBe('TASK-001');
   });
@@ -117,7 +117,7 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, { query: 'LOGIN' });
+    const result = filterAndPaginate(tasksByState, states, { filter: { query: 'LOGIN' } });
     expect(result.states[0].tasks).toHaveLength(1);
     expect(result.states[0].tasks[0].title).toBe('Fix login bug');
   });
@@ -142,7 +142,7 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, undefined, null);
+    const result = filterAndPaginate(tasksByState, states, { limit: null });
     expect(result.states[0].tasks).toHaveLength(60);
     expect(result.states[0].hasMore).toBe(false);
   });
@@ -154,7 +154,9 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, { status: 'Backlog', query: 'fix' });
+    const result = filterAndPaginate(tasksByState, states, {
+      filter: { status: 'Backlog', query: 'fix' },
+    });
     expect(result.states).toHaveLength(1);
     expect(result.states[0].tasks).toHaveLength(1);
     expect(result.states[0].tasks[0].id).toBe('TASK-001');
@@ -173,7 +175,7 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, { tag: 'ui' });
+    const result = filterAndPaginate(tasksByState, states, { filter: { tag: 'ui' } });
     expect(result.states[0].tasks).toHaveLength(1);
     expect(result.states[0].tasks[0].id).toBe('TASK-001');
     expect(result.states[1].tasks).toHaveLength(1);
@@ -190,7 +192,7 @@ describe('filterAndPaginate', () => {
       ['Done', []],
     ]);
 
-    const result = filterAndPaginate(tasksByState, states, { query: 'feature' });
+    const result = filterAndPaginate(tasksByState, states, { filter: { query: 'feature' } });
     expect(result.states[0].tasks).toHaveLength(1);
     expect(result.states[0].tasks[0].id).toBe('TASK-001');
   });
@@ -209,9 +211,7 @@ describe('filterAndPaginate', () => {
     ]);
 
     const result = filterAndPaginate(tasksByState, states, {
-      status: 'Backlog',
-      tag: 'ui',
-      query: 'fix',
+      filter: { status: 'Backlog', tag: 'ui', query: 'fix' },
     });
     expect(result.states).toHaveLength(1);
     expect(result.states[0].tasks).toHaveLength(1);
