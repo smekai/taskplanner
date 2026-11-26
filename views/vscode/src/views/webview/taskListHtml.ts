@@ -2,7 +2,13 @@ import * as vscode from 'vscode';
 import { Task } from '../../../../../src/core/model/task.js';
 import { TaskState } from '../../../../../src/core/model/state.js';
 import { TaskListSortBy } from '../../../../../src/core/filter/taskFilter.js';
-import { TaskFilter, GroupViewData, TaskViewItem } from '../../../../../src/core/model/messages.js';
+import {
+  GROUP_BY_VALUES,
+  GroupBy,
+  GroupViewData,
+  TaskFilter,
+  TaskViewItem,
+} from '../../../../../src/core/model/messages.js';
 import { getWebviewHtml } from './webviewHelper.js';
 import { scriptJson } from './scriptJson.js';
 import { escapeAttr, escapeHtml } from './htmlEscape.js';
@@ -19,6 +25,14 @@ export interface TaskListPage {
   toggledGroups: ReadonlySet<string>;
   parseWarningBanner: string;
 }
+
+const GROUP_BY_LABELS: Record<GroupBy, string> = {
+  status: 'Status',
+  assignee: 'Assignee',
+  epic: 'Epic',
+  date: 'Date',
+  none: 'No grouping',
+};
 
 export function welcomeHtml(webview: vscode.Webview): string {
   const body = `
@@ -101,18 +115,10 @@ export function taskListHtml(page: TaskListPage): string {
     })
     .join('\n');
 
-  const groupByItems = [
-    { value: 'status', label: 'Status' },
-    { value: 'assignee', label: 'Assignee' },
-    { value: 'epic', label: 'Epic' },
-    { value: 'date', label: 'Date' },
-    { value: 'none', label: 'No grouping' },
-  ]
-    .map(
-      (o) =>
-        `<div class="popup-item${groupBy === o.value ? ' active' : ''}" data-action="setGroupBy" data-value="${o.value}">${o.label}</div>`,
-    )
-    .join('\n');
+  const groupByItems = GROUP_BY_VALUES.map(
+    (value) =>
+      `<div class="popup-item${groupBy === value ? ' active' : ''}" data-action="setGroupBy" data-value="${value}">${GROUP_BY_LABELS[value]}</div>`,
+  ).join('\n');
 
   const sortByItems = [
     { value: 'priority', label: 'Priority' },

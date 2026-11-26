@@ -284,14 +284,6 @@ describe('groupBy vocabulary', () => {
     expect([...enumValues].sort()).toEqual([...GROUP_BY_VALUES].sort());
   });
 
-  it('matches the grouping menu offered in the task list panel', () => {
-    const panel = fs.readFileSync('views/vscode/src/views/webview/taskListHtml.ts', 'utf8');
-    const block = /const groupByItems = \[([\s\S]*?)\]/.exec(panel);
-    expect(block).not.toBeNull();
-    const offered = [...block![1].matchAll(/value: '([^']+)'/g)].map((m) => m[1]);
-    expect(offered.sort()).toEqual([...GROUP_BY_VALUES].sort());
-  });
-
   // Board timestamps are "YYYY-MM-DD HH:MM"; grouping by date must bucket by day, not by minute.
   it('groups tasks updated on the same day into one date group', () => {
     const tasks = new Map<string, Task[]>([
