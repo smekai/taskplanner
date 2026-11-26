@@ -94,14 +94,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
   registerInitCommand(context, configManager, fileStore, taskStore, installedVersion);
   registerInitAiCommand(context, configManager, installedVersion);
-  registerSetupCommand(
-    context,
+  registerSetupCommand(context, {
     tasksDir,
     configManager,
-    workspaceFolder.uri.fsPath,
+    workspaceRoot: workspaceFolder.uri.fsPath,
     installedVersion,
     taskStore,
-  );
+  });
   registerCreateTaskCommand(context, taskStore, configManager);
   registerMoveTaskCommand(context, taskStore, configManager);
   registerOpenTaskCommand(context, taskStore, fileStore, configManager);
