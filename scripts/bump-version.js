@@ -68,10 +68,15 @@ if (fs.existsSync(mcpServerPath)) {
   fs.writeFileSync(mcpServerPath, updated);
 }
 
+const SERVER_INFO_VERSION = /(name:\s*["']taskplanner["'],\s*version:\s*["'])[^"']+/;
+
 for (const bundlePath of bundlePaths) {
   if (!fs.existsSync(bundlePath)) continue;
   const source = fs.readFileSync(bundlePath, 'utf8');
-  fs.writeFileSync(bundlePath, source.replaceAll(previousVersion, pkg.version));
+  if (!SERVER_INFO_VERSION.test(source)) {
+    throw new Error(`${path.relative(repo, bundlePath)} has no server version to bump; rebuild it.`);
+  }
+  fs.writeFileSync(bundlePath, source.replace(SERVER_INFO_VERSION, `$1${pkg.version}`));
 }
 
 for (const skillPath of skillVersionPaths) {
