@@ -1,5 +1,68 @@
 # Done
 
+## TASK-094: 3.1 phase F: code quality pass before the release
+**Priority:** P1 | **Tags:** refactor, testing | **Epic:** 3.1
+**Updated:** 2026-11-26 10:08
+
+Phase F of TASK-088. Starts after phases A–E (TASK-087, TASK-089…092) and before the release (TASK-093, now phase G).
+
+Run the project skill `/code-quality` (`.claude/skills/code-quality/SKILL.md`) over everything since `v3.0.12`. One file holds the standard (the Isotopy standard adapted to this repo) and the pass:
+- **Part 1, code:** simplicity first (smallest correct change, replace don't accumulate), then A1–A9: comments are a smell, SOLID and interfaces, fat domain and thin edges, named shapes, strict types, evidence in Markdown, judged by tier. Plus errors and cross-platform.
+- **Part 2, tests:** AAAAA, one action per test, no logic in a test body, generators over flag factories, component tests first, the mutation check.
+- **Part 3, the pass**, in two phases:
+  - **Analyse:**
+    - Take a green baseline.
+    - Run the measurements and the board invariants.
+    - Read the diff and the hotspots against every rule.
+    - Run `/code-review` on the release diff.
+    - Write a ranked report into this task's `### Plan`, each finding naming its rule.
+  - **Improve:** only the groups the user accepts, one finding per commit, behaviour and the public API unchanged. Anything deferred becomes its own Backlog task.
+
+Already seen (2026-11-25):
+- **Size and counts:**
+  - `taskListPanel.ts` (1609 lines) and `kanbanPanel.ts` (1050) are the largest files (A9).
+  - 37 complexity candidates.
+  - 128 hard-coded state-name literals (A6). Phase C adds `'Recurring'` to several views.
+  - 8 type escapes (A7).
+  - `noUncheckedIndexedAccess` is off.
+- **Phase A and B code, against the standard:**
+  - **A3:** "a new task with `repeats` and no state goes to Recurring" is decided in `mcp/src/server.ts` (TASK-089); it belongs in core.
+  - **A1/A8:** the `WHY:` in `configManager.addRecurringState` (version gating) and the search-span `WHY:` in `cron.ts` explain design choices, not local logic, so they move to docs or the Plan.
+  - **Tests:** "keeps only the latest MAX_RUNS entries" in `taskStore.test.ts` has a `for` loop in its body, and the new store tests have no Arrange/Act/Assert banners.
+- **Tooling:** `scripts/bump-version.js` replaces the old version string everywhere in the built bundles, not just the version field. An example text containing the version ("all stores on 3.0.30") made the committed bundles differ from a clean build and failed CI on PR #42. Bump the version field only, or rebuild after the bump.
+
+**Done looks like:** every "fix before release" finding is fixed. Tests have not shrunk without a reason, bundles have not grown, lint warnings have not increased. Deferred items have task IDs.
+
+### Plan
+
+Done, 2026-11-26. Analysed `v3.0.12...HEAD` with lint, `tsc --noUnusedLocals/--noUnusedParameters`, ESLint complexity rules, a read and `/code-review` (no npx tools, no coverage: the user's call). The user took all three groups, one PR each: #48 (group 1), #49 (group 2), #50 (group 3), stacked in that order.
+
+**Group 1, fix before release (#48):**
+- Open VS Code and MCP App views re-check due flags every minute (`watchDueFlags`), so a recurring task turns due when its schedule fires.
+- Due counts and `due: true` skip Done and Rejected (`isDueWork` in core).
+- A new task's state is a core rule (`stateForNewTask`): repeats without a state go to Recurring, and Recurring without a schedule is refused.
+- `bump-version.js` bumps only the version fields in bundles.
+
+**Group 2, worth it now (#49):**
+- `filterAndPaginate`/`groupTasks` take a named options object.
+- An invalid config `version` is treated as unversioned, so the Recurring migration runs.
+- `recordRun` uses one clock; the duplicate detector parses `Updated` as UTC.
+- The design `WHY:` moved to `CLAUDE.md`; store tests got phase banners and lost their loop.
+- The skill dropped npx tools and coverage.
+
+**Group 3, larger reshapes (#50):**
+- Lint rejects `if`/`for`/`while`/`try` in a test body.
+- State names are one constant in core (`STATE_NAMES`).
+- Date grouping buckets by day, not minute (found during the pass; CHANGELOG line).
+- `noUncheckedIndexedAccess` is on in all three tsconfigs.
+- `groupTasks`, the section parser, the mod's `register()` and the VS Code setup command are split into named steps.
+- VS Code webviews: the panels keep state and messaging; list, detail, kanban pages, the parse-warning banner, escaping and opening a board file are their own modules. `handleMessage` complexity 47 → flat dispatch. The grouping menu is built from `GROUP_BY_VALUES`.
+
+**Against the baseline:** tests 515 → 532 (one deleted: a regex check of panel source that the compiler now holds). Lint warnings 2 → 2. Bundles: `extension.js` −74 B, `mcp-server.js` +753 B, `register.js` +1 410 B, from the new group 1 behaviour and explicit index narrowing.
+
+**Deferred:** TASK-096 (type the mod kit test to clear the last 2 lint warnings).
+
+---
 ## TASK-092: 3.1 phase E: skip writing a state file when nothing changed
 **Priority:** P1 | **Tags:** core | **Epic:** 3.1
 **Updated:** 2026-11-25 20:05
@@ -272,18 +335,5 @@ Done:
 - New Install section for Claude Code and Desktop (repository marketplace, not yet in the official directory), Codex, Cursor, VS Code and any MCP host. Commands checked against `claude plugin` and `codex plugin` help.
 - Usage table between `README-STATS` markers, written by `scripts/update-readme-stats.js` (`npm run readme:stats`) from the release watch's `history.jsonl`; tested in `test/scripts/`.
 - The daily `taskplanner-release-watch` job (outside the repo) now rebuilds `feature/readme-stats` from origin/main in its own worktree, refreshes the table and keeps one PR open; it never merges. It starts working once this PR is on main.
-
----
-## TASK-083: Claude: dismiss the "no board here" setup band per folder
-**Priority:** P2 | **Tags:** ui, feature
-**Updated:** 2026-11-11 22:08
-
-In Claude Code the band above the prompt says `TaskPlanner · no board here` with `Set up` in every folder without `.tasks/config.json`, and cannot be closed.
-
-Add a close button; pressing it asks for confirmation that the band will not come back in this folder (`/taskboard` still offers setup). On confirm, remember the folder in the plugin store (`$.store`) and stop drawing the band there. Other platforms have no such band.
-
-### Plan
-
-Done: the setup band has a close button (`role: 'dismiss'`) that switches to "Never show this here again? Ask Claude to bring it back." with Hide / Cancel. Hide sets `setupDismissed:<session root>` to `true` in `$.store`, one key per folder so concurrent sessions and failed reads cannot drop other folders. The mod also registers a `setup_band` tool (`show: boolean`) so Claude can hide the band or bring it back on request. The store is read before the band first draws, so it never flashes. Covered by paneView/boardModel specs and mod kit tests (hide flow, unreadable store, tool hide/show, previously hidden folder).
 
 ---

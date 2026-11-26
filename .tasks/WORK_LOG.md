@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-094 — 2026-11-26
+**What:** 3.1 code-quality pass over `v3.0.12...HEAD`: due-flag and due-count fixes, the new-task state rule moved to core, config/clock/date fixes, `noUncheckedIndexedAccess`, a lint rule against logic in tests, and the VS Code webviews split into page modules.
+**Decisions:** No npx analysis tools and no coverage (lint, tsc and reading are enough); one PR per group (#48, #49, #50, stacked); duplication between harnesses stays allowed.
+**Outcome:** Tests 515 → 532, lint warnings unchanged at 2 (TASK-096), MCP and mod bundles grew slightly from new behaviour.
+
+---
+
 ## TASK-092 — 2026-11-25
 **What:** Closed without code: skipping an unchanged state-file write already shipped in 3.0 (TASK-077, ef92791) with a test that fails when the guard is removed.
 **Outcome:** TASK-064 keeps parts 2 and 3; the 3.1 epic lists phase E as already delivered.
