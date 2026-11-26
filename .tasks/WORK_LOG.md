@@ -15,6 +15,13 @@ Top-level trace of completed work and key decisions. One entry per task moved to
 
 ---
 
+## TASK-091 — 2026-11-26
+**What:** The daily release watch is TASK-095 on the board (`0 8 * * *` UTC) and records each run with `taskplanner_record_run`.
+**Decisions:** Runs are recorded in the watch's own worktree and ride the daily README stats PR, so the main checkout stays untouched; `main` reads as due until that PR merges. 08:00 UTC fits the 10:00 local run in winter and summer.
+**Outcome:** First scheduled run (2026-11-26) recorded through the tool; PR #46 carries it.
+
+---
+
 ## TASK-092 — 2026-11-25
 **What:** Closed without code: skipping an unchanged state-file write already shipped in 3.0 (TASK-077, ef92791) with a test that fails when the guard is removed.
 **Outcome:** TASK-064 keeps parts 2 and 3; the 3.1 epic lists phase E as already delivered.
