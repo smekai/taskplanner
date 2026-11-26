@@ -1752,148 +1752,158 @@ async function runBoardCommand($) {
   await openPane($);
   return {};
 }
+async function startSession($) {
+  await $.command.register({
+    name: "taskboard",
+    description: "Open the TaskPlanner board pane",
+    immediate: true
+  }).catch((error) => {
+    errorText = errorMessage(error);
+  });
+  setUpBandTool = await $.tool.register(SETUP_BAND_TOOL).then(({ tool }) => tool).catch(() => null);
+  hasTextScale = await $.session.version().then(({ version }) => supportsTextScale(version)).catch(() => false);
+  $.clock.after(0, () => {
+    void resumeAfterLoad($);
+  });
+}
+function paneModel(e) {
+  return {
+    board,
+    tab: activeTab,
+    detail,
+    draft,
+    notice,
+    error: errorText,
+    issueCount,
+    isLoading,
+    isMissingBoard,
+    columns: e.props.bodyColumns,
+    surface: e.surface,
+    hasTextScale
+  };
+}
+function paneActions($) {
+  return {
+    selectTab: (state) => {
+      notice = null;
+      void selectTab($, state);
+    },
+    openTask: (id, state) => openTask($, id, state),
+    showAll: (state) => {
+      void showAll($, state);
+    },
+    back: () => {
+      detail = null;
+      notice = null;
+      $.ui.invalidate("ui.render");
+    },
+    move: (id, target) => {
+      void moveTask($, id, target);
+    },
+    start: (task) => {
+      void $.prompt.submit({ text: startPrompt(task), asUser: true });
+    },
+    refresh: () => {
+      void refreshBoard($);
+    },
+    edit: (task) => {
+      void editTask($, task);
+    },
+    newTask: () => {
+      draft = startDraft(board);
+      detail = null;
+      notice = null;
+      $.ui.invalidate("ui.render");
+    },
+    cancelNew: () => {
+      draft = null;
+      $.ui.invalidate("ui.render");
+    },
+    setDraftTitle: (title) => {
+      if (draft) draft = { ...draft, title };
+    },
+    setDraftPriority: (priority) => {
+      if (draft) draft = { ...draft, priority };
+      $.ui.invalidate("ui.render");
+    },
+    setDraftState: (state) => {
+      if (draft) draft = { ...draft, state };
+      $.ui.invalidate("ui.render");
+    },
+    create: () => {
+      void createTask($);
+    },
+    setUp: () => {
+      void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+    }
+  };
+}
+function setUpBandActions($) {
+  return {
+    setUp: () => {
+      void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
+    },
+    askDismiss: () => {
+      isConfirmingSetUpDismiss = true;
+      setUpFailure = null;
+      $.ui.invalidate("ui.render");
+    },
+    confirmDismiss: () => {
+      setSetUpHidden($, true).catch((error) => {
+        isConfirmingSetUpDismiss = false;
+        setUpFailure = errorMessage(error);
+        $.ui.invalidate("ui.render");
+      });
+    },
+    cancelDismiss: () => {
+      isConfirmingSetUpDismiss = false;
+      $.ui.invalidate("ui.render");
+    }
+  };
+}
+async function renderAbovePrompt($, e, next) {
+  if (e.props.hasSurvey) return next(e);
+  if (isMissingBoard) {
+    if (isSetUpDismissed) return next(e);
+    const elements2 = $.ui.resolve(e);
+    const below2 = await next(e);
+    const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
+    return renderSetUpBand(elements2, e.props.bodyColumns, below2, state, setUpBandActions($));
+  }
+  const focus = focusTask(focusCandidates);
+  const recurringDue = board ? boardDueCount(board) : 0;
+  if (!focus && recurringDue === 0) return next(e);
+  const elements = $.ui.resolve(e);
+  const below = await next(e);
+  const open = () => {
+    void openPane($);
+  };
+  if (!focus) {
+    return renderDueBand(elements, recurringDue, e.props.bodyColumns, below, open);
+  }
+  const band = { id: focus.task.id, title: focus.task.title, state: focus.state, recurringDue };
+  return renderBand(elements, band, e.props.bodyColumns, below, {
+    open,
+    start: () => {
+      void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
+    }
+  });
+}
 function register(on) {
   on("session.start", async ($, e, next) => {
-    await $.command.register({
-      name: "taskboard",
-      description: "Open the TaskPlanner board pane",
-      immediate: true
-    }).catch((error) => {
-      errorText = errorMessage(error);
-    });
-    setUpBandTool = await $.tool.register(SETUP_BAND_TOOL).then(({ tool }) => tool).catch(() => null);
-    hasTextScale = await $.session.version().then(({ version }) => supportsTextScale(version)).catch(() => false);
-    $.clock.after(0, () => {
-      void resumeAfterLoad($);
-    });
+    await startSession($);
     return next(e);
   });
   on("command.run", { command: "taskboard" }, ($) => runBoardCommand($));
   on("command.run", { command: "taskplanner:board" }, ($) => runBoardCommand($)).catch(
     (_engine, e, next) => next(e)
   );
-  on("ui.render", { component: "Pane", requestId: "taskplanner" }, async ($, e) => {
-    const elements = $.ui.resolve(e);
-    return renderPane(
-      elements,
-      {
-        board,
-        tab: activeTab,
-        detail,
-        draft,
-        notice,
-        error: errorText,
-        issueCount,
-        isLoading,
-        isMissingBoard,
-        columns: e.props.bodyColumns,
-        surface: e.surface,
-        hasTextScale
-      },
-      {
-        selectTab: (state) => {
-          notice = null;
-          void selectTab($, state);
-        },
-        openTask: (id, state) => openTask($, id, state),
-        showAll: (state) => {
-          void showAll($, state);
-        },
-        back: () => {
-          detail = null;
-          notice = null;
-          $.ui.invalidate("ui.render");
-        },
-        move: (id, target) => {
-          void moveTask($, id, target);
-        },
-        start: (task) => {
-          void $.prompt.submit({ text: startPrompt(task), asUser: true });
-        },
-        refresh: () => {
-          void refreshBoard($);
-        },
-        edit: (task) => {
-          void editTask($, task);
-        },
-        newTask: () => {
-          draft = startDraft(board);
-          detail = null;
-          notice = null;
-          $.ui.invalidate("ui.render");
-        },
-        cancelNew: () => {
-          draft = null;
-          $.ui.invalidate("ui.render");
-        },
-        setDraftTitle: (title) => {
-          if (draft) draft = { ...draft, title };
-        },
-        setDraftPriority: (priority) => {
-          if (draft) draft = { ...draft, priority };
-          $.ui.invalidate("ui.render");
-        },
-        setDraftState: (state) => {
-          if (draft) draft = { ...draft, state };
-          $.ui.invalidate("ui.render");
-        },
-        create: () => {
-          void createTask($);
-        },
-        setUp: () => {
-          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
-        }
-      }
-    );
-  });
-  on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e);
-    if (isMissingBoard) {
-      if (isSetUpDismissed) return next(e);
-      const elements2 = $.ui.resolve(e);
-      const below2 = await next(e);
-      const state = { isConfirmingDismiss: isConfirmingSetUpDismiss, failure: setUpFailure };
-      return renderSetUpBand(elements2, e.props.bodyColumns, below2, state, {
-        setUp: () => {
-          void $.prompt.submit({ text: SETUP_PROMPT, asUser: true });
-        },
-        askDismiss: () => {
-          isConfirmingSetUpDismiss = true;
-          setUpFailure = null;
-          $.ui.invalidate("ui.render");
-        },
-        confirmDismiss: () => {
-          setSetUpHidden($, true).catch((error) => {
-            isConfirmingSetUpDismiss = false;
-            setUpFailure = errorMessage(error);
-            $.ui.invalidate("ui.render");
-          });
-        },
-        cancelDismiss: () => {
-          isConfirmingSetUpDismiss = false;
-          $.ui.invalidate("ui.render");
-        }
-      });
-    }
-    const focus = focusTask(focusCandidates);
-    const recurringDue = board ? boardDueCount(board) : 0;
-    if (!focus && recurringDue === 0) return next(e);
-    const elements = $.ui.resolve(e);
-    const below = await next(e);
-    const open = () => {
-      void openPane($);
-    };
-    if (!focus) {
-      return renderDueBand(elements, recurringDue, e.props.bodyColumns, below, open);
-    }
-    const band = { id: focus.task.id, title: focus.task.title, state: focus.state, recurringDue };
-    return renderBand(elements, band, e.props.bodyColumns, below, {
-      open,
-      start: () => {
-        void $.prompt.submit({ text: startPrompt(taskDetailOf(focus)), asUser: true });
-      }
-    });
-  });
+  on(
+    "ui.render",
+    { component: "Pane", requestId: "taskplanner" },
+    async ($, e) => renderPane($.ui.resolve(e), paneModel(e), paneActions($))
+  );
+  on("ui.render", { component: "AbovePrompt" }, renderAbovePrompt);
   on("ui.press", async ($, e, next) => {
     if (!isOwnPlugin(e.plugin)) return next(e);
     if (e.element === "create-task" && draft) {
