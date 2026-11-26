@@ -247,15 +247,13 @@ test('/taskboard opens the pane from the .tasks files with no MCP call', async (
   await $.command.run({ command: 'taskboard', args: '' });
   expect(world.opened).toEqual(['taskplanner']);
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ ...PANE, surface });
+  await onEverySurface($, PANE, async (ui) => {
     expect(await ui.find({ key: 'task-TASK-001' })).toBeDefined();
     expect(await ui.find({ key: 'task-TASK-002' })).toBeUndefined();
     await ui.press({ key: 'tab-backlog' });
     expect(await ui.find({ key: 'task-TASK-002' })).toBeDefined();
     await ui.press({ key: 'tab-in-progress' });
-    await ui.unmount();
-  }
+  });
   expect(world.calls).toEqual([]);
 });
 
@@ -361,12 +359,10 @@ test('the band shows the In Progress task beside what others draw and opens the 
   const world = engine(on);
   await startSession($, world.clock);
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const band = await $.ui.mount({ ...BAND, surface });
+  await onEverySurface($, BAND, async (band) => {
     expect(await band.find({ type: 'Text', text: /TASK-001 · First task/ })).toBeDefined();
     expect(await band.find({ type: 'Text', text: 'drawn by Claude Code' })).toBeDefined();
-    await band.unmount();
-  }
+  });
 
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' });
   expect(await band.find({ key: 'taskplanner-start' })).toBeUndefined();
@@ -575,12 +571,8 @@ test('a folder hidden earlier draws no setup band but the pane still offers setu
 
 test('with no surface attached the commands answer with the board digest', async ($, on) => {
   const world = engine(on, { surfaces: [] });
-  for (const command of ['taskboard', 'taskplanner:board']) {
-    const answer = await $.command.run({ command, args: '' });
-    expect(answer.text).toBe(
-      'Backlog 1 · Next 0 · In Progress 1 · Done 2 · Rejected 0\n- In Progress: TASK-001 P1 First task',
-    );
-  }
+  const answers = await runEach($, ['taskboard', 'taskplanner:board']);
+  expect(answers).toEqual([DIGEST, DIGEST]);
   expect(world.opened).toEqual([]);
 });
 
@@ -609,11 +601,9 @@ test('a new task is created through the server and opens', async ($, on) => {
   await startSession($, world.clock);
   await $.command.run({ command: 'taskboard', args: '' });
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ ...PANE, surface });
+  await onEverySurface($, PANE, async (ui) => {
     expect(await ui.find({ key: 'new-task' })).toBeDefined();
-    await ui.unmount();
-  }
+  });
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
   await ui.press({ key: 'new-task' });
@@ -734,3 +724,35 @@ test('after /cd to another project the pane reads and writes the new board', asy
   await ui.press({ key: 'move-next' });
   expect(world.calls[0]?.args.workspace_root).toBe('/other');
 });
+
+const DIGEST =
+  'Backlog 1 · Next 0 · In Progress 1 · Done 2 · Rejected 0\n- In Progress: TASK-001 P1 First task';
+
+interface MountedUi {
+  find: (query: object) => Promise<unknown>;
+  press: (query: object) => Promise<void>;
+  unmount: () => Promise<void>;
+}
+
+interface KitEngine {
+  ui: { mount: (target: object) => Promise<MountedUi> };
+  command: { run: (input: { command: string; args: string }) => Promise<{ text: string }> };
+}
+
+async function onEverySurface(
+  $: KitEngine,
+  target: object,
+  check: (ui: MountedUi) => Promise<void>,
+) {
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...target, surface });
+    await check(ui);
+    await ui.unmount();
+  }
+}
+
+async function runEach($: KitEngine, commands: string[]): Promise<string[]> {
+  const answers: string[] = [];
+  for (const command of commands) answers.push((await $.command.run({ command, args: '' })).text);
+  return answers;
+}

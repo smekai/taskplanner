@@ -90,18 +90,22 @@ describe('generateAiInstructions', () => {
     expect(claudeMd).toContain('trim `### Plan` to a done-summary');
   });
 
-  it('names the MCP tools and prefers them over hand-editing', () => {
+  it.each([
+    'taskplanner_list',
+    'taskplanner_board',
+    'taskplanner_get',
+    'taskplanner_create',
+    'taskplanner_move',
+    'taskplanner_update',
+  ])('names the MCP tool %s', (tool) => {
     const { claudeMd } = generateAiInstructions(createDefaultConfig());
-    for (const tool of [
-      'taskplanner_list',
-      'taskplanner_board',
-      'taskplanner_get',
-      'taskplanner_create',
-      'taskplanner_move',
-      'taskplanner_update',
-    ]) {
-      expect(claudeMd).toContain(tool);
-    }
+
+    expect(claudeMd).toContain(tool);
+  });
+
+  it('prefers the MCP tools over hand-editing', () => {
+    const { claudeMd } = generateAiInstructions(createDefaultConfig());
+
     expect(claudeMd).toContain('do not hand-edit these files');
   });
 

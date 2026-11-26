@@ -292,11 +292,11 @@ describe('groupBy vocabulary', () => {
     expect(offered.sort()).toEqual([...GROUP_BY_VALUES].sort());
   });
 
-  it('groups every declared value without falling through', () => {
+  it.each(GROUP_BY_VALUES)('groups by %s without falling through', (value) => {
     const tasks = new Map<string, Task[]>([['Backlog', [makeTask('TASK-001', 'One')]]]);
-    for (const value of GROUP_BY_VALUES) {
-      const groups = groupTasks(tasks, states, value);
-      expect(groups.some((g) => g.tasks.length > 0)).toBe(true);
-    }
+
+    const groups = groupTasks(tasks, states, value);
+
+    expect(groups.some((g) => g.tasks.length > 0)).toBe(true);
   });
 });
