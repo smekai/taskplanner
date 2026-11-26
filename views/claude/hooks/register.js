@@ -1,3 +1,172 @@
+// src/core/util/time.ts
+var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
+function parseTimestamp(value) {
+  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
+  return survivesRoundTrip ? date : null;
+}
+function currentDate(now = /* @__PURE__ */ new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
+  const until = parseTimestamp(waitingUntil);
+  return until !== null && currentDate(until) > currentDate(now);
+}
+
+// src/core/util/cron.ts
+var MINUTE = { min: 0, max: 59 };
+var HOUR = { min: 0, max: 23 };
+var DAY_OF_MONTH = { min: 1, max: 31 };
+var MONTH = {
+  min: 1,
+  max: 12,
+  names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+};
+var DAY_OF_WEEK = {
+  min: 0,
+  max: 7,
+  names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+};
+var MACROS = {
+  "@yearly": "0 0 1 1 *",
+  "@annually": "0 0 1 1 *",
+  "@monthly": "0 0 1 * *",
+  "@weekly": "0 0 * * 0",
+  "@daily": "0 0 * * *",
+  "@midnight": "0 0 * * *",
+  "@hourly": "0 * * * *"
+};
+var SEARCH_DAYS = 366 * 29;
+var MS_PER_MINUTE = 6e4;
+var MS_PER_DAY = 864e5;
+function valueOf(token, spec) {
+  if (/^\d+$/.test(token)) {
+    const value = Number(token);
+    return value >= spec.min && value <= spec.max ? value : void 0;
+  }
+  const index = spec.names?.indexOf(token.toUpperCase()) ?? -1;
+  return index >= 0 ? index + (spec === MONTH ? 1 : 0) : void 0;
+}
+function parseField(field, spec) {
+  const allowed = new Array(spec.max + 1).fill(false);
+  for (const item of field.split(",")) {
+    const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
+    if (!match) return void 0;
+    const [, range, stepText] = match;
+    const step = stepText === void 0 ? 1 : Number(stepText);
+    if (step < 1) return void 0;
+    let from;
+    let to;
+    if (range === "*") {
+      from = spec.min;
+      to = spec.max;
+    } else {
+      const bounds = range.split("-");
+      if (bounds.length > 2) return void 0;
+      from = valueOf(bounds[0], spec);
+      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
+    }
+    if (from === void 0 || to === void 0 || from > to) return void 0;
+    for (let value = from; value <= to; value += step) allowed[value] = true;
+  }
+  return allowed;
+}
+function parseCron(expression) {
+  const trimmed = expression?.trim() ?? "";
+  const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
+  const fields = source.split(/\s+/);
+  if (fields.length !== 5) return void 0;
+  const minutes = parseField(fields[0], MINUTE);
+  const hours = parseField(fields[1], HOUR);
+  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
+  const months = parseField(fields[3], MONTH);
+  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
+  if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
+  if (daysOfWeek[7]) daysOfWeek[0] = true;
+  return {
+    minutes,
+    hours,
+    daysOfMonth,
+    months,
+    daysOfWeek,
+    dayOfMonthRestricted: !fields[2].startsWith("*"),
+    dayOfWeekRestricted: !fields[4].startsWith("*")
+  };
+}
+function isValidCron(expression) {
+  return parseCron(expression) !== void 0;
+}
+function dayMatches(schedule, day) {
+  if (!schedule.months[day.getUTCMonth() + 1]) return false;
+  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()];
+  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()];
+  if (schedule.dayOfMonthRestricted && schedule.dayOfWeekRestricted) return byMonthDay || byWeekDay;
+  return byMonthDay && byWeekDay;
+}
+function lastAllowedAtOrBelow(allowed, limit) {
+  for (let value = limit; value >= 0; value--) {
+    if (allowed[value]) return value;
+  }
+  return void 0;
+}
+function previousFire(schedule, now) {
+  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
+  const startOfToday = Math.floor(flooredNow / MS_PER_DAY) * MS_PER_DAY;
+  for (let back = 0; back <= SEARCH_DAYS; back++) {
+    const dayStart = startOfToday - back * MS_PER_DAY;
+    if (!dayMatches(schedule, new Date(dayStart))) continue;
+    const today = back === 0;
+    const limit = new Date(flooredNow);
+    let hour = lastAllowedAtOrBelow(schedule.hours, today ? limit.getUTCHours() : 23);
+    while (hour !== void 0) {
+      const minuteLimit = today && hour === limit.getUTCHours() ? limit.getUTCMinutes() : 59;
+      const minute = lastAllowedAtOrBelow(schedule.minutes, minuteLimit);
+      if (minute !== void 0) {
+        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE);
+      }
+      hour = lastAllowedAtOrBelow(schedule.hours, hour - 1);
+    }
+  }
+  return void 0;
+}
+function scheduleFiredSince(tasks, since, now) {
+  for (const task of tasks) {
+    const schedule = parseCron(task.repeats);
+    const fired = schedule ? previousFire(schedule, now) : void 0;
+    if (fired !== void 0 && fired.getTime() > since.getTime()) return true;
+  }
+  return false;
+}
+function isDue(repeats, lastRun, now = /* @__PURE__ */ new Date()) {
+  const schedule = parseCron(repeats);
+  if (!schedule) return false;
+  const fired = previousFire(schedule, now);
+  if (!fired) return false;
+  const last = parseTimestamp(lastRun);
+  return last === null || fired.getTime() > last.getTime();
+}
+
+// src/core/model/state.ts
+var DEFAULT_STATES = [
+  { name: "Backlog", fileName: "BACKLOG.md", order: 0 },
+  { name: "Next", fileName: "NEXT.md", order: 1 },
+  { name: "In Progress", fileName: "IN_PROGRESS.md", order: 2 },
+  { name: "Done", fileName: "DONE.md", order: 3 },
+  { name: "Rejected", fileName: "REJECTED.md", order: 4 },
+  { name: "Recurring", fileName: "RECURRING.md", order: 5 }
+];
+var RECURRING_STATE_NAME = "Recurring";
+var COMPLETED_STATE_NAMES = ["Done", "Rejected"];
+function isCompletedStateName(name) {
+  return COMPLETED_STATE_NAMES.includes(name);
+}
+function isDueWork(task, stateName, now = /* @__PURE__ */ new Date()) {
+  return !isCompletedStateName(stateName) && !isWaiting(task.waitingUntil, now) && isDue(task.repeats, task.lastRun, now);
+}
+
 // views/claude/mod/src/boardModel.ts
 var IN_PROGRESS_STATE = "In Progress";
 var NEXT_STATE = "Next";
@@ -146,7 +315,7 @@ function describeError(message) {
 }
 function newTaskStates(board2) {
   const names = board2?.states.map((state) => state.name) ?? [];
-  return names.filter((name) => !isCompletedState(name));
+  return names.filter((name) => !isCompletedState(name) && name !== RECURRING_STATE_NAME);
 }
 function startDraft(board2) {
   const states = newTaskStates(board2);
@@ -215,16 +384,6 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-// src/core/model/state.ts
-var DEFAULT_STATES = [
-  { name: "Backlog", fileName: "BACKLOG.md", order: 0 },
-  { name: "Next", fileName: "NEXT.md", order: 1 },
-  { name: "In Progress", fileName: "IN_PROGRESS.md", order: 2 },
-  { name: "Done", fileName: "DONE.md", order: 3 },
-  { name: "Rejected", fileName: "REJECTED.md", order: 4 },
-  { name: "Recurring", fileName: "RECURRING.md", order: 5 }
-];
-
 // src/core/config/configStates.ts
 function isUsableState(value) {
   if (!value || typeof value !== "object") return false;
@@ -261,149 +420,6 @@ function normalizeStates(value, report) {
   return normalized;
 }
 
-// src/core/util/time.ts
-var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
-function parseTimestamp(value) {
-  const match = TIMESTAMP_RE.exec(value?.trim() ?? "");
-  if (!match) return null;
-  const [year, month, day, hour, minute] = match.slice(1).map((part) => Number(part ?? 0));
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  const survivesRoundTrip = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day && date.getUTCHours() === hour && date.getUTCMinutes() === minute;
-  return survivesRoundTrip ? date : null;
-}
-function currentDate(now = /* @__PURE__ */ new Date()) {
-  return now.toISOString().slice(0, 10);
-}
-function isWaiting(waitingUntil, now = /* @__PURE__ */ new Date()) {
-  const until = parseTimestamp(waitingUntil);
-  return until !== null && currentDate(until) > currentDate(now);
-}
-
-// src/core/util/cron.ts
-var MINUTE = { min: 0, max: 59 };
-var HOUR = { min: 0, max: 23 };
-var DAY_OF_MONTH = { min: 1, max: 31 };
-var MONTH = {
-  min: 1,
-  max: 12,
-  names: ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
-};
-var DAY_OF_WEEK = {
-  min: 0,
-  max: 7,
-  names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
-};
-var MACROS = {
-  "@yearly": "0 0 1 1 *",
-  "@annually": "0 0 1 1 *",
-  "@monthly": "0 0 1 * *",
-  "@weekly": "0 0 * * 0",
-  "@daily": "0 0 * * *",
-  "@midnight": "0 0 * * *",
-  "@hourly": "0 * * * *"
-};
-var SEARCH_DAYS = 366 * 29;
-var MS_PER_MINUTE = 6e4;
-var MS_PER_DAY = 864e5;
-function valueOf(token, spec) {
-  if (/^\d+$/.test(token)) {
-    const value = Number(token);
-    return value >= spec.min && value <= spec.max ? value : void 0;
-  }
-  const index = spec.names?.indexOf(token.toUpperCase()) ?? -1;
-  return index >= 0 ? index + (spec === MONTH ? 1 : 0) : void 0;
-}
-function parseField(field, spec) {
-  const allowed = new Array(spec.max + 1).fill(false);
-  for (const item of field.split(",")) {
-    const match = /^([^/]+)(?:\/(\d+))?$/.exec(item);
-    if (!match) return void 0;
-    const [, range, stepText] = match;
-    const step = stepText === void 0 ? 1 : Number(stepText);
-    if (step < 1) return void 0;
-    let from;
-    let to;
-    if (range === "*") {
-      from = spec.min;
-      to = spec.max;
-    } else {
-      const bounds = range.split("-");
-      if (bounds.length > 2) return void 0;
-      from = valueOf(bounds[0], spec);
-      to = bounds.length === 2 ? valueOf(bounds[1], spec) : stepText ? spec.max : from;
-    }
-    if (from === void 0 || to === void 0 || from > to) return void 0;
-    for (let value = from; value <= to; value += step) allowed[value] = true;
-  }
-  return allowed;
-}
-function parseCron(expression) {
-  const trimmed = expression?.trim() ?? "";
-  const source = MACROS[trimmed.toLowerCase()] ?? trimmed;
-  const fields = source.split(/\s+/);
-  if (fields.length !== 5) return void 0;
-  const minutes = parseField(fields[0], MINUTE);
-  const hours = parseField(fields[1], HOUR);
-  const daysOfMonth = parseField(fields[2], DAY_OF_MONTH);
-  const months = parseField(fields[3], MONTH);
-  const daysOfWeek = parseField(fields[4], DAY_OF_WEEK);
-  if (!minutes || !hours || !daysOfMonth || !months || !daysOfWeek) return void 0;
-  if (daysOfWeek[7]) daysOfWeek[0] = true;
-  return {
-    minutes,
-    hours,
-    daysOfMonth,
-    months,
-    daysOfWeek,
-    dayOfMonthRestricted: !fields[2].startsWith("*"),
-    dayOfWeekRestricted: !fields[4].startsWith("*")
-  };
-}
-function isValidCron(expression) {
-  return parseCron(expression) !== void 0;
-}
-function dayMatches(schedule, day) {
-  if (!schedule.months[day.getUTCMonth() + 1]) return false;
-  const byMonthDay = schedule.daysOfMonth[day.getUTCDate()];
-  const byWeekDay = schedule.daysOfWeek[day.getUTCDay()];
-  if (schedule.dayOfMonthRestricted && schedule.dayOfWeekRestricted) return byMonthDay || byWeekDay;
-  return byMonthDay && byWeekDay;
-}
-function lastAllowedAtOrBelow(allowed, limit) {
-  for (let value = limit; value >= 0; value--) {
-    if (allowed[value]) return value;
-  }
-  return void 0;
-}
-function previousFire(schedule, now) {
-  const flooredNow = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
-  const startOfToday = Math.floor(flooredNow / MS_PER_DAY) * MS_PER_DAY;
-  for (let back = 0; back <= SEARCH_DAYS; back++) {
-    const dayStart = startOfToday - back * MS_PER_DAY;
-    if (!dayMatches(schedule, new Date(dayStart))) continue;
-    const today = back === 0;
-    const limit = new Date(flooredNow);
-    let hour = lastAllowedAtOrBelow(schedule.hours, today ? limit.getUTCHours() : 23);
-    while (hour !== void 0) {
-      const minuteLimit = today && hour === limit.getUTCHours() ? limit.getUTCMinutes() : 59;
-      const minute = lastAllowedAtOrBelow(schedule.minutes, minuteLimit);
-      if (minute !== void 0) {
-        return new Date(dayStart + hour * 36e5 + minute * MS_PER_MINUTE);
-      }
-      hour = lastAllowedAtOrBelow(schedule.hours, hour - 1);
-    }
-  }
-  return void 0;
-}
-function isDue(repeats, lastRun, now = /* @__PURE__ */ new Date()) {
-  const schedule = parseCron(repeats);
-  if (!schedule) return false;
-  const fired = previousFire(schedule, now);
-  if (!fired) return false;
-  const last = parseTimestamp(lastRun);
-  return last === null || fired.getTime() > last.getTime();
-}
-
 // src/core/filter/taskFilter.ts
 var DEFAULT_LIMIT = 50;
 function applyLimit(items, totalCount, limit) {
@@ -412,7 +428,7 @@ function applyLimit(items, totalCount, limit) {
   }
   return { sliced: items.slice(0, limit), hasMore: totalCount > limit };
 }
-function taskToViewItem(task, now) {
+function taskToViewItem(task, stateName, now) {
   return {
     id: task.id,
     title: task.title,
@@ -423,7 +439,7 @@ function taskToViewItem(task, now) {
     updatedAt: task.updatedAt,
     repeats: task.repeats,
     lastRun: task.lastRun,
-    due: isDue(task.repeats, task.lastRun, now),
+    due: isDueWork(task, stateName, now),
     description: task.description
   };
 }
@@ -480,7 +496,7 @@ function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, 
     const { sliced, hasMore } = applyLimit(tasks, totalCount, limit);
     result.push({
       name: state.name,
-      tasks: sliced.map((task) => taskToViewItem(task, now)),
+      tasks: sliced.map((task) => taskToViewItem(task, state.name, now)),
       totalCount,
       hasMore
     });
@@ -835,7 +851,9 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
   const dueCounts = Object.fromEntries(
     states.map((state) => [
       state.name,
-      (tasksByState.get(state.name) ?? []).filter((task) => isDue(task.repeats, task.lastRun, options.now)).length
+      (tasksByState.get(state.name) ?? []).filter(
+        (task) => isDueWork(task, state.name, options.now)
+      ).length
     ])
   );
   return {
@@ -854,13 +872,6 @@ function focusTask(candidates, now = /* @__PURE__ */ new Date()) {
   return candidates.find(
     ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now)
   ) ?? null;
-}
-function scheduleFiredSince(index, since, now) {
-  return [...index.values()].flat().some(({ task }) => {
-    const schedule = parseCron(task.repeats);
-    const fired = schedule ? previousFire(schedule, now) : void 0;
-    return fired !== void 0 && fired.getTime() > since.getTime();
-  });
 }
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
@@ -1603,7 +1614,8 @@ async function syncIfChanged($) {
 }
 async function refreshDueFlags($) {
   const now = new Date(await $.clock.now());
-  if (!lastInput || !scheduleFiredSince(taskIndex, builtAt, now)) return;
+  const tasks = [...taskIndex.values()].flat().map(({ task }) => task);
+  if (!lastInput || !scheduleFiredSince(tasks, builtAt, now)) return;
   applyBoard(lastInput, now);
   $.ui.invalidate("ui.render");
 }

@@ -9,6 +9,7 @@ import { isValidCron } from '../../../../../src/core/util/cron.js';
 import { TaskFilter, GroupViewData, TaskViewItem } from '../../../../../src/core/model/messages.js';
 import { getWebviewHtml } from './webviewHelper.js';
 import { scriptJson } from './scriptJson.js';
+import { watchDueFlags } from './dueClock.js';
 import {
   getSortBy,
   getGroupBy,
@@ -27,6 +28,7 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
   private toggledGroups: Set<string> = new Set();
   private activeTaskId: string | null = null;
   private storeDisposable?: { dispose: () => void };
+  private dueDisposable?: { dispose: () => void };
   private parseWarningsDismissed = false;
   private parseWarningsKey = '';
 
@@ -56,6 +58,8 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
     webviewView.onDidDispose(() => {
       this.storeDisposable?.dispose();
       this.storeDisposable = undefined;
+      this.dueDisposable?.dispose();
+      this.dueDisposable = undefined;
       this.view = undefined;
     });
 
@@ -64,6 +68,12 @@ export class TaskListViewProvider implements vscode.WebviewViewProvider {
         this.update();
       }
     });
+    this.dueDisposable = watchDueFlags(
+      () => [...this.taskStore.getAllTasks().values()].flat(),
+      () => {
+        if (this.view?.visible && !this.activeTaskId) this.update();
+      },
+    );
 
     this.syncSettingsFromWorkspace();
     this.update();

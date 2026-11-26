@@ -7,13 +7,13 @@ import { z } from 'zod';
 import { ConfigManager } from '../../src/core/config/configManager.js';
 import { TaskStore } from '../../src/core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../../src/core/model/task.js';
-import { RECURRING_STATE_NAME, TaskState } from '../../src/core/model/state.js';
+import { isDueWork, stateForNewTask } from '../../src/core/model/state.js';
 import { ParseIssue } from '../../src/core/model/parseResult.js';
 import { buildBoardViewModel } from '../../src/core/view/boardViewModel.js';
 import { renderBoardDigest } from '../../src/core/ai/boardDigest.js';
 import { openBoard } from '../../src/core/store/openBoard.js';
 import { isWaiting } from '../../src/core/util/time.js';
-import { isDue, isValidCron } from '../../src/core/util/cron.js';
+import { isValidCron } from '../../src/core/util/cron.js';
 
 function findExistingTasksDir(rootDir: string): string | null {
   let current = path.resolve(rootDir);
@@ -85,36 +85,20 @@ async function findTasksDir(explicitRoot?: string): Promise<string> {
   );
 }
 
-function findStateByName(configManager: ConfigManager, name: string): TaskState | undefined {
-  return configManager
-    .get()
-    .states.find((state) => state.name.toLowerCase() === name.toLowerCase());
-}
-
 async function freshStore(
   explicitRoot?: string,
-  targetStateName?: string,
+  loadAllStates = true,
 ): Promise<{
   taskStore: TaskStore;
   configManager: ConfigManager;
   workspaceRoot: string;
-  targetState?: TaskState;
 }> {
   const tasksDir = await findTasksDir(explicitRoot);
-  const { configManager, taskStore } = openBoard(tasksDir, {
-    loadAllStates: targetStateName === undefined,
-  });
+  const { configManager, taskStore } = openBoard(tasksDir, { loadAllStates });
   for (const diagnostic of configManager.getDiagnostics()) {
     console.error(`TaskPlanner config: ${diagnostic.message}`);
   }
-  const workspaceRoot = path.dirname(tasksDir);
-  if (targetStateName === undefined) {
-    return { taskStore, configManager, workspaceRoot };
-  }
-
-  const targetState = findStateByName(configManager, targetStateName);
-  if (targetState) taskStore.reloadState(targetState.name);
-  return { taskStore, configManager, workspaceRoot, targetState };
+  return { taskStore, configManager, workspaceRoot: path.dirname(tasksDir) };
 }
 
 interface BoardIssue {
@@ -166,7 +150,7 @@ function formatTask(task: Task, stateName: string): string {
     );
   }
   if (task.repeats) {
-    meta.push(`Repeats: ${task.repeats} UTC${isDue(task.repeats, task.lastRun) ? ' (due)' : ''}`);
+    meta.push(`Repeats: ${task.repeats} UTC${isDueWork(task, stateName) ? ' (due)' : ''}`);
   }
   if (task.lastRun) meta.push(`Last run: ${task.lastRun}`);
   if (task.updatedAt) meta.push(`Updated: ${task.updatedAt}`);
@@ -188,7 +172,7 @@ function structuredTask(task: Task, stateName: string): Record<string, unknown> 
     ...task,
     state: stateName,
     waiting: isWaiting(task.waitingUntil),
-    ...(task.repeats ? { due: isDue(task.repeats, task.lastRun) } : {}),
+    ...(task.repeats ? { due: isDueWork(task, stateName) } : {}),
   };
 }
 
@@ -242,7 +226,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.41',
+  version: '3.0.47',
 });
 
 server.registerTool(
@@ -338,7 +322,7 @@ server.registerTool(
         );
       }
       if (due) {
-        tasks = tasks.filter((t) => isDue(t.repeats, t.lastRun));
+        tasks = tasks.filter((t) => isDueWork(t, s.name));
       }
       if (tasks.length === 0) continue;
 
@@ -460,20 +444,13 @@ server.registerTool(
     const schedule = repeats?.trim() || undefined;
     if (schedule && !isValidCron(schedule)) return invalidRepeats(repeats ?? '');
 
-    const stateName = targetState || (schedule ? RECURRING_STATE_NAME : 'Backlog');
-    const opened = await freshStore(workspace_root, stateName);
-    const { taskStore, configManager } = opened;
-    let validState = opened.targetState;
-    if (!validState && !targetState && schedule) {
-      validState = findStateByName(configManager, 'Backlog');
-      if (validState) taskStore.reloadState(validState.name);
+    const { taskStore, configManager } = await freshStore(workspace_root, false);
+    const placement = stateForNewTask(configManager.get().states, targetState, schedule);
+    if ('error' in placement) {
+      return { content: [{ type: 'text', text: placement.error }], isError: true };
     }
-    if (!validState) {
-      return {
-        content: [{ type: 'text', text: `Unknown state "${stateName}".` }],
-        isError: true,
-      };
-    }
+    const validState = placement.state;
+    taskStore.reloadState(validState.name);
 
     const p = priority && isPriority(priority) ? (priority as Priority) : Priority.P2;
     const task = taskStore.createTask(

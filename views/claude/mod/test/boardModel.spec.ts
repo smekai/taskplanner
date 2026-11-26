@@ -177,6 +177,15 @@ describe('new tasks', () => {
     expect(startDraft(board({ Todo: 0, Doing: 0 })).state).toBe('Todo');
   });
 
+  // The form collects no schedule, and a task in Recurring without one is refused by create.
+  it('does not offer Recurring, which needs a schedule the form does not ask for', () => {
+    expect(newTaskStates(board({ ...STANDARD, Recurring: 1 }))).toEqual([
+      'Backlog',
+      'Next',
+      'In Progress',
+    ]);
+  });
+
   it('reads the new task ID from structured content, JSON text or plain text', () => {
     expect(
       createdTaskId({

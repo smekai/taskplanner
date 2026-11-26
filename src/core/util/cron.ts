@@ -149,6 +149,19 @@ export function previousFire(schedule: CronSchedule, now: Date): Date | undefine
   return undefined;
 }
 
+export function scheduleFiredSince(
+  tasks: Iterable<{ repeats?: string }>,
+  since: Date,
+  now: Date,
+): boolean {
+  for (const task of tasks) {
+    const schedule = parseCron(task.repeats);
+    const fired = schedule ? previousFire(schedule, now) : undefined;
+    if (fired !== undefined && fired.getTime() > since.getTime()) return true;
+  }
+  return false;
+}
+
 export function isDue(
   repeats: string | undefined,
   lastRun: string | undefined,

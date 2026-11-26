@@ -9,6 +9,7 @@ import {
   StateViewData,
   TaskViewItem,
 } from '../../../../../src/core/model/messages.js';
+import { watchDueFlags } from './dueClock.js';
 import { getWebviewHtml } from './webviewHelper.js';
 import { getSortBy, setSortBy } from '../../config/extensionConfig.js';
 
@@ -19,6 +20,7 @@ export class KanbanPanel {
   private sortBy: TaskListSortBy = 'priority';
   private searchQuery: string = '';
   private storeDisposable: { dispose: () => void };
+  private dueDisposable: { dispose: () => void };
   private parseWarningsDismissed = false;
   private parseWarningsKey = '';
 
@@ -48,6 +50,12 @@ export class KanbanPanel {
         this.update();
       }
     });
+    this.dueDisposable = watchDueFlags(
+      () => [...this.taskStore.getAllTasks().values()].flat(),
+      () => {
+        if (this.panel.visible) this.update();
+      },
+    );
 
     this.syncSortFromSettings();
     this.update();
@@ -1054,6 +1062,7 @@ export class KanbanPanel {
 
   private dispose(): void {
     this.storeDisposable.dispose();
+    this.dueDisposable.dispose();
     KanbanPanel.instance = undefined;
   }
 }

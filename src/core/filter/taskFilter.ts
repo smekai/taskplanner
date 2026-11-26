@@ -1,6 +1,6 @@
 import { Task } from '../model/task.js';
 import { TaskState } from '../model/state.js';
-import { isDue } from '../util/cron.js';
+import { isDueWork } from '../model/state.js';
 import {
   TaskFilter,
   TaskViewData,
@@ -23,7 +23,7 @@ function applyLimit<T>(
   return { sliced: items.slice(0, limit), hasMore: totalCount > limit };
 }
 
-function taskToViewItem(task: Task, now: Date): TaskViewItem {
+function taskToViewItem(task: Task, stateName: string, now: Date): TaskViewItem {
   return {
     id: task.id,
     title: task.title,
@@ -34,7 +34,7 @@ function taskToViewItem(task: Task, now: Date): TaskViewItem {
     updatedAt: task.updatedAt,
     repeats: task.repeats,
     lastRun: task.lastRun,
-    due: isDue(task.repeats, task.lastRun, now),
+    due: isDueWork(task, stateName, now),
     description: task.description,
   };
 }
@@ -122,7 +122,7 @@ export function filterAndPaginate(
 
     result.push({
       name: state.name,
-      tasks: sliced.map((task) => taskToViewItem(task, now)),
+      tasks: sliced.map((task) => taskToViewItem(task, state.name, now)),
       totalCount,
       hasMore,
     });
@@ -208,7 +208,7 @@ export function groupTasks(
       const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
       result.push({
         label: state.name,
-        tasks: sliced.map((task) => taskToViewItem(task, now)),
+        tasks: sliced.map((task) => taskToViewItem(task, state.name, now)),
         totalCount,
         hasMore,
         collapsed: COLLAPSED_STATES.has(state.name),
@@ -218,6 +218,7 @@ export function groupTasks(
     const keys = [...groups.keys()].sort();
     for (const key of keys) {
       const entries = groups.get(key)!;
+      const stateOf = new Map(entries.map((entry) => [entry.task, entry.stateName]));
       const sorted = sortTasks(
         entries.map((e) => e.task),
         sortBy,
@@ -226,7 +227,7 @@ export function groupTasks(
       const { sliced, hasMore } = applyLimit(sorted, totalCount, limit);
       result.push({
         label: key,
-        tasks: sliced.map((task) => taskToViewItem(task, now)),
+        tasks: sliced.map((task) => taskToViewItem(task, stateOf.get(task) ?? '', now)),
         totalCount,
         hasMore,
       });

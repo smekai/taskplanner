@@ -524,6 +524,8 @@ async function checkRecurring(serverPath, installDir, tempRoot) {
   await withServer({ args: [serverPath], cwd: installDir, label: 'recurring' }, async (c) => {
     const refused = await raw(c, 'create', { title: 'Bad', repeats: 'every morning' });
     expect(refused.isError, 'create accepted "every morning" as a schedule.');
+    const unscheduled = await raw(c, 'create', { title: 'No schedule', state: 'Recurring' });
+    expect(unscheduled.isError, 'create put a task without a schedule into Recurring.');
 
     const created = await c.callTool(tool('create'), {
       workspace_root,
@@ -550,6 +552,31 @@ async function checkRecurring(serverPath, installDir, tempRoot) {
 
     const dueAfter = await c.callTool(tool('list'), { workspace_root, due: true });
     expect(dueAfter.structuredContent.totalCount === 0, 'list due:true still lists a run task.');
+
+    const stopped = await c.callTool(tool('create'), {
+      workspace_root,
+      title: 'Stopped watch',
+      repeats: '@daily',
+    });
+    await c.callTool(tool('move'), {
+      workspace_root,
+      task_id: stopped.structuredContent.task.id,
+      target_state: 'Done',
+    });
+    const dueWithDone = await c.callTool(tool('list'), { workspace_root, due: true });
+    expect(dueWithDone.structuredContent.totalCount === 0, 'list due:true counts a task in Done.');
+
+    await c.callTool(tool('create'), {
+      workspace_root,
+      title: 'Watch from next year',
+      repeats: '@daily',
+      waiting_until: '2999-01-01',
+    });
+    const dueWhileWaiting = await c.callTool(tool('list'), { workspace_root, due: true });
+    expect(
+      dueWhileWaiting.structuredContent.totalCount === 0,
+      'list due:true lists a task whose waiting date has not arrived.',
+    );
 
     const plain = await c.callTool(tool('create'), { workspace_root, title: 'One-off' });
     const notRecurring = await raw(c, 'record_run', { task_id: plain.structuredContent.task.id });

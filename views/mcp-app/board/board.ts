@@ -2,6 +2,8 @@ import { App } from '@modelcontextprotocol/ext-apps';
 import {
   BoardView,
   DEFAULT_VIEW,
+  DUE_REFRESH_MS,
+  hasSchedules,
   latestResponseGate,
   refreshArgs,
   showMore,
@@ -158,7 +160,10 @@ function renderBoard(data: TaskViewData): void {
   root.dataset.state = 'ready';
   root.dataset.layout = isNarrowLayout ? 'compact' : 'wide';
   const columns = data.states.map(renderColumn).join('');
+  const scrollLeft = root.querySelector('.board')?.scrollLeft ?? 0;
   root.innerHTML = `<div class="board">${columns}</div>`;
+  const board = root.querySelector('.board');
+  if (board) board.scrollLeft = scrollLeft;
   wireColumnToggles();
   wireDragAndDrop();
   wireCardClicks();
@@ -403,6 +408,10 @@ app.addEventListener('toolresult', (params) => {
   }
   void refreshBoard();
 });
+
+setInterval(() => {
+  if (currentData && hasSchedules(currentData)) void refreshBoard();
+}, DUE_REFRESH_MS);
 
 void (async () => {
   try {
