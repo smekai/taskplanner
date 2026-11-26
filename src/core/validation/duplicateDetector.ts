@@ -1,5 +1,6 @@
 import { Task } from '../model/task.js';
 import { TaskState } from '../model/state.js';
+import { parseTimestamp } from '../util/time.js';
 
 export interface DuplicateOccurrence {
   stateName: string;
@@ -18,18 +19,9 @@ export interface DuplicateResolution {
   remove: DuplicateOccurrence[];
 }
 
-function parseTimestamp(value?: string): number | null {
-  if (!value) {
-    return null;
-  }
-  const normalized = value.replace(' ', 'T');
-  const ts = Date.parse(normalized);
-  return Number.isNaN(ts) ? null : ts;
-}
-
 function compareByUpdatedAt(a: DuplicateOccurrence, b: DuplicateOccurrence): number {
-  const aTs = parseTimestamp(a.task.updatedAt);
-  const bTs = parseTimestamp(b.task.updatedAt);
+  const aTs = parseTimestamp(a.task.updatedAt)?.getTime() ?? null;
+  const bTs = parseTimestamp(b.task.updatedAt)?.getTime() ?? null;
   if (aTs !== null && bTs !== null) {
     return aTs - bTs;
   }
