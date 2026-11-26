@@ -22,6 +22,7 @@ These two govern every other rule, in analysis and in fixes:
 
 - **Smallest correct change.** Solve exactly what the finding needs and bring the code you touch up to the standard. No repo-wide rewrite, no speculative abstraction, no option nobody asked for. A rule that would need a framework to satisfy is a finding to report, not a framework to build.
 - **Replace, don't accumulate.** A new approach deletes the old one in the same change: its code, its tests and its docs. A `new ?? old` fallback, an adapter between two models, or an `A | B` parameter with a cast is the alarm that two things should have been one. Before calling a change done, look at its net line count: a capability may add lines, a *replacement* that adds lines means the old thing is still there.
+- **A replacement keeps what the old code accepted.** Before swapping a local parser, check or helper for a shared one, put real inputs the old one took through both. If the new one accepts less (a timestamp form, a casing, an empty value), that is a behaviour change: widen the shared one or keep the case, never drop it silently.
 
 ### A1 — Comments are a smell
 
@@ -38,6 +39,8 @@ One reason to change per module. Receive a dependency rather than importing a co
 - **Pure core:** `model/`, `parser/`, `util/`, `filter/`, `view/`, `ai/` — no I/O.
 - **I/O core:** `store/`, `config/` — reading and writing files, nothing else to decide.
 - **Edges map, they don't decide.** An MCP tool handler, a webview message handler or a mod hook turns input into a core call and a result into output. A rule about tasks (which state a new task goes to, when a task is due, what a valid schedule is) in a harness is a finding: it belongs in core, where every harness gets it and a test can reach it.
+- **Moving a rule into core gathers every condition first.** List what each harness checked and which task fields bear on the rule (state, waiting date, schedule), and make the core rule the union. A condition one edge applied and the others forgot is the bug the move exists to fix, not one to carry along.
+- **A new core constraint reaches every edge's UI.** When core starts refusing an input (Recurring without a schedule), find each form, menu and command that offers it and stop offering it there, so the user never picks a choice that only errors.
 
 Placement test: does the file name a TaskPlanner concept (task, state, board, run)? If it would make as much sense in another product, it is a util.
 
@@ -67,7 +70,7 @@ The *why* of a decision goes where it can be read without opening the source: th
 ### A9 — Judge a change by its tier
 
 - **Backend** (`src/core/`, `mcp/`): the layering of A3.
-- **Frontend** (`views/vscode/src/views/webview/`, `views/mcp-app/`, the Claude pane in `views/claude/mod/`): rendering apart from state and messaging, one module per surface that talks to the host, named payload types, pure view helpers separate from stateful code. Webviews render HTML strings — a 1000-line panel that mixes markup, state and messages is the tier's main finding.
+- **Frontend** (`views/vscode/src/views/webview/`, `views/mcp-app/`, the Claude pane in `views/claude/mod/`): rendering apart from state and messaging, one module per surface that talks to the host, named payload types, pure view helpers separate from stateful code. Webviews render HTML strings — a 1000-line panel that mixes markup, state and messages is the tier's main finding. A re-render, a refresh timer included, keeps what the user did to the view: scroll position, focus, selection, expanded groups.
 
 ### Errors and cross-platform
 
@@ -234,6 +237,7 @@ Stop here and ask the user which groups to do.
 - Smallest correct change, and replace rather than accumulate: a fix that moves logic deletes it from where it was, with its now-redundant tests. Account for the net line count of each commit.
 - Behaviour stays the same: no new features, no board format change, no public API change in `src/core/index.ts` (a removal there is a breaking change and needs its own task).
 - Before refactoring code with no test, add one written to Part 2 and mutation-check it. A test you touch is brought up to that standard.
+- A new or changed lint rule gets the same check: a throwaway probe file holding every syntactic form the rule claims to catch (for tests: `it`, `test`, `.each`, `.concurrent`, `.skip`, `.only`), plus one clean case. The rule fires on each form and stays quiet on the clean one; a repo that lints clean proves nothing. Delete the probe.
 - `/simplify` may run here, on the diff of an accepted fix. Its edits are reviewed like any other change and stay within the accepted finding.
 - After each commit: `npm run build && npm run typecheck && npm test && npm run lint`, plus `npm run smoke:mcp-server` when `mcp/` or core changed. Here the build belongs in the working tree: the regenerated bundles are committed with the change.
 - At the end, compare with the baseline: the same or more meaningful tests (a deleted worthless test is fine; say which), bundle sizes not larger (say so if one is), lint warnings not more.
