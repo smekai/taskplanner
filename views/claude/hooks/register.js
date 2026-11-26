@@ -380,7 +380,7 @@ function isCompletedStateName(name) {
   return COMPLETED_STATE_NAMES.includes(name);
 }
 function isDueWork(task, stateName, now = /* @__PURE__ */ new Date()) {
-  return !isCompletedStateName(stateName) && isDue(task.repeats, task.lastRun, now);
+  return !isCompletedStateName(stateName) && !isWaiting(task.waitingUntil, now) && isDue(task.repeats, task.lastRun, now);
 }
 
 // src/core/config/configStates.ts

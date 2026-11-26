@@ -62,6 +62,16 @@ describe('a recurring task in the view model', () => {
     expect(item.due).toBe(false);
   });
 
+  // A waiting date says the work cannot start yet; a due flag would invite a run that is blocked.
+  it('is not due while its waiting date has not arrived', () => {
+    const waiting: Task = { ...recurring('2000-01-01 00:00'), waitingUntil: '2999-01-01' };
+    const tasksByState = new Map([['Recurring', [waiting]]]);
+
+    const [item] = filterAndPaginate(tasksByState, recurringStates).states[0].tasks;
+
+    expect(item.due).toBe(false);
+  });
+
   it('marks a task without a schedule as never due', () => {
     const tasksByState = new Map([['Backlog', [makeTask('TASK-002', 'One-off')]]]);
 
