@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { isDue, isValidCron, parseCron, previousFire } from '../../src/core/util/cron.js';
+import {
+  isDue,
+  isValidCron,
+  parseCron,
+  previousFire,
+  scheduleFiredSince,
+} from '../../src/core/util/cron.js';
 
 const at = (iso: string) => new Date(`${iso}Z`);
 const prev = (expression: string, now: string) => {
@@ -117,5 +123,25 @@ describe('isDue', () => {
 
   it('reads a date-only last run as midnight UTC', () => {
     expect(isDue('0 7 * * *', '2026-11-25', NOW)).toBe(true);
+  });
+});
+
+// Views re-render when a schedule fires even though no board file changed.
+describe('scheduleFiredSince', () => {
+  const BUILT_AT = at('2026-11-25T10:30');
+  const HOURLY = [{ repeats: '@hourly' }];
+
+  it('is true once the clock passes the next fire', () => {
+    expect(scheduleFiredSince(HOURLY, BUILT_AT, at('2026-11-25T11:00:30'))).toBe(true);
+  });
+
+  it('is false while no schedule has fired since', () => {
+    expect(scheduleFiredSince(HOURLY, BUILT_AT, at('2026-11-25T10:59'))).toBe(false);
+  });
+
+  it('ignores tasks without a usable schedule', () => {
+    const tasks = [{}, { repeats: 'every morning' }];
+
+    expect(scheduleFiredSince(tasks, BUILT_AT, at('2026-11-26T00:00'))).toBe(false);
   });
 });

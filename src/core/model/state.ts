@@ -1,3 +1,5 @@
+import { isDue } from '../util/cron.js';
+
 export interface TaskState {
   name: string;
   fileName: string;
@@ -14,3 +16,17 @@ export const DEFAULT_STATES: TaskState[] = [
 ];
 
 export const RECURRING_STATE_NAME = 'Recurring';
+
+export const COMPLETED_STATE_NAMES: readonly string[] = ['Done', 'Rejected'];
+
+export function isCompletedStateName(name: string): boolean {
+  return COMPLETED_STATE_NAMES.includes(name);
+}
+
+export function isDueWork(
+  task: { repeats?: string; lastRun?: string },
+  stateName: string,
+  now = new Date(),
+): boolean {
+  return !isCompletedStateName(stateName) && isDue(task.repeats, task.lastRun, now);
+}

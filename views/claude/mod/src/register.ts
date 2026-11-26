@@ -33,9 +33,9 @@ import {
   findTask,
   focusTask,
   readConfigStates,
-  scheduleFiredSince,
   taskDetailOf,
 } from './boardReader.js';
+import { scheduleFiredSince } from '../../../../src/core/util/cron.js';
 import { renderBand, renderDueBand, renderPane, renderSetUpBand } from './paneView.js';
 import type { TaskState } from '../../../../src/core/model/state.js';
 
@@ -305,7 +305,8 @@ async function syncIfChanged($: Engine): Promise<void> {
 
 async function refreshDueFlags($: Engine): Promise<void> {
   const now = new Date(await $.clock.now());
-  if (!lastInput || !scheduleFiredSince(taskIndex, builtAt, now)) return;
+  const tasks = [...taskIndex.values()].flat().map(({ task }) => task);
+  if (!lastInput || !scheduleFiredSince(tasks, builtAt, now)) return;
   applyBoard(lastInput, now);
   $.ui.invalidate('ui.render');
 }

@@ -7,13 +7,13 @@ import { z } from 'zod';
 import { ConfigManager } from '../../src/core/config/configManager.js';
 import { TaskStore } from '../../src/core/store/taskStore.js';
 import { Task, Priority, isPriority } from '../../src/core/model/task.js';
-import { RECURRING_STATE_NAME, TaskState } from '../../src/core/model/state.js';
+import { RECURRING_STATE_NAME, TaskState, isDueWork } from '../../src/core/model/state.js';
 import { ParseIssue } from '../../src/core/model/parseResult.js';
 import { buildBoardViewModel } from '../../src/core/view/boardViewModel.js';
 import { renderBoardDigest } from '../../src/core/ai/boardDigest.js';
 import { openBoard } from '../../src/core/store/openBoard.js';
 import { isWaiting } from '../../src/core/util/time.js';
-import { isDue, isValidCron } from '../../src/core/util/cron.js';
+import { isValidCron } from '../../src/core/util/cron.js';
 
 function findExistingTasksDir(rootDir: string): string | null {
   let current = path.resolve(rootDir);
@@ -166,7 +166,7 @@ function formatTask(task: Task, stateName: string): string {
     );
   }
   if (task.repeats) {
-    meta.push(`Repeats: ${task.repeats} UTC${isDue(task.repeats, task.lastRun) ? ' (due)' : ''}`);
+    meta.push(`Repeats: ${task.repeats} UTC${isDueWork(task, stateName) ? ' (due)' : ''}`);
   }
   if (task.lastRun) meta.push(`Last run: ${task.lastRun}`);
   if (task.updatedAt) meta.push(`Updated: ${task.updatedAt}`);
@@ -188,7 +188,7 @@ function structuredTask(task: Task, stateName: string): Record<string, unknown> 
     ...task,
     state: stateName,
     waiting: isWaiting(task.waitingUntil),
-    ...(task.repeats ? { due: isDue(task.repeats, task.lastRun) } : {}),
+    ...(task.repeats ? { due: isDueWork(task, stateName) } : {}),
   };
 }
 
@@ -242,7 +242,7 @@ const WORKSPACE_ROOT_INPUT = z
 
 const server = new McpServer({
   name: 'taskplanner',
-  version: '3.0.41',
+  version: '3.0.42',
 });
 
 server.registerTool(
@@ -338,7 +338,7 @@ server.registerTool(
         );
       }
       if (due) {
-        tasks = tasks.filter((t) => isDue(t.repeats, t.lastRun));
+        tasks = tasks.filter((t) => isDueWork(t, s.name));
       }
       if (tasks.length === 0) continue;
 

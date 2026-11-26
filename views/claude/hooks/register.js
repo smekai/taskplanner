@@ -215,52 +215,6 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-// src/core/model/state.ts
-var DEFAULT_STATES = [
-  { name: "Backlog", fileName: "BACKLOG.md", order: 0 },
-  { name: "Next", fileName: "NEXT.md", order: 1 },
-  { name: "In Progress", fileName: "IN_PROGRESS.md", order: 2 },
-  { name: "Done", fileName: "DONE.md", order: 3 },
-  { name: "Rejected", fileName: "REJECTED.md", order: 4 },
-  { name: "Recurring", fileName: "RECURRING.md", order: 5 }
-];
-
-// src/core/config/configStates.ts
-function isUsableState(value) {
-  if (!value || typeof value !== "object") return false;
-  const state = value;
-  return typeof state.name === "string" && state.name.length > 0 && typeof state.fileName === "string" && state.fileName.length > 0 && typeof state.order === "number" && Number.isFinite(state.order);
-}
-function normalizeStates(value, report) {
-  if (!Array.isArray(value)) {
-    report(`"states" must be an array of {name, fileName, order}; using the default board.`);
-    return [...DEFAULT_STATES];
-  }
-  const normalized = [];
-  for (const entry of value) {
-    if (isUsableState(entry)) {
-      normalized.push({ name: entry.name, fileName: entry.fileName, order: entry.order });
-      continue;
-    }
-    const name = typeof entry === "string" ? entry : entry?.name;
-    const known = DEFAULT_STATES.find((s) => s.name === name);
-    if (known) {
-      report(`State "${known.name}" was malformed in config.json; restored from the defaults.`);
-      normalized.push({ ...known });
-      continue;
-    }
-    report(
-      `Unusable entry in "states": ${JSON.stringify(entry)}. Using the default board instead.`
-    );
-    return [...DEFAULT_STATES];
-  }
-  if (normalized.length === 0) {
-    report(`"states" was empty; using the default board.`);
-    return [...DEFAULT_STATES];
-  }
-  return normalized;
-}
-
 // src/core/util/time.ts
 var TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/;
 function parseTimestamp(value) {
@@ -395,6 +349,14 @@ function previousFire(schedule, now) {
   }
   return void 0;
 }
+function scheduleFiredSince(tasks, since, now) {
+  for (const task of tasks) {
+    const schedule = parseCron(task.repeats);
+    const fired = schedule ? previousFire(schedule, now) : void 0;
+    if (fired !== void 0 && fired.getTime() > since.getTime()) return true;
+  }
+  return false;
+}
 function isDue(repeats, lastRun, now = /* @__PURE__ */ new Date()) {
   const schedule = parseCron(repeats);
   if (!schedule) return false;
@@ -402,6 +364,59 @@ function isDue(repeats, lastRun, now = /* @__PURE__ */ new Date()) {
   if (!fired) return false;
   const last = parseTimestamp(lastRun);
   return last === null || fired.getTime() > last.getTime();
+}
+
+// src/core/model/state.ts
+var DEFAULT_STATES = [
+  { name: "Backlog", fileName: "BACKLOG.md", order: 0 },
+  { name: "Next", fileName: "NEXT.md", order: 1 },
+  { name: "In Progress", fileName: "IN_PROGRESS.md", order: 2 },
+  { name: "Done", fileName: "DONE.md", order: 3 },
+  { name: "Rejected", fileName: "REJECTED.md", order: 4 },
+  { name: "Recurring", fileName: "RECURRING.md", order: 5 }
+];
+var COMPLETED_STATE_NAMES = ["Done", "Rejected"];
+function isCompletedStateName(name) {
+  return COMPLETED_STATE_NAMES.includes(name);
+}
+function isDueWork(task, stateName, now = /* @__PURE__ */ new Date()) {
+  return !isCompletedStateName(stateName) && isDue(task.repeats, task.lastRun, now);
+}
+
+// src/core/config/configStates.ts
+function isUsableState(value) {
+  if (!value || typeof value !== "object") return false;
+  const state = value;
+  return typeof state.name === "string" && state.name.length > 0 && typeof state.fileName === "string" && state.fileName.length > 0 && typeof state.order === "number" && Number.isFinite(state.order);
+}
+function normalizeStates(value, report) {
+  if (!Array.isArray(value)) {
+    report(`"states" must be an array of {name, fileName, order}; using the default board.`);
+    return [...DEFAULT_STATES];
+  }
+  const normalized = [];
+  for (const entry of value) {
+    if (isUsableState(entry)) {
+      normalized.push({ name: entry.name, fileName: entry.fileName, order: entry.order });
+      continue;
+    }
+    const name = typeof entry === "string" ? entry : entry?.name;
+    const known = DEFAULT_STATES.find((s) => s.name === name);
+    if (known) {
+      report(`State "${known.name}" was malformed in config.json; restored from the defaults.`);
+      normalized.push({ ...known });
+      continue;
+    }
+    report(
+      `Unusable entry in "states": ${JSON.stringify(entry)}. Using the default board instead.`
+    );
+    return [...DEFAULT_STATES];
+  }
+  if (normalized.length === 0) {
+    report(`"states" was empty; using the default board.`);
+    return [...DEFAULT_STATES];
+  }
+  return normalized;
 }
 
 // src/core/filter/taskFilter.ts
@@ -412,7 +427,7 @@ function applyLimit(items, totalCount, limit) {
   }
   return { sliced: items.slice(0, limit), hasMore: totalCount > limit };
 }
-function taskToViewItem(task, now) {
+function taskToViewItem(task, stateName, now) {
   return {
     id: task.id,
     title: task.title,
@@ -423,7 +438,7 @@ function taskToViewItem(task, now) {
     updatedAt: task.updatedAt,
     repeats: task.repeats,
     lastRun: task.lastRun,
-    due: isDue(task.repeats, task.lastRun, now),
+    due: isDueWork(task, stateName, now),
     description: task.description
   };
 }
@@ -480,7 +495,7 @@ function filterAndPaginate(tasksByState, states, filter, limit = DEFAULT_LIMIT, 
     const { sliced, hasMore } = applyLimit(tasks, totalCount, limit);
     result.push({
       name: state.name,
-      tasks: sliced.map((task) => taskToViewItem(task, now)),
+      tasks: sliced.map((task) => taskToViewItem(task, state.name, now)),
       totalCount,
       hasMore
     });
@@ -835,7 +850,9 @@ function buildBoard(states, fileTexts, options, workspaceRoot) {
   const dueCounts = Object.fromEntries(
     states.map((state) => [
       state.name,
-      (tasksByState.get(state.name) ?? []).filter((task) => isDue(task.repeats, task.lastRun, options.now)).length
+      (tasksByState.get(state.name) ?? []).filter(
+        (task) => isDueWork(task, state.name, options.now)
+      ).length
     ])
   );
   return {
@@ -854,13 +871,6 @@ function focusTask(candidates, now = /* @__PURE__ */ new Date()) {
   return candidates.find(
     ({ task, state }) => state === IN_PROGRESS_STATE || !isWaiting(task.waitingUntil, now)
   ) ?? null;
-}
-function scheduleFiredSince(index, since, now) {
-  return [...index.values()].flat().some(({ task }) => {
-    const schedule = parseCron(task.repeats);
-    const fired = schedule ? previousFire(schedule, now) : void 0;
-    return fired !== void 0 && fired.getTime() > since.getTime();
-  });
 }
 function taskDetailOf({ task, state }) {
   const record = { ...task, state };
@@ -1603,7 +1613,8 @@ async function syncIfChanged($) {
 }
 async function refreshDueFlags($) {
   const now = new Date(await $.clock.now());
-  if (!lastInput || !scheduleFiredSince(taskIndex, builtAt, now)) return;
+  const tasks = [...taskIndex.values()].flat().map(({ task }) => task);
+  if (!lastInput || !scheduleFiredSince(tasks, builtAt, now)) return;
   applyBoard(lastInput, now);
   $.ui.invalidate("ui.render");
 }

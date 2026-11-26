@@ -53,3 +53,9 @@ export function latestResponseGate(): { begin(): number; isCurrent(ticket: numbe
     isCurrent: (ticket) => ticket === latest,
   };
 }
+
+export const DUE_REFRESH_MS = 60_000;
+
+export function hasSchedules(board: { states: { tasks: { repeats?: string }[] }[] }): boolean {
+  return board.states.some((state) => state.tasks.some((task) => Boolean(task.repeats)));
+}

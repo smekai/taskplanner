@@ -52,6 +52,16 @@ describe('a recurring task in the view model', () => {
     expect(item.due).toBe(false);
   });
 
+  // Moving a recurring task to Done or Rejected is how a person stops it; it must stop asking for runs.
+  it('is not due once it sits in a completed state', () => {
+    const doneStates: TaskState[] = [{ name: 'Done', fileName: 'DONE.md', order: 0 }];
+    const tasksByState = new Map([['Done', [recurring('2000-01-01 00:00')]]]);
+
+    const [item] = filterAndPaginate(tasksByState, doneStates).states[0].tasks;
+
+    expect(item.due).toBe(false);
+  });
+
   it('marks a task without a schedule as never due', () => {
     const tasksByState = new Map([['Backlog', [makeTask('TASK-002', 'One-off')]]]);
 

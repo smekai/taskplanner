@@ -2,6 +2,8 @@ import { App } from '@modelcontextprotocol/ext-apps';
 import {
   BoardView,
   DEFAULT_VIEW,
+  DUE_REFRESH_MS,
+  hasSchedules,
   latestResponseGate,
   refreshArgs,
   showMore,
@@ -403,6 +405,10 @@ app.addEventListener('toolresult', (params) => {
   }
   void refreshBoard();
 });
+
+setInterval(() => {
+  if (currentData && hasSchedules(currentData)) void refreshBoard();
+}, DUE_REFRESH_MS);
 
 void (async () => {
   try {

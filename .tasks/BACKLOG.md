@@ -1,39 +1,5 @@
 # Backlog
 
-## TASK-094: 3.1 phase F: code quality pass before the release
-**Priority:** P1 | **Tags:** refactor, testing | **Epic:** 3.1
-**Updated:** 2026-11-25 14:23
-
-Phase F of TASK-088. Starts after phases A–E (TASK-087, TASK-089…092) and before the release (TASK-093, now phase G).
-
-Run the project skill `/code-quality` (`.claude/skills/code-quality/SKILL.md`) over everything since `v3.0.12`. One file holds the standard (the Isotopy standard adapted to this repo) and the pass:
-- **Part 1, code:** simplicity first (smallest correct change, replace don't accumulate), then A1–A9: comments are a smell, SOLID and interfaces, fat domain and thin edges, named shapes, strict types, evidence in Markdown, judged by tier. Plus errors and cross-platform.
-- **Part 2, tests:** AAAAA, one action per test, no logic in a test body, generators over flag factories, component tests first, the mutation check.
-- **Part 3, the pass**, in two phases:
-  - **Analyse:**
-    - Take a green baseline.
-    - Run the measurements and the board invariants.
-    - Read the diff and the hotspots against every rule.
-    - Run `/code-review` on the release diff.
-    - Write a ranked report into this task's `### Plan`, each finding naming its rule.
-  - **Improve:** only the groups the user accepts, one finding per commit, behaviour and the public API unchanged. Anything deferred becomes its own Backlog task.
-
-Already seen (2026-11-25):
-- **Size and counts:**
-  - `taskListPanel.ts` (1609 lines) and `kanbanPanel.ts` (1050) are the largest files (A9).
-  - 37 complexity candidates.
-  - 128 hard-coded state-name literals (A6). Phase C adds `'Recurring'` to several views.
-  - 8 type escapes (A7).
-  - `noUncheckedIndexedAccess` is off.
-- **Phase A and B code, against the standard:**
-  - **A3:** "a new task with `repeats` and no state goes to Recurring" is decided in `mcp/src/server.ts` (TASK-089); it belongs in core.
-  - **A1/A8:** the `WHY:` in `configManager.addRecurringState` (version gating) and the search-span `WHY:` in `cron.ts` explain design choices, not local logic, so they move to docs or the Plan.
-  - **Tests:** "keeps only the latest MAX_RUNS entries" in `taskStore.test.ts` has a `for` loop in its body, and the new store tests have no Arrange/Act/Assert banners.
-- **Tooling:** `scripts/bump-version.js` replaces the old version string everywhere in the built bundles, not just the version field. An example text containing the version ("all stores on 3.0.30") made the committed bundles differ from a clean build and failed CI on PR #42. Bump the version field only, or rebuild after the bump.
-
-**Done looks like:** every "fix before release" finding is fixed. Tests have not shrunk without a reason, bundles have not grown, lint warnings have not increased. Deferred items have task IDs.
-
----
 ## TASK-093: 3.1 phase G: docs and release 3.1 on every store
 **Priority:** P1 | **Tags:** docs, ci | **Epic:** 3.1
 **Updated:** 2026-11-25 12:20

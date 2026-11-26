@@ -551,6 +551,19 @@ async function checkRecurring(serverPath, installDir, tempRoot) {
     const dueAfter = await c.callTool(tool('list'), { workspace_root, due: true });
     expect(dueAfter.structuredContent.totalCount === 0, 'list due:true still lists a run task.');
 
+    const stopped = await c.callTool(tool('create'), {
+      workspace_root,
+      title: 'Stopped watch',
+      repeats: '@daily',
+    });
+    await c.callTool(tool('move'), {
+      workspace_root,
+      task_id: stopped.structuredContent.task.id,
+      target_state: 'Done',
+    });
+    const dueWithDone = await c.callTool(tool('list'), { workspace_root, due: true });
+    expect(dueWithDone.structuredContent.totalCount === 0, 'list due:true counts a task in Done.');
+
     const plain = await c.callTool(tool('create'), { workspace_root, title: 'One-off' });
     const notRecurring = await raw(c, 'record_run', { task_id: plain.structuredContent.task.id });
     expect(notRecurring.isError, 'record_run accepted a task without a schedule.');

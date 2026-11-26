@@ -1,6 +1,6 @@
 import { Task } from '../model/task.js';
 import { isWaiting } from '../util/time.js';
-import { isDue } from '../util/cron.js';
+import { isDueWork } from '../model/state.js';
 
 export interface BoardDigestState {
   name: string;
@@ -22,13 +22,13 @@ export function renderBoardDigest(
     lines.push('', `## ${state.name} (${state.tasks.length})`);
     if (!options.includeTasks) continue;
     for (const task of state.tasks) {
-      lines.push(`- ${digestLine(task, options)}`);
+      lines.push(`- ${digestLine(task, state.name, options)}`);
     }
   }
   return lines.join('\n');
 }
 
-function digestLine(task: Task, options: BoardDigestOptions): string {
+function digestLine(task: Task, stateName: string, options: BoardDigestOptions): string {
   const parts = [`**${task.id}**: ${oneLine(task.title)}`, `[${task.priority}]`];
   if (task.epic) parts.push(`epic ${oneLine(task.epic)}`);
   if (task.assignee) parts.push(`@${oneLine(task.assignee)}`);
@@ -36,7 +36,7 @@ function digestLine(task: Task, options: BoardDigestOptions): string {
     parts.push(`⏳ waiting until ${task.waitingUntil}`);
   }
   if (task.repeats) {
-    const due = isDue(task.repeats, task.lastRun, options.now) ? ', due' : '';
+    const due = isDueWork(task, stateName, options.now) ? ', due' : '';
     parts.push(`🔁 ${oneLine(task.repeats)} UTC${due}`);
   }
   const description = excerpt(task.description, options.descriptionLimit ?? 0);

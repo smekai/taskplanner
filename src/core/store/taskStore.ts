@@ -1,5 +1,5 @@
 import { Task } from '../model/task.js';
-import { TaskState } from '../model/state.js';
+import { COMPLETED_STATE_NAMES, TaskState } from '../model/state.js';
 import { TaskPlannerConfig } from '../model/config.js';
 import { ParseIssue } from '../model/parseResult.js';
 import { ConfigManager } from '../config/configManager.js';
@@ -21,7 +21,7 @@ import {
 
 export type TaskStoreListener = () => void;
 
-const DEFERRED_STATE_NAMES = new Set(['Done', 'Rejected']);
+const DEFERRED_STATE_NAMES = new Set(COMPLETED_STATE_NAMES);
 
 export const MAX_RUNS = 7;
 
