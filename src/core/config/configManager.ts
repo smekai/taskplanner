@@ -100,7 +100,8 @@ export class ConfigManager {
         merged[key] = defaults[key];
       }
     }
-    const readableButUnversioned = Object.keys(parsed).length > 0 && !('version' in parsed);
+    const readableButUnversioned =
+      Object.keys(parsed).length > 0 && !FIELDS.version(parsed.version);
     if (readableButUnversioned) merged.version = UNVERSIONED_SCHEMA_VERSION;
     merged.states =
       parsed.states !== undefined ? normalizeStates(parsed.states, report) : defaults.states;

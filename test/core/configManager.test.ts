@@ -92,6 +92,13 @@ describe('ConfigManager', () => {
       expect(configManager.load().states.map((s) => s.name)).toContain('Recurring');
     });
 
+    // An unreadable version must not look like an up-to-date one and skip the migration.
+    it('is added when the version is not a number', () => {
+      write({ version: '3', states: CUSTOM });
+
+      expect(configManager.load().states.map((s) => s.name)).toContain('Recurring');
+    });
+
     it('stays removed once a migrated board drops it', () => {
       write({ version: 4, states: CUSTOM });
 
