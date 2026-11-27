@@ -52,7 +52,7 @@
   ],
   "negativeTestCases": [
     {
-      "prompt": "Synchronize this project even though it says TaskPlanner 3.1.0 and my installed plugin is 3.1.0.",
+      "prompt": "Synchronize this project even though it says TaskPlanner 9.0.0 and my installed plugin is 3.1.0.",
       "expectedBehavior": "Warn that the installed package is older and make no managed-file or config changes.",
       "whyNotComplete": "Rewriting would downgrade repository-managed instructions and violate the stored-version safety rule."
     },

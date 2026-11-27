@@ -138,7 +138,6 @@ metadata round-trips through this server unchanged, including `**Assignee:**`:
 
 ```markdown
 ## TASK-001: Task title
-
 **Priority:** P1
 **Tags:** core
 **Assignee:** owner
@@ -156,7 +155,6 @@ A recurring task lives in the Recurring state and adds a schedule, its last run 
 
 ```markdown
 ## TASK-002: Check the release on every store
-
 **Priority:** P2
 **Repeats:** 0 8 * * *
 **Last run:** 2026-11-27 08:04
