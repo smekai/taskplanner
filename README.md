@@ -69,13 +69,13 @@ Sliding window, 100 requests per minute per API key.
 | Channel | Version | Usage |
 | --- | --- | --- |
 | [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=refined.taskplanner) | 3.0.12 | 126 installs |
-| [Open VSX](https://open-vsx.org/extension/refined/taskplanner) (Cursor and other editors) | 3.0.12 | 4,824 downloads |
-| [npm `@smekai/taskplanner`](https://www.npmjs.com/package/@smekai/taskplanner) | 3.0.12 | 432 downloads last month |
-| Claude Code plugin ([repository marketplace](docs/INSTALL.md#claude-code-and-claude-desktop)) | 3.0.26 | installs from `main` |
+| [Open VSX](https://open-vsx.org/extension/refined/taskplanner) (Cursor and other editors) | 3.0.12 | 4,831 downloads |
+| [npm `@smekai/taskplanner`](https://www.npmjs.com/package/@smekai/taskplanner) | 3.0.12 | 447 downloads last month |
+| Claude Code plugin ([repository marketplace](docs/INSTALL.md#claude-code-and-claude-desktop)) | 3.0.63 | installs from `main` |
 | [Codex plugin directory](https://chatgpt.com/plugins/plugins_6a61139e52e88191907919d50300a246) | 3.0.18 | listed |
 | [GitHub](https://github.com/smekai/taskplanner) | v3.0.12 | 25 stars · 4 forks |
 
-<sub>Numbers as of 2026-11-25, refreshed by a daily check.</sub>
+<sub>Numbers as of 2026-11-27, refreshed by a daily check.</sub>
 <!-- README-STATS:END -->
 
 ## Contributing
