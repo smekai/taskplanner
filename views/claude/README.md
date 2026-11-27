@@ -8,7 +8,7 @@ The same TaskPlanner ships as separate plugins for Cursor (`views/cursor/`) and 
 
 | Component | Description |
 |-----------|-------------|
-| **MCP Server** | 8 tools: board overview, list, get, create, move, update, board-data (JSON), board-visual (inline UI) |
+| **MCP Server** | 8 tools: board overview, list, get, create, move, update, record-run (recurring tasks), board-visual (inline UI) |
 | **Skills** | TaskPlanner, initialize, update, list, next-task, continue-task, and board workflows |
 | **Claude Code board pane** | `/taskplanner:board` (or `/taskboard`) opens a live board beside the transcript in the Claude Code terminal and the Claude Desktop Code tab; a band above the prompt shows the task in progress, or the next one to pick |
 
@@ -18,6 +18,7 @@ Once installed, the agent can:
 
 - **Initialize or update a project** — ask to set up TaskPlanner or invoke the initialize/update skills; MCP tools are preferred when available and direct `.tasks` file operations provide the public skills-only fallback
 - **Use MCP tools directly** — e.g. "create a P1 task for fixing the login bug"
+- **Run recurring work** — tasks in the Recurring state carry a cron schedule (UTC); ask "what recurring work is due?" (`taskplanner_list` with `due: true`), and after a run the agent records the result with `taskplanner_record_run`. TaskPlanner never starts a run itself: a scheduler does, such as a Claude scheduled task, cron or CI. In the board pane a due task is marked on its card and in the tab count, and its **Start** button asks Claude to run it and record the result
 - **Show the board** — `/taskplanner:board` (or `/taskboard`) opens the board pane
 - **Show the visual board** — ask "open the visual task board" (or invoke `taskplanner_board_visual`) to render an inline interactive kanban where the host supports [MCP Apps](https://modelcontextprotocol.io/extensions/apps)
 

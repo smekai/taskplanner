@@ -1,5 +1,34 @@
 # In Progress
 
+## TASK-093: 3.1 phase G: docs and release 3.1 on every store
+**Priority:** P1 | **Tags:** docs, ci | **Epic:** 3.1
+**Updated:** 2026-11-27 09:06
+
+Phase G of TASK-088. Last in the epic, after phases A–F, including the code quality pass (TASK-094).
+
+- **Docs:**
+  - Root README "How it works" with a recurring task example.
+  - `docs/INSTALL.md` task format and agent workflow.
+  - Per-host READMEs and the VS Code Marketplace README.
+  - Say plainly that cron runs in UTC and that TaskPlanner doesn't run the schedule itself.
+- **Changelog:** a `[3.1.0]` section with the date. Release notes written for users.
+- **Gate:** `npm run release:check` green.
+- **Publish:** VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, the Claude plugin (repository marketplace; the directory listing is still under review), Cursor and Codex. Tag `v3.1.x`.
+- **Check:** the daily release watch confirms 3.1 is live everywhere.
+
+Then TASK-085 (LinkedIn post) can start.
+
+### Plan
+
+- Docs (branch `feature/task-093-release-3.1`): root README "How it works" gains a recurring task example; `docs/INSTALL.md` lists RECURRING.md and adds a Recurring tasks section (cron in UTC, TaskPlanner does not run the schedule, a scheduler records runs with `taskplanner_record_run`).
+- Host READMEs: Claude and Cursor tool lists name `taskplanner_record_run` (the old list still said board-data); each Usage list gets a recurring line; VS Code README describes the Recurring column and schedule editing; `mcp/README.md` shows the recurring task fields.
+- Codex submission `releaseNotes` describe 3.1.
+- Version 3.1.0 with `scripts/bump-version.js minor`, `validate:versions`, commit with `--no-verify`; CHANGELOG `[Unreleased]` becomes `[3.1.0] - 2026-11-27` with a short user-facing intro.
+- Gate: `npm run release:check` green, build matches the commit. PR, the user merges.
+- Publish after merge, each store only with the user's yes: VS Code Marketplace, Open VSX, npm, tag `v3.1.0`; Claude/Cursor/Codex repository marketplaces pick main up. The release watch confirms.
+- Risk: plugins on main already say 3.0.63, so 3.1.0 must stay above it (it does).
+
+---
 ## TASK-091: 3.1 phase D: the daily release watch records its runs on the board
 **Priority:** P1 | **Tags:** setup | **Epic:** 3.1
 **Updated:** 2026-11-25 20:31

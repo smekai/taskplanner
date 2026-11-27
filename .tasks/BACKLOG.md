@@ -9,25 +9,6 @@ Deferred from the TASK-094 quality pass. `views/claude/mod/test/pane.test.ts` ha
 Give the kit a small local type for what the test uses (mount, press, the engine handle) and drop the `any`s. Done looks like: `npm run lint` reports 0 warnings and `npm run validate:claude-plugin` still passes.
 
 ---
-## TASK-093: 3.1 phase G: docs and release 3.1 on every store
-**Priority:** P1 | **Tags:** docs, ci | **Epic:** 3.1
-**Updated:** 2026-11-25 12:20
-
-Phase G of TASK-088. Last in the epic, after phases A–F, including the code quality pass (TASK-094).
-
-- **Docs:**
-  - Root README "How it works" with a recurring task example.
-  - `docs/INSTALL.md` task format and agent workflow.
-  - Per-host READMEs and the VS Code Marketplace README.
-  - Say plainly that cron runs in UTC and that TaskPlanner doesn't run the schedule itself.
-- **Changelog:** a `[3.1.0]` section with the date. Release notes written for users.
-- **Gate:** `npm run release:check` green.
-- **Publish:** VS Code Marketplace, Open VSX, npm `@smekai/taskplanner`, the Claude plugin (repository marketplace; the directory listing is still under review), Cursor and Codex. Tag `v3.1.x`.
-- **Check:** the daily release watch confirms 3.1 is live everywhere.
-
-Then TASK-085 (LinkedIn post) can start.
-
----
 ## TASK-088: TaskPlanner 3.1 release: recurring tasks
 **Priority:** P0 | **Tags:** feature, core, ui, docs | **Epic:** 3.1
 **Updated:** 2026-11-25 20:05

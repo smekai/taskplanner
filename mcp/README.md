@@ -152,6 +152,26 @@ Reading that task back reports `assignee: "owner"`, and the value survives `task
 `taskplanner_move`. (The serializer normalises metadata onto a single `|`-joined line when it
 rewrites a section — the field and its value are preserved, the line layout is not.)
 
+A recurring task lives in the Recurring state and adds a schedule, its last run and up to 7 results:
+
+```markdown
+## TASK-002: Check the release on every store
+
+**Priority:** P2
+**Repeats:** 0 8 * * *
+**Last run:** 2026-11-27 08:04
+
+### Runs
+- 2026-11-27 08:04 — all stores on 3.1.0
+
+---
+```
+
+`**Repeats:**` is five-field cron or a shortcut such as `@daily`, evaluated in UTC like every
+date on the board. The server never runs the schedule: whatever runs the work calls
+`taskplanner_record_run`, and `taskplanner_list` with `due: true` returns the tasks whose
+schedule has fired since their last run.
+
 ## License
 
 MIT

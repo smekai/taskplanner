@@ -29,6 +29,7 @@ Once installed, the agent can:
 - **Continue current work** — `$taskplanner:continue-task`
 - **Initialize or update a project** — ask to set up TaskPlanner or invoke the initialize/update skills; MCP tools are preferred when available and direct `.tasks` file operations provide the public skills-only fallback
 - **Use MCP tools directly** — e.g. "create a P1 task for fixing the login bug"
+- **Run recurring work** — tasks in the Recurring state carry a cron schedule (UTC); with the MCP server connected, ask "what recurring work is due?" (`taskplanner_list` with `due: true`), and after a run the agent records the result with `taskplanner_record_run`. TaskPlanner never starts a run itself: a scheduler does, such as a Claude scheduled task, cron or CI
 - **Show the board** — `$taskplanner:board` uses MCP when available and reads the board files otherwise
 - **Show the visual board** — with the MCP server connected, ask "open the visual task board" (or invoke `taskplanner_board_visual`) to render an inline interactive kanban with drag-to-move and click-for-details (requires an [MCP Apps](https://modelcontextprotocol.io/extensions/apps) host)
 
