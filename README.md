@@ -51,6 +51,22 @@ Sliding window, 100 requests per minute per API key.
 ---
 ```
 
+Some work never finishes: a daily check, a weekly dependency update. It lives in the **Recurring** state with a cron schedule, and the board shows it as due once the schedule has fired since its last run:
+
+```markdown
+## TASK-051: Check the release on every store
+**Priority:** P2 | **Tags:** ci
+**Repeats:** 0 8 * * *
+**Last run:** 2026-11-27 08:04
+
+### Runs
+- 2026-11-27 08:04 — npm 3.1.0 ✅ · VS Code 3.1.0 ✅ · Open VSX 3.1.0 ✅
+
+---
+```
+
+The schedule is in UTC, like every date on the board. TaskPlanner doesn't run anything on its own: a scheduler you already have (a Claude scheduled task, cron, CI) does the work and records the run with the `taskplanner_record_run` tool.
+
 ## Works with
 
 | Tool | What you get | How to get it today |

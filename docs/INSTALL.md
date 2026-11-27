@@ -124,7 +124,8 @@ Tasks are stored in `.tasks/` as plain markdown:
 ├── NEXT.md
 ├── IN_PROGRESS.md
 ├── DONE.md
-└── REJECTED.md
+├── REJECTED.md
+└── RECURRING.md
 ```
 
 Each task is a `##` heading section:
@@ -174,6 +175,29 @@ Setup writes the workflow into **`AGENTS.md`** (Codex and compatible agents), **
 5. Move it to `.tasks/DONE.md`
 
 With a plugin installed, agents do each step through the TaskPlanner MCP tools instead of editing the files.
+
+### Recurring tasks
+
+Work that never finishes, such as a daily check, lives in the **Recurring** state (`RECURRING.md`). A recurring task has a cron schedule and keeps its last 7 results:
+
+```markdown
+## TASK-004: Update dependencies
+**Priority:** P2 | **Tags:** maintenance
+**Repeats:** 0 7 * * 1
+**Last run:** 2026-11-23 07:12
+
+### Runs
+- 2026-11-23 07:12 — 3 packages updated, tests green
+- 2026-11-16 07:05 — nothing to update
+
+---
+```
+
+- **The schedule is in UTC.** `0 7 * * 1` is Mondays at 07:00 UTC, whatever your time zone. Five-field cron and shortcuts such as `@daily` work.
+- **Due** means the schedule has fired since `**Last run:**`. A task with a `**Waiting until:**` date in the future is not due yet. The board views mark due tasks, and `taskplanner_list` with `due: true` lists them.
+- **TaskPlanner doesn't run the schedule itself.** A scheduler you already have (a Claude scheduled task, cron, CI) starts the agent. The agent does the work and calls `taskplanner_record_run` with a one-line result, which sets `**Last run:**` and adds the line to `### Runs`.
+- Recurring tasks never move to In Progress or Done and need no plan. Create one with `taskplanner_create` and a `repeats` schedule; it goes to Recurring on its own.
+- Existing boards gain the Recurring state once, the first time TaskPlanner 3.1 opens them. If you remove it from `config.json`, it stays removed.
 
 ### AI Planning
 

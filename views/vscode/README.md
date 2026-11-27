@@ -39,7 +39,11 @@ The primary view opens automatically when you click the TaskPlanner sidebar icon
 
 ### Kanban Board
 
-Open via command palette → `TaskPlanner: Open Kanban Board`. Three columns: **Backlog**, **Active** (Next + In Progress), and **Completed** (Done + Rejected). Drag cards between columns or sub-zones to change state. Task cards show assignee and last update time.
+Open via command palette → `TaskPlanner: Open Kanban Board`. Columns: **Backlog**, **Active** (Next + In Progress), **Recurring** and any custom states, and **Completed** (Done + Rejected). Drag cards between columns or sub-zones to change state. Task cards show assignee and last update time.
+
+### Recurring tasks
+
+Work that never finishes, such as a daily check, lives in the **Recurring** state with a cron schedule. The task list and the Kanban board mark a recurring task as due once its schedule has fired since the last run, and show the schedule. Open a task to see its last run and run history, and to edit the schedule; a schedule that is not valid cron is refused. Schedules are in UTC. TaskPlanner doesn't run them itself: a scheduler starts your agent, and the agent records each run with the `taskplanner_record_run` MCP tool. See [the install guide](https://github.com/smekai/taskplanner/blob/main/docs/INSTALL.md#recurring-tasks).
 
 ### Sidebar Tree
 
